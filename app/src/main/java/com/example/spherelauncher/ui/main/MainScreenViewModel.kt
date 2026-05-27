@@ -40,7 +40,6 @@ data class MainUiState(
     val isAutoDriftEnabled: Boolean = true,
     val isTiltEnabled: Boolean = false,
     val shapeType: ShapeType = ShapeType.SPHERE,
-    val isPerspectiveEnabled: Boolean = false,
     val searchQuery: String = "",
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
@@ -56,8 +55,7 @@ data class SettingsState(
     val style: SphereStyle,
     val isAutoDriftEnabled: Boolean,
     val isTiltEnabled: Boolean,
-    val shapeType: ShapeType,
-    val isPerspectiveEnabled: Boolean
+    val shapeType: ShapeType
 )
 
 class MainScreenViewModel(application: Application) : AndroidViewModel(application) {
@@ -68,7 +66,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val autoDriftState = MutableStateFlow(true)
     private val tiltEnabledState = MutableStateFlow(false)
     private val shapeTypeState = MutableStateFlow(ShapeType.SPHERE)
-    private val perspectiveEnabledState = MutableStateFlow(false)
     private val searchQueryState = MutableStateFlow("")
     private val loadingState = MutableStateFlow(true)
     private val errorState = MutableStateFlow<String?>(null)
@@ -83,10 +80,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         styleState,
         autoDriftState,
         tiltEnabledState,
-        shapeTypeState,
-        perspectiveEnabledState
-    ) { style, autoDrift, tiltEnabled, shapeType, perspectiveEnabled ->
-        SettingsState(style, autoDrift, tiltEnabled, shapeType, perspectiveEnabled)
+        shapeTypeState
+    ) { style, autoDrift, tiltEnabled, shapeType ->
+        SettingsState(style, autoDrift, tiltEnabled, shapeType)
     }
 
     val uiState: StateFlow<MainUiState> = combine(
@@ -127,7 +123,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isAutoDriftEnabled = settings.isAutoDriftEnabled,
             isTiltEnabled = settings.isTiltEnabled,
             shapeType = settings.shapeType,
-            isPerspectiveEnabled = settings.isPerspectiveEnabled,
             searchQuery = query,
             isLoading = loading,
             errorMessage = error,
@@ -178,10 +173,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setShapeType(shapeType: ShapeType) {
         shapeTypeState.value = shapeType
-    }
-
-    fun setPerspectiveEnabled(enabled: Boolean) {
-        perspectiveEnabledState.value = enabled
     }
 
     fun setSearchQuery(query: String) {

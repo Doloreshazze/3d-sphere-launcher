@@ -111,7 +111,6 @@ fun Sphere3D(
     isAutoDriftEnabled: Boolean,
     isTiltEnabled: Boolean,
     shapeType: ShapeType,
-    isPerspectiveEnabled: Boolean,
     modifier: Modifier = Modifier,
     isShapeLocked: Boolean = false,
     isInertiaEnabled: Boolean = true,
@@ -1016,18 +1015,8 @@ fun Sphere3D(
                                        0f // Replaced depthRatio shadow to remove hardware-rendered ugly dark rings around holograms!
                                    }
                                 
-                                if (isPerspectiveEnabled && shapeType != ShapeType.FLAT_PLANE && shapeType != ShapeType.SNAKE) {
-                                    // Fast linear single-precision 3D perspective slant mapping
-                                    val clampedX = if (x2.isNaN()) 0f else x2.coerceIn(-1f, 1f)
-                                    val clampedY = if (y1.isNaN()) 0f else y1.coerceIn(-1f, 1f)
-                                    
-                                    rotationY = clampedX * 85f
-                                    rotationX = -clampedY * 85f
-                                    cameraDistance = 12f * density.density
-                                } else {
-                                    rotationX = 0f
-                                    rotationY = 0f
-                                }
+                                rotationX = 0f
+                                rotationY = 0f
                             }
                             .combinedClickable(
                                 onClick = {

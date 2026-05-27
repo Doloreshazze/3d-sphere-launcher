@@ -250,7 +250,6 @@ fun MainScreen(
                             isAutoDriftEnabled = state.isAutoDriftEnabled,
                             isTiltEnabled = state.isTiltEnabled,
                             shapeType = state.shapeType,
-                            isPerspectiveEnabled = state.isPerspectiveEnabled,
                             isShapeLocked = state.isShapeLocked,
                             isInertiaEnabled = state.isInertiaEnabled,
                             glowColor = state.glowColor,
@@ -419,7 +418,6 @@ fun MainScreen(
                     onAutoDriftChanged = { viewModel.setAutoDrift(it) },
                     onTiltChanged = { viewModel.setTiltEnabled(it) },
                     onShapeSelected = { viewModel.setShapeType(it) },
-                    onPerspectiveChanged = { viewModel.setPerspectiveEnabled(it) },
                     onGlowColorSelected = { viewModel.setGlowColor(it) },
                     onGlowOpacityChanged = { viewModel.setGlowOpacity(it) },
                     onGlowBrightnessChanged = { viewModel.setGlowBrightness(it) },
@@ -460,7 +458,6 @@ fun SettingsSheetContent(
     onAutoDriftChanged: (Boolean) -> Unit,
     onTiltChanged: (Boolean) -> Unit,
     onShapeSelected: (ShapeType) -> Unit,
-    onPerspectiveChanged: (Boolean) -> Unit,
     onGlowColorSelected: (GlowColorOption) -> Unit,
     onGlowOpacityChanged: (Float) -> Unit,
     onGlowBrightnessChanged: (Float) -> Unit,
@@ -587,38 +584,6 @@ fun SettingsSheetContent(
             Switch(
                 checked = state.isTiltEnabled,
                 onCheckedChange = onTiltChanged,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFF00F2FE),
-                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
-                    uncheckedThumbColor = Color(0xFF808080),
-                    uncheckedTrackColor = Color(0x1Fffffff)
-                )
-            )
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = "3D-перспектива иконок",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White
-                )
-                Text(
-                    text = "Наклон иконок по плоскости 3D-фигуры",
-                    fontSize = 11.sp,
-                    color = Color(0x66FFFFFF)
-                )
-            }
-            Switch(
-                checked = state.isPerspectiveEnabled,
-                onCheckedChange = onPerspectiveChanged,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFF00F2FE),
                     checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
