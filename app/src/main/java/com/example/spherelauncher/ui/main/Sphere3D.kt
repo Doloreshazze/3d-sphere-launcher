@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -972,30 +973,50 @@ fun HolographicCore(
         ),
         label = "pulse"
     )
+    
+    val glowPaint = remember {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.FILL
+        }
+    }
 
     Box(
         modifier = Modifier
-            .size(250.dp) // Base size
+            .fillMaxSize()
             .graphicsLayer {
-                frameTicketProvider() // Read frame ticket to redraw/rescale
-                val rad = radiusProvider()
-                // Scale from base 250.dp to the current radius * 1.6f * pulseScale
-                val baseSizePx = 250f * density
-                val targetSizePx = rad * 1.6f * pulseScale
-                scaleX = targetSizePx / baseSizePx
-                scaleY = targetSizePx / baseSizePx
+                frameTicketProvider()
                 alpha = 0.08f
             }
-            .background(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF00F2FE),
-                        Color(0xFF4FACFE),
-                        Color.Transparent
-                    )
-                ),
-                shape = CircleShape
-            )
+            .drawBehind {
+                val rad = radiusProvider()
+                val pulse = pulseScale
+                val sizePx = rad * 1.6f * pulse
+                
+                val colors = intArrayOf(
+                    0xFF00F2FE.toInt(),
+                    0xFF4FACFE.toInt(),
+                    0x00000000
+                )
+                val stops = floatArrayOf(0.0f, 0.5f, 1.0f)
+                
+                val shader = android.graphics.RadialGradient(
+                    center.x,
+                    center.y,
+                    sizePx,
+                    colors,
+                    stops,
+                    android.graphics.Shader.TileMode.CLAMP
+                )
+                glowPaint.shader = shader
+                
+                drawContext.canvas.nativeCanvas.drawCircle(
+                    center.x,
+                    center.y,
+                    sizePx,
+                    glowPaint
+                )
+            }
     )
 }
 
@@ -1209,8 +1230,17 @@ fun AppSphereItem(
     val density = LocalDensity.current.density
     
     val shadowPaint = remember {
-        androidx.compose.ui.graphics.Paint().apply {
-            asFrameworkPaint().color = Color.Black.copy(alpha = 0.005f).toArgb()
+        android.graphics.Paint().apply {
+            color = 0x01000000 // Almost transparent black to force setShadowLayer
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.FILL
+        }
+    }
+    
+    val glossPaint = remember {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.FILL
         }
     }
     
@@ -1350,24 +1380,23 @@ fun AppSphereItem(
                         .drawBehind {
                             val depth = depthRatioProvider()
                             if (depth > 0.35f) {
-                                drawIntoCanvas { canvas ->
-                                    val paint = shadowPaint
-                                    val frameworkPaint = paint.asFrameworkPaint()
-                                    val blurRadius = 14f * density * depth
-                                    val offsetY = 8f * density * depth
-                                    frameworkPaint.setShadowLayer(
-                                        blurRadius,
-                                        0f,
-                                        offsetY,
-                                        Color.Black.copy(alpha = 0.42f * depth).toArgb()
-                                    )
-                                    val shadowRadius = (size.width / 2f) * 0.9f
-                                    canvas.drawCircle(
-                                        center = center,
-                                        radius = shadowRadius,
-                                        paint = paint
-                                    )
-                                }
+                                val nativeCanvas = drawContext.canvas.nativeCanvas
+                                val blurRadius = 14f * density * depth
+                                val offsetY = 8f * density * depth
+                                val shadowColor = Color.Black.copy(alpha = 0.42f * depth).toArgb()
+                                shadowPaint.setShadowLayer(
+                                    blurRadius,
+                                    0f,
+                                    offsetY,
+                                    shadowColor
+                                )
+                                val shadowRadius = (size.width / 2f) * 0.9f
+                                nativeCanvas.drawCircle(
+                                    center.x,
+                                    center.y,
+                                    shadowRadius,
+                                    shadowPaint
+                                )
                             }
                         }
                 }
@@ -1391,22 +1420,36 @@ fun AppSphereItem(
                                     drawContent()
                                     val x = xProvider()
                                     val y = yProvider()
-                                    val radius = size.width.coerceAtMost(size.height) * 0.75f
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(
-                                                Color.White.copy(alpha = 0.45f), // Dynamic specular shine
-                                                Color.White.copy(alpha = 0.08f),
-                                                Color.Transparent,
-                                                Color.Black.copy(alpha = 0.42f)  // Spherical shading rim restored!
-                                            ),
-                                            center = androidx.compose.ui.geometry.Offset(
-                                                x = size.width * (0.35f - x * 0.15f),
-                                                y = size.height * (0.35f - y * 0.15f)
-                                            ),
-                                            radius = radius
-                                        ),
-                                        radius = size.width / 2f
+                                    val w = size.width
+                                    val h = size.height
+                                    val radius = w.coerceAtMost(h) * 0.75f
+                                    
+                                    val centerX = w * (0.35f - x * 0.15f)
+                                    val centerY = h * (0.35f - y * 0.15f)
+                                    
+                                    val colors = intArrayOf(
+                                        0x73FFFFFF, // Color.White.copy(alpha = 0.45f).toArgb()
+                                        0x14FFFFFF, // Color.White.copy(alpha = 0.08f).toArgb()
+                                        0x00FFFFFF, // Color.Transparent.toArgb()
+                                        0x6B000000  // Color.Black.copy(alpha = 0.42f).toArgb()
+                                    )
+                                    val stops = floatArrayOf(0.0f, 0.35f, 0.75f, 1.0f)
+                                    
+                                    val shader = android.graphics.RadialGradient(
+                                        centerX,
+                                        centerY,
+                                        radius,
+                                        colors,
+                                        stops,
+                                        android.graphics.Shader.TileMode.CLAMP
+                                    )
+                                    glossPaint.shader = shader
+                                    
+                                    drawContext.canvas.nativeCanvas.drawCircle(
+                                        w / 2f,
+                                        h / 2f,
+                                        w / 2f,
+                                        glossPaint
                                     )
                                 }
                         } else {
