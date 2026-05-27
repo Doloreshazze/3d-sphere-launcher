@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -122,6 +123,9 @@ fun Sphere3D(
     val context = LocalContext.current
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
+    
+    val systemPrimary = MaterialTheme.colorScheme.primary
+    val systemSecondary = MaterialTheme.colorScheme.secondary
 
     android.util.Log.d("Sphere3D", "=== Sphere3D recomposed ===")
 
@@ -658,9 +662,12 @@ fun Sphere3D(
                 val pulse = pulseScale
                 val sizePx = rad * 1.6f * pulse * glowBrightness
                 
+                val c1 = if (glowColor == GlowColorOption.SYSTEM) systemPrimary.toArgb() else glowColor.color1.toInt()
+                val c2 = if (glowColor == GlowColorOption.SYSTEM) systemSecondary.toArgb() else glowColor.color2.toInt()
+                
                 val colorsHolo = intArrayOf(
-                    glowColor.color1.toInt(),
-                    glowColor.color2.toInt(),
+                    c1,
+                    c2,
                     0x00000000
                 )
                 val stopsHolo = floatArrayOf(0.0f, 0.5f, 1.0f)
@@ -674,7 +681,7 @@ fun Sphere3D(
                     android.graphics.Shader.TileMode.CLAMP
                 )
                 canvasGlowPaint.shader = shaderHolo
-                canvasGlowPaint.alpha = (0.08f * glowOpacity * 255).toInt().coerceIn(0, 255)
+                canvasGlowPaint.alpha = (0.24f * glowOpacity * 255).toInt().coerceIn(0, 255)
                 nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlowPaint)
                 
                 // 2. Trig cache

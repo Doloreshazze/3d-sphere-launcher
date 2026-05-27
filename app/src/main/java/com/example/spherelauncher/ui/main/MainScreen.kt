@@ -466,6 +466,9 @@ fun SettingsSheetContent(
     onRefreshApps: () -> Unit,
     onClose: () -> Unit
 ) {
+    val systemPrimary = MaterialTheme.colorScheme.primary
+    val systemSecondary = MaterialTheme.colorScheme.secondary
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -679,10 +682,11 @@ fun SettingsSheetContent(
                                 .fillMaxSize()
                                 .background(
                                     brush = Brush.linearGradient(
-                                        colors = listOf(
-                                            Color(option.color1),
-                                            Color(option.color2)
-                                        )
+                                        colors = if (option == GlowColorOption.SYSTEM) {
+                                            listOf(systemPrimary, systemSecondary)
+                                        } else {
+                                            listOf(Color(option.color1), Color(option.color2))
+                                        }
                                     ),
                                     shape = CircleShape
                                 )

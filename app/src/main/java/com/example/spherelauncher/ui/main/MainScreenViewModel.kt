@@ -25,6 +25,7 @@ enum class ShapeType {
 }
 
 enum class GlowColorOption(val color1: Long, val color2: Long, val label: String, val previewColor: Long) {
+    SYSTEM(0, 0, "Система", 0xFF808080),
     CYAN(0xFF00F2FE, 0xFF4FACFE, "Голубой", 0xFF00F2FE),
     PURPLE(0xFFF355FF, 0xFF8E25FF, "Сиреневый", 0xFFF355FF),
     GREEN(0xFF00FF88, 0xFF00FFCC, "Зеленый", 0xFF00FF88),
@@ -46,8 +47,8 @@ data class MainUiState(
     val isStandardView: Boolean = false,
     val isShapeLocked: Boolean = false,
     val isInertiaEnabled: Boolean = true,
-    val glowColor: GlowColorOption = GlowColorOption.CYAN,
-    val glowOpacity: Float = 3.0f,
+    val glowColor: GlowColorOption = GlowColorOption.SYSTEM,
+    val glowOpacity: Float = 1.0f,
     val glowBrightness: Float = 1.0f
 )
 
@@ -74,8 +75,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isStandardViewState = MutableStateFlow(false)
     private val isShapeLockedState = MutableStateFlow(false)
     private val isInertiaEnabledState = MutableStateFlow(true)
-    private val glowColorState = MutableStateFlow(GlowColorOption.CYAN)
-    private val glowOpacityState = MutableStateFlow(3.0f)
+    private val glowColorState = MutableStateFlow(GlowColorOption.SYSTEM)
+    private val glowOpacityState = MutableStateFlow(1.0f)
     private val glowBrightnessState = MutableStateFlow(1.0f)
 
     private val settingsFlow = combine(
