@@ -400,9 +400,10 @@ fun MainScreen(
         if (showSettings) {
             ModalBottomSheet(
                 onDismissRequest = { showSettings = false },
-                containerColor = Color(0xFF0D0C14),
+                containerColor = Color(0xC007050C), // Beautiful space-themed dark glassmorphism (75% opacity)
                 contentColor = Color.White,
-                tonalElevation = 8.dp,
+                scrimColor = Color.Transparent, // COMPLETELY remove the dark background scrim so the 3D Sphere is fully visible in real-time!
+                tonalElevation = 0.dp, // Disable Material 3 surface tint overlays to keep the translucent color pure
                 shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                 dragHandle = {
                     Box(
