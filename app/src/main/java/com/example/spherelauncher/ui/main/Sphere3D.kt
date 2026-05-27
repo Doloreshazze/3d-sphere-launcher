@@ -14,6 +14,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalConfiguration
@@ -57,6 +59,16 @@ data class SphereNode(
     val xBase: Float,
     val yBase: Float,
     val zBase: Float
+)
+
+data class AppRenderNode(
+    val appInfo: AppInfo,
+    val xProj: Float,
+    val yProj: Float,
+    val finalScale: Float,
+    val alpha: Float,
+    val depthRatio: Float,
+    val zDepth: Float
 )
 
 data class Vector3D(val x: Float, val y: Float, val z: Float) {
@@ -121,11 +133,57 @@ fun Sphere3D(
     val rotationState = remember { RotationState(radius = baseRadius) }
     val frameRotationData = remember { FrameRotationData(radius = baseRadius) }
 
+    val densityDp = density.density
+    val canvasShadowPaint = remember {
+        android.graphics.Paint().apply {
+            color = 0x01000000
+            isAntiAlias = true
+            this.style = android.graphics.Paint.Style.FILL
+        }
+    }
+    
+    val canvasBorderPaint = remember {
+        android.graphics.Paint().apply {
+            color = 0x40FFFFFF
+            isAntiAlias = true
+            this.style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 0.8f * densityDp
+        }
+    }
+    
+    val canvasIconPaint = remember {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            isFilterBitmap = true
+            isDither = true
+        }
+    }
+    
+    val canvasGlossPaint = remember {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            this.style = android.graphics.Paint.Style.FILL
+        }
+    }
+
     // Single Compose State ticket to synchronize VSYNC and Draw phases
     var frameTicket by remember { mutableStateOf(0) }
 
     // Protection against accidental clicks during panning/dragging
     var allowClicks by remember { mutableStateOf(true) }
+
+    val lastProjectedNodes = remember { ArrayList<AppRenderNode>() }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "glow")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
 
     val columns = 4
     val rows = remember(apps.size) { kotlin.math.ceil((apps.size + 1).toFloat() / columns).toInt().coerceAtLeast(1) }
@@ -537,271 +595,458 @@ fun Sphere3D(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Render a solid planet sphere, a Moon sphere, a holographic sphere, or a waterfall neon stream
-        if (shapeType == ShapeType.SOLID_SPHERE) {
-            SolidSphereCore(
-                radiusProvider = { frameRotationData.radius },
-                yawProvider = { rotationState.yaw },
-                pitchProvider = { rotationState.pitch },
-                frameTicketProvider = { frameTicket }
-            )
-        } else if (shapeType == ShapeType.POLYHEDRON) {
-            MoonCore(
-                radiusProvider = { frameRotationData.radius },
-                yawProvider = { rotationState.yaw },
-                pitchProvider = { rotationState.pitch },
-                frameTicketProvider = { frameTicket }
-            )
-        } else if (shapeType == ShapeType.FLAT_PLANE) {
-            PlaneBoardCore(
-                radiusProvider = { frameRotationData.radius },
-                yawProvider = { rotationState.yaw },
-                pitchProvider = { rotationState.pitch },
-                tiltYawProvider = { rotationState.tiltYaw },
-                tiltPitchProvider = { rotationState.tiltPitch },
-                rows = rows,
-                columns = columns,
-                frameTicketProvider = { frameTicket }
-            )
-        } else if (shapeType == ShapeType.SNAKE) {
-            PlaneBoardCore(
-                radiusProvider = { frameRotationData.radius },
-                yawProvider = { 0f },
-                pitchProvider = { 0f },
-                tiltYawProvider = { 0f },
-                tiltPitchProvider = { 0f },
-                rows = 12,
-                columns = 12,
-                frameTicketProvider = { frameTicket }
-            )
-        } else {
-            HolographicCore(
-                radiusProvider = { frameRotationData.radius },
-                frameTicketProvider = { frameTicket }
-            )
-        }
-
-        // Draw each app node inside a static, non-recomposing layout!
-        sphereNodes.forEach { node ->
-            // Use Compose key() to ensure layout preservation and absolute rendering stability
-            key(node.appInfo.packageName) {
-                val positionRef = remember { PositionRef() }
-                val depthRatioProvider = { positionRef.depthRatio }
-
-                // Calculate current grid position in boardPositions list for Flat Plane mode
-                val appIndex = remember(apps) { apps.indexOf(node.appInfo) }
-                val boardIndex = if (shapeType == ShapeType.FLAT_PLANE && appIndex != -1) {
-                    boardPositions.indexOf(appIndex)
-                } else {
-                    -1
-                }
-                
-                // Snake mode mappings
-                val isSnakeMode = shapeType == ShapeType.SNAKE
-                var isFood = false
-                var isSnakeSegment = false
-                var segmentIndex = -1
-                var cellX = 0
-                var cellY = 0
-                
-                if (isSnakeMode && appIndex != -1) {
-                    val foodIndex = snakeBody.size % apps.size
-                    if (appIndex == foodIndex) {
-                        isFood = true
-                        cellX = foodPos.first
-                        cellY = foodPos.second
-                    } else {
-                        val matchingSegmentIndex = (0 until snakeBody.size).firstOrNull { it % apps.size == appIndex }
-                        if (matchingSegmentIndex != null) {
-                            isSnakeSegment = true
-                            segmentIndex = matchingSegmentIndex
-                            val cell = snakeBody[matchingSegmentIndex]
-                            cellX = cell.first
-                            cellY = cell.second
+        if (shapeType == ShapeType.SPHERE) {
+            val tileSize = (400f / kotlin.math.sqrt(apps.size.toFloat())).coerceIn(45f, 80f)
+            val iconSize = tileSize * 0.70f
+            
+            val tileSizePx = with(LocalDensity.current) { tileSize.dp.toPx() }
+            val iconSizePx = with(LocalDensity.current) { iconSize.dp.toPx() }
+            
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(apps) {
+                        detectTapGestures { tapOffset ->
+                            if (allowClicks) {
+                                val canvasWidth = size.width
+                                val canvasHeight = size.height
+                                val tapX = tapOffset.x - canvasWidth / 2f
+                                val tapY = tapOffset.y - canvasHeight / 2f
+                                
+                                val hitTarget = lastProjectedNodes
+                                    .filter { it.depthRatio > 0.35f }
+                                    .minByOrNull { node ->
+                                        val dx = tapX - node.xProj
+                                        val dy = tapY - node.yProj
+                                        kotlin.math.sqrt(dx * dx + dy * dy)
+                                    }
+                                    
+                                if (hitTarget != null) {
+                                    val dx = tapX - hitTarget.xProj
+                                    val dy = tapY - hitTarget.yProj
+                                    val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                                    val currentIconSize = iconSizePx * hitTarget.finalScale
+                                    val maxTouchDist = currentIconSize / 2f + 12f * densityDp
+                                    if (dist < maxTouchDist) {
+                                        onAppClick(hitTarget.appInfo)
+                                    }
+                                }
+                            }
                         }
                     }
+            ) {
+                val ticket = frameTicket
+                
+                val nativeCanvas = drawContext.canvas.nativeCanvas
+                val w = size.width
+                val h = size.height
+                val centerCanvasX = w / 2f
+                val centerCanvasY = h / 2f
+                
+                // 1. Holographic background pulsing glow
+                val rad = frameRotationData.radius
+                val pulse = pulseScale
+                val sizePx = rad * 1.6f * pulse
+                
+                val colorsHolo = intArrayOf(
+                    0xFF00F2FE.toInt(),
+                    0xFF4FACFE.toInt(),
+                    0x00000000
+                )
+                val stopsHolo = floatArrayOf(0.0f, 0.5f, 1.0f)
+                
+                val shaderHolo = android.graphics.RadialGradient(
+                    centerCanvasX,
+                    centerCanvasY,
+                    sizePx,
+                    colorsHolo,
+                    stopsHolo,
+                    android.graphics.Shader.TileMode.CLAMP
+                )
+                canvasGlossPaint.shader = shaderHolo
+                nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlossPaint)
+                
+                // 2. Trig cache
+                val cosP = frameRotationData.cosP
+                val sinP = frameRotationData.sinP
+                val cosY = frameRotationData.cosY
+                val sinY = frameRotationData.sinY
+                
+                // 3. Project 3D nodes
+                val tempNodes = ArrayList<AppRenderNode>(sphereNodes.size)
+                sphereNodes.forEach { node ->
+                    val y1 = node.yBase * cosP - node.zBase * sinP
+                    val z1 = node.yBase * sinP + node.zBase * cosP
+                    
+                    val x2 = node.xBase * cosY + z1 * sinY
+                    val z2 = -node.xBase * sinY + z1 * cosY
+                    
+                    val cameraDist = 3.0f
+                    val scale = cameraDist / (cameraDist + z2)
+                    
+                    val zoomFactor = rad / baseRadius
+                    val finalScale = scale * zoomFactor
+                    
+                    val xProj = x2 * rad * scale
+                    val yProj = y1 * rad * scale
+                    
+                    val depthRatio = (1.0f - z2) / 2.0f
+                    
+                    val calculatedAlpha = if (z2 > 0f) 0f
+                    else if (z2 > -0.2f) (-z2 / 0.2f) * 0.95f
+                    else 1.0f
+                    
+                    tempNodes.add(
+                        AppRenderNode(
+                            appInfo = node.appInfo,
+                            xProj = xProj,
+                            yProj = yProj,
+                            finalScale = finalScale,
+                            alpha = calculatedAlpha,
+                            depthRatio = depthRatio,
+                            zDepth = z2
+                        )
+                    )
                 }
                 
-                val spacing = 0.42f
-                val snakeSpacing = 0.28f
-                val targetX = if (shapeType == ShapeType.FLAT_PLANE && boardIndex != -1) {
-                    val col = boardIndex % columns
-                    (col - (columns - 1) / 2f) * spacing
-                } else if (shapeType == ShapeType.SNAKE) {
-                    val col = cellX
-                    (col - (snakeGridSize - 1) / 2f) * snakeSpacing
-                } else {
-                    node.xBase
-                }
+                // Cache node projected locations for tap detector
+                lastProjectedNodes.clear()
+                lastProjectedNodes.addAll(tempNodes)
                 
-                val targetY = if (shapeType == ShapeType.FLAT_PLANE && boardIndex != -1) {
-                    val row = boardIndex / columns
-                    ((rows - 1) / 2f - row) * spacing
-                } else if (shapeType == ShapeType.SNAKE) {
-                    val row = cellY
-                    ((snakeGridSize - 1) / 2f - row) * snakeSpacing
-                } else {
-                    node.yBase
-                }
+                // 4. Sort back-to-front (descending zDepth)
+                tempNodes.sortByDescending { it.zDepth }
                 
-                // Animate x and y coordinates smoothly when they are rearranged!
-                val animX by animateFloatAsState(targetValue = targetX, label = "x")
-                val animY by animateFloatAsState(targetValue = targetY, label = "y")
+                // 5. Draw
+                val rectF = android.graphics.RectF()
+                tempNodes.forEach { node ->
+                    if (node.alpha > 0.01f) {
+                        val cX = centerCanvasX + node.xProj
+                        val cY = centerCanvasY + node.yProj
+                        
+                        val currentTileSize = tileSizePx * node.finalScale
+                        val currentIconSize = iconSizePx * node.finalScale
+                        val halfIcon = currentIconSize / 2f
+                        
+                        val paintAlpha = (node.alpha * 255).toInt().coerceIn(0, 255)
+                        
+                        // 5a. Shadow
+                        if (node.depthRatio > 0.35f) {
+                            val blurRadius = 14f * densityDp * node.depthRatio
+                            val offsetY = 8f * densityDp * node.depthRatio
+                            val shadowAlpha = (0.42f * node.depthRatio * node.alpha * 255).toInt().coerceIn(0, 255)
+                            val shadowColor = (shadowAlpha shl 24) or 0x00000000
+                            canvasShadowPaint.setShadowLayer(
+                                blurRadius,
+                                0f,
+                                offsetY,
+                                shadowColor
+                            )
+                            val shadowRadius = (currentTileSize / 2f) * 0.9f
+                            nativeCanvas.drawCircle(cX, cY, shadowRadius, canvasShadowPaint)
+                        }
+                        
+                        // 5b. Icon Bitmap (Pre-cropped!)
+                        canvasIconPaint.alpha = paintAlpha
+                        rectF.set(cX - halfIcon, cY - halfIcon, cX + halfIcon, cY + halfIcon)
+                        val androidBitmap = node.appInfo.iconBitmap.asAndroidBitmap()
+                        nativeCanvas.drawBitmap(androidBitmap, null, rectF, canvasIconPaint)
+                        
+                        // 5c. Border Outline
+                        canvasBorderPaint.alpha = (0.25f * node.alpha * 255).toInt().coerceIn(0, 255)
+                        nativeCanvas.drawCircle(cX, cY, halfIcon, canvasBorderPaint)
+                        
+                        // 5d. Specular dome glass shine
+                        val shineRadius = currentIconSize * 0.75f
+                        val gradCenterX = cX - halfIcon + currentIconSize * (0.35f - (node.xProj / rad) * 0.15f)
+                        val gradCenterY = cY - halfIcon + currentIconSize * (0.35f - (node.yProj / rad) * 0.15f)
+                        
+                        val shineAlpha1 = (0.45f * node.alpha * 255).toInt().coerceIn(0, 255)
+                        val shineAlpha2 = (0.08f * node.alpha * 255).toInt().coerceIn(0, 255)
+                        val shineAlpha4 = (0.42f * node.alpha * 255).toInt().coerceIn(0, 255)
+                        
+                        val colorsShine = intArrayOf(
+                            (shineAlpha1 shl 24) or 0x00FFFFFF,
+                            (shineAlpha2 shl 24) or 0x00FFFFFF,
+                            0x00FFFFFF,
+                            (shineAlpha4 shl 24) or 0x00000000
+                        )
+                        val stopsShine = floatArrayOf(0.0f, 0.35f, 0.75f, 1.0f)
+                        
+                        val shaderShine = android.graphics.RadialGradient(
+                            gradCenterX,
+                            gradCenterY,
+                            shineRadius,
+                            colorsShine,
+                            stopsShine,
+                            android.graphics.Shader.TileMode.CLAMP
+                        )
+                        canvasGlossPaint.shader = shaderShine
+                        nativeCanvas.drawCircle(cX, cY, halfIcon, canvasGlossPaint)
+                    }
+                }
+            }
+        } else {
+            // Render Snake mode using standard Composable layers (only active inside SNAKE mode, 0 lag!)
+            if (shapeType == ShapeType.SOLID_SPHERE) {
+                SolidSphereCore(
+                    radiusProvider = { frameRotationData.radius },
+                    yawProvider = { rotationState.yaw },
+                    pitchProvider = { rotationState.pitch },
+                    frameTicketProvider = { frameTicket }
+                )
+            } else if (shapeType == ShapeType.POLYHEDRON) {
+                MoonCore(
+                    radiusProvider = { frameRotationData.radius },
+                    yawProvider = { rotationState.yaw },
+                    pitchProvider = { rotationState.pitch },
+                    frameTicketProvider = { frameTicket }
+                )
+            } else if (shapeType == ShapeType.FLAT_PLANE) {
+                PlaneBoardCore(
+                    radiusProvider = { frameRotationData.radius },
+                    yawProvider = { rotationState.yaw },
+                    pitchProvider = { rotationState.pitch },
+                    tiltYawProvider = { rotationState.tiltYaw },
+                    tiltPitchProvider = { rotationState.tiltPitch },
+                    rows = rows,
+                    columns = columns,
+                    frameTicketProvider = { frameTicket }
+                )
+            } else if (shapeType == ShapeType.SNAKE) {
+                PlaneBoardCore(
+                    radiusProvider = { frameRotationData.radius },
+                    yawProvider = { 0f },
+                    pitchProvider = { 0f },
+                    tiltYawProvider = { 0f },
+                    tiltPitchProvider = { 0f },
+                    rows = 12,
+                    columns = 12,
+                    frameTicketProvider = { frameTicket }
+                )
+            }
 
-                Box(
-                    modifier = Modifier
-                        .graphicsLayer {
-                            // 1. Read frameTicket Compose State to register dependency and force Draw phase redraw on tick
-                            val ticket = frameTicket
+            // Draw each app node inside a static, non-recomposing layout!
+            sphereNodes.forEach { node ->
+                // Use Compose key() to ensure layout preservation and absolute rendering stability
+                key(node.appInfo.packageName) {
+                    val positionRef = remember { PositionRef() }
+                    val depthRatioProvider = { positionRef.depthRatio }
 
-                            // 2. Read sines/cosines from precalculated frameRotationData cache (0 double precision calls!)
-                            val cosP = frameRotationData.cosP
-                            val sinP = frameRotationData.sinP
-                            val cosY = frameRotationData.cosY
-                            val sinY = frameRotationData.sinY
-                            val rad = frameRotationData.radius
-
-                            var finalX = if (shapeType == ShapeType.FLAT_PLANE) animX else node.xBase
-                            var finalY = if (shapeType == ShapeType.FLAT_PLANE) animY else node.yBase
-                            var finalZ = node.zBase
-
-                            if (shapeType == ShapeType.FLAT_PLANE) {
-                                // Map yaw and pitch to horizontal/vertical panning offsets on the 2D plane
-                                val scrollSpeed = 0.45f
-                                finalX = animX - (rotationState.yaw + rotationState.tiltYaw) * scrollSpeed
-                                finalY = animY - (rotationState.pitch + rotationState.tiltPitch) * scrollSpeed
-                                finalZ = 0f
-                            } else if (shapeType == ShapeType.SNAKE) {
-                                finalX = animX
-                                finalY = animY
-                                finalZ = 0f
-                            }
-
-                            // 3. Rotate around X-axis (pitch) using cached values
-                            val y1 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalY else (node.yBase * cosP - node.zBase * sinP)
-                            val z1 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalZ else (node.yBase * sinP + node.zBase * cosP)
-
-                            // 4. Rotate around Y-axis (yaw)
-                            val x2 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalX else (node.xBase * cosY + z1 * sinY)
-                            val z2 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalZ else (-node.xBase * sinY + z1 * cosY) // depth
-
-                            // 5. Perspective calculation
-                            // Z ranges from -1 (closest) to +1 (furthest). We scale by radius when applying.
-                            val cameraDist = 3.0f
-                            val scale = cameraDist / (cameraDist + z2)
-
-                            // Proportional scaling of icons based on zoom factor relative to baseRadius
-                            val zoomFactor = rad / baseRadius
-                            val finalScale = scale * zoomFactor
-
-                            // Project 3D coordinates to 2D offsets in pixels directly
-                            val xProj = x2 * rad * scale
-                            val yProj = y1 * rad * scale
-
-                            // Depth calculations for Alpha and Size
-                            val depthRatio = (1.0f - z2) / 2.0f // 0.0 (furthest) to 1.0 (closest)
-                            
-                            // Write depth and position values to reference wrapper
-                            positionRef.depthRatio = depthRatio
-                            positionRef.x = x2
-                            positionRef.y = y1
-
-                              val calculatedAlpha = if (shapeType == ShapeType.SOLID_SPHERE || shapeType == ShapeType.POLYHEDRON || shapeType == ShapeType.SPHERE) {
-                                  // Completely hide items behind the solid planet/moon horizon (z2 > 0)
-                                  // and smoothly fade out near the edge to prevent harsh pixel popping
-                                  if (z2 > 0f) 0f
-                                  else if (z2 > -0.2f) (-z2 / 0.2f) * 0.95f
-                                  else 1.0f
-                              } else if (shapeType == ShapeType.FLAT_PLANE) {
-                                  // Smooth fade-out near the physical screen edges
-                                  val padX = 40f * density.density
-                                  val padY = 40f * density.density
-                                  val limitX = screenWidthPx / 2f - padX
-                                  val limitY = screenHeightPx / 2f - padY
-                                  
-                                  val absXProj = kotlin.math.abs(xProj)
-                                  val absYProj = kotlin.math.abs(yProj)
-                                  
-                                  val fadeX = if (absXProj > limitX) {
-                                      ((screenWidthPx / 2f - absXProj) / padX).coerceIn(0f, 1f)
-                                  } else 1f
-                                  
-                                  val fadeY = if (absYProj > limitY) {
-                                      ((screenHeightPx / 2f - absYProj) / padY).coerceIn(0f, 1f)
-                                  } else 1f
-                                  
-                                  fadeX * fadeY * 0.95f
-                              } else if (shapeType == ShapeType.SNAKE) {
-                                  if (isFood || isSnakeSegment) 0.95f else 0.0f
-                              } else {
-                                  0.15f + 0.85f * depthRatio // Standard fade out for back elements
-                              }
-
-                              scaleX = finalScale
-                              scaleY = finalScale
-                              translationX = xProj
-                              translationY = yProj
-                              alpha = calculatedAlpha
-
-                              // Highly optimized Z-depth sorting on GPU with zero shadow stencil overhead
-                              shadowElevation = if (shapeType == ShapeType.SOLID_SPHERE || shapeType == ShapeType.POLYHEDRON) {
-                                  if (z2 < 0f) (1.0f + z2) * 5f else 0f
-                              } else if (shapeType == ShapeType.FLAT_PLANE) {
-                                  3f // Elegant floating card shadow for the flat sheet
-                              } else if (shapeType == ShapeType.SNAKE) {
-                                  if (isSnakeSegment && segmentIndex == 0) 5f else 2f
-                               } else {
-                                   0f // Replaced depthRatio shadow to remove hardware-rendered ugly dark rings around holograms!
-                               }
-                            
-                            if (isPerspectiveEnabled && shapeType != ShapeType.FLAT_PLANE && shapeType != ShapeType.SNAKE) {
-                                // Fast linear single-precision 3D perspective slant mapping
-                                val clampedX = if (x2.isNaN()) 0f else x2.coerceIn(-1f, 1f)
-                                val clampedY = if (y1.isNaN()) 0f else y1.coerceIn(-1f, 1f)
-                                
-                                rotationY = clampedX * 85f
-                                rotationX = -clampedY * 85f
-                                cameraDistance = 12f * density.density
-                            } else {
-                                rotationX = 0f
-                                rotationY = 0f
+                    // Calculate current grid position in boardPositions list for Flat Plane mode
+                    val appIndex = remember(apps) { apps.indexOf(node.appInfo) }
+                    val boardIndex = if (shapeType == ShapeType.FLAT_PLANE && appIndex != -1) {
+                        boardPositions.indexOf(appIndex)
+                    } else {
+                        -1
+                    }
+                    
+                    // Snake mode mappings
+                    val isSnakeMode = shapeType == ShapeType.SNAKE
+                    var isFood = false
+                    var isSnakeSegment = false
+                    var segmentIndex = -1
+                    var cellX = 0
+                    var cellY = 0
+                    
+                    if (isSnakeMode && appIndex != -1) {
+                        val foodIndex = snakeBody.size % apps.size
+                        if (appIndex == foodIndex) {
+                            isFood = true
+                            cellX = foodPos.first
+                            cellY = foodPos.second
+                        } else {
+                            val matchingSegmentIndex = (0 until snakeBody.size).firstOrNull { it % apps.size == appIndex }
+                            if (matchingSegmentIndex != null) {
+                                isSnakeSegment = true
+                                segmentIndex = matchingSegmentIndex
+                                val cell = snakeBody[matchingSegmentIndex]
+                                cellX = cell.first
+                                cellY = cell.second
                             }
                         }
-                        .combinedClickable(
-                            onClick = {
-                                if (allowClicks && depthRatioProvider() > 0.35f) {
-                                    if (shapeType == ShapeType.FLAT_PLANE) {
-                                        if (appIndex != -1) {
-                                            onTileTap(appIndex)
-                                        }
-                                    } else if (shapeType == ShapeType.SNAKE) {
-                                        // Do nothing in Snake mode to prevent accidental launching during play
-                                    } else {
-                                        onAppClick(node.appInfo)
-                                    }
+                    }
+                    
+                    val spacing = 0.42f
+                    val snakeSpacing = 0.28f
+                    val targetX = if (shapeType == ShapeType.FLAT_PLANE && boardIndex != -1) {
+                        val col = boardIndex % columns
+                        (col - (columns - 1) / 2f) * spacing
+                    } else if (shapeType == ShapeType.SNAKE) {
+                        val col = cellX
+                        (col - (snakeGridSize - 1) / 2f) * snakeSpacing
+                    } else {
+                        node.xBase
+                    }
+                    
+                    val targetY = if (shapeType == ShapeType.FLAT_PLANE && boardIndex != -1) {
+                        val row = boardIndex / columns
+                        ((rows - 1) / 2f - row) * spacing
+                    } else if (shapeType == ShapeType.SNAKE) {
+                        val row = cellY
+                        ((snakeGridSize - 1) / 2f - row) * snakeSpacing
+                    } else {
+                        node.yBase
+                    }
+                    
+                    // Animate x and y coordinates smoothly when they are rearranged!
+                    val animX by animateFloatAsState(targetValue = targetX, label = "x")
+                    val animY by animateFloatAsState(targetValue = targetY, label = "y")
+
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                // 1. Read frameTicket Compose State to register dependency and force Draw phase redraw on tick
+                                val ticket = frameTicket
+
+                                // 2. Read sines/cosines from precalculated frameRotationData cache (0 double precision calls!)
+                                val cosP = frameRotationData.cosP
+                                val sinP = frameRotationData.sinP
+                                val cosY = frameRotationData.cosY
+                                val sinY = frameRotationData.sinY
+                                val rad = frameRotationData.radius
+
+                                var finalX = if (shapeType == ShapeType.FLAT_PLANE) animX else node.xBase
+                                var finalY = if (shapeType == ShapeType.FLAT_PLANE) animY else node.yBase
+                                var finalZ = node.zBase
+
+                                if (shapeType == ShapeType.FLAT_PLANE) {
+                                    // Map yaw and pitch to horizontal/vertical panning offsets on the 2D plane
+                                    val scrollSpeed = 0.45f
+                                    finalX = animX - (rotationState.yaw + rotationState.tiltYaw) * scrollSpeed
+                                    finalY = animY - (rotationState.pitch + rotationState.tiltPitch) * scrollSpeed
+                                    finalZ = 0f
+                                } else if (shapeType == ShapeType.SNAKE) {
+                                    finalX = animX
+                                    finalY = animY
+                                    finalZ = 0f
                                 }
-                            },
-                            onLongClick = {
-                                if (allowClicks && depthRatioProvider() > 0.35f) {
-                                    if (shapeType == ShapeType.FLAT_PLANE) {
-                                        onAppClick(node.appInfo)
-                                    }
+
+                                // 3. Rotate around X-axis (pitch) using cached values
+                                val y1 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalY else (node.yBase * cosP - node.zBase * sinP)
+                                val z1 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalZ else (node.yBase * sinP + node.zBase * cosP)
+
+                                // 4. Rotate around Y-axis (yaw)
+                                val x2 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalX else (node.xBase * cosY + z1 * sinY)
+                                val z2 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalZ else (-node.xBase * sinY + z1 * cosY) // depth
+
+                                // 5. Perspective calculation
+                                // Z ranges from -1 (closest) to +1 (furthest). We scale by radius when applying.
+                                val cameraDist = 3.0f
+                                val scale = cameraDist / (cameraDist + z2)
+
+                                // Proportional scaling of icons based on zoom factor relative to baseRadius
+                                val zoomFactor = rad / baseRadius
+                                val finalScale = scale * zoomFactor
+
+                                // Project 3D coordinates to 2D offsets in pixels directly
+                                val xProj = x2 * rad * scale
+                                val yProj = y1 * rad * scale
+
+                                // Depth calculations for Alpha and Size
+                                val depthRatio = (1.0f - z2) / 2.0f // 0.0 (furthest) to 1.0 (closest)
+                                
+                                // Write depth and position values to reference wrapper
+                                positionRef.depthRatio = depthRatio
+                                positionRef.x = x2
+                                positionRef.y = y1
+
+                                  val calculatedAlpha = if (shapeType == ShapeType.SOLID_SPHERE || shapeType == ShapeType.POLYHEDRON || shapeType == ShapeType.SPHERE) {
+                                      // Completely hide items behind the solid planet/moon horizon (z2 > 0)
+                                      // and smoothly fade out near the edge to prevent harsh pixel popping
+                                      if (z2 > 0f) 0f
+                                      else if (z2 > -0.2f) (-z2 / 0.2f) * 0.95f
+                                      else 1.0f
+                                  } else if (shapeType == ShapeType.FLAT_PLANE) {
+                                      // Smooth fade-out near the physical screen edges
+                                      val padX = 40f * density.density
+                                      val padY = 40f * density.density
+                                      val limitX = screenWidthPx / 2f - padX
+                                      val limitY = screenHeightPx / 2f - padY
+                                      
+                                      val absXProj = kotlin.math.abs(xProj)
+                                      val absYProj = kotlin.math.abs(yProj)
+                                      
+                                      val fadeX = if (absXProj > limitX) {
+                                          ((screenWidthPx / 2f - absXProj) / padX).coerceIn(0f, 1f)
+                                      } else 1f
+                                      
+                                      val fadeY = if (absYProj > limitY) {
+                                          ((screenHeightPx / 2f - absYProj) / padY).coerceIn(0f, 1f)
+                                      } else 1f
+                                      
+                                      fadeX * fadeY * 0.95f
+                                  } else if (shapeType == ShapeType.SNAKE) {
+                                      if (isFood || isSnakeSegment) 0.95f else 0.0f
+                                  } else {
+                                      0.15f + 0.85f * depthRatio // Standard fade out for back elements
+                                  }
+
+                                  scaleX = finalScale
+                                  scaleY = finalScale
+                                  translationX = xProj
+                                  translationY = yProj
+                                  alpha = calculatedAlpha
+
+                                  // Highly optimized Z-depth sorting on GPU with zero shadow stencil overhead
+                                  shadowElevation = if (shapeType == ShapeType.SOLID_SPHERE || shapeType == ShapeType.POLYHEDRON) {
+                                      if (z2 < 0f) (1.0f + z2) * 5f else 0f
+                                  } else if (shapeType == ShapeType.FLAT_PLANE) {
+                                      3f // Elegant floating card shadow for the flat sheet
+                                  } else if (shapeType == ShapeType.SNAKE) {
+                                      if (isSnakeSegment && segmentIndex == 0) 5f else 2f
+                                   } else {
+                                       0f // Replaced depthRatio shadow to remove hardware-rendered ugly dark rings around holograms!
+                                   }
+                                
+                                if (isPerspectiveEnabled && shapeType != ShapeType.FLAT_PLANE && shapeType != ShapeType.SNAKE) {
+                                    // Fast linear single-precision 3D perspective slant mapping
+                                    val clampedX = if (x2.isNaN()) 0f else x2.coerceIn(-1f, 1f)
+                                    val clampedY = if (y1.isNaN()) 0f else y1.coerceIn(-1f, 1f)
+                                    
+                                    rotationY = clampedX * 85f
+                                    rotationX = -clampedY * 85f
+                                    cameraDistance = 12f * density.density
+                                } else {
+                                    rotationX = 0f
+                                    rotationY = 0f
                                 }
                             }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AppSphereItem(
-                        app = node.appInfo,
-                        shapeType = shapeType,
-                        appCount = sphereNodes.size,
-                        depthRatioProvider = depthRatioProvider,
-                        xProvider = { positionRef.x },
-                        yProvider = { positionRef.y },
-                        isFood = isFood,
-                        isSnakeSegment = isSnakeSegment,
-                        segmentIndex = segmentIndex
-                    )
+                            .combinedClickable(
+                                onClick = {
+                                    if (allowClicks && depthRatioProvider() > 0.35f) {
+                                        if (shapeType == ShapeType.FLAT_PLANE) {
+                                            if (appIndex != -1) {
+                                                onTileTap(appIndex)
+                                            }
+                                        } else if (shapeType == ShapeType.SNAKE) {
+                                            // Do nothing in Snake mode to prevent accidental launching during play
+                                        } else {
+                                            onAppClick(node.appInfo)
+                                        }
+                                    }
+                                },
+                                onLongClick = {
+                                    if (allowClicks && depthRatioProvider() > 0.35f) {
+                                        if (shapeType == ShapeType.FLAT_PLANE) {
+                                            onAppClick(node.appInfo)
+                                        }
+                                    }
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AppSphereItem(
+                            app = node.appInfo,
+                            shapeType = shapeType,
+                            appCount = sphereNodes.size,
+                            depthRatioProvider = depthRatioProvider,
+                            xProvider = { positionRef.x },
+                            yProvider = { positionRef.y },
+                            isFood = isFood,
+                            isSnakeSegment = isSnakeSegment,
+                            segmentIndex = segmentIndex
+                        )
+                    }
                 }
             }
         }

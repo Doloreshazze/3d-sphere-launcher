@@ -23,13 +23,35 @@ class AppLoader(private val context: Context) {
                 val packageName = resolveInfo.activityInfo.packageName
                 val activityName = resolveInfo.activityInfo.name
                 val rawIcon = resolveInfo.loadIcon(pm)
-                val iconBitmap = drawableToBitmap(rawIcon).asImageBitmap()
+                val rawBitmap = drawableToBitmap(rawIcon)
+                val circularBitmap = getCircularBitmap(rawBitmap)
+                val iconBitmap = circularBitmap.asImageBitmap()
                 AppInfo(label, packageName, activityName, iconBitmap)
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
             }
         }.sortedBy { it.label.lowercase() }
+    }
+
+    private fun getCircularBitmap(src: Bitmap): Bitmap {
+        val size = src.width.coerceAtMost(src.height).coerceAtLeast(96)
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        
+        val paint = android.graphics.Paint().apply {
+            isAntiAlias = true
+        }
+        
+        canvas.drawARGB(0, 0, 0, 0)
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+        
+        paint.setXfermode(android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN))
+        val srcRect = android.graphics.Rect(0, 0, src.width, src.height)
+        val destRect = android.graphics.Rect(0, 0, size, size)
+        canvas.drawBitmap(src, srcRect, destRect, paint)
+        
+        return output
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {
