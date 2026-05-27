@@ -1,4 +1,4 @@
-package com.example.spherelauncher.ui.main
+package com.playeverywhere.spherelauncher.ui.main
 
 import android.content.Intent
 import android.widget.Toast
@@ -38,7 +38,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.text.style.TextOverflow
-import com.example.spherelauncher.data.AppInfo
+import com.playeverywhere.spherelauncher.data.AppInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -591,6 +591,75 @@ fun SettingsSheetContent(
                     uncheckedTrackColor = Color(0x1Fffffff)
                 )
             )
+        }
+
+        // --- BIND TO HOME BUTTON ROW ---
+        Spacer(modifier = Modifier.height(8.dp))
+        val context = LocalContext.current
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Кнопка HOME по умолчанию",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+                Text(
+                    text = "Привязать лаунчер к системной кнопке Home",
+                    fontSize = 11.sp,
+                    color = Color(0x66FFFFFF)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    try {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            val roleManager = context.getSystemService(android.content.Context.ROLE_SERVICE) as? android.app.role.RoleManager
+                            if (roleManager != null && roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                                if (!roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) {
+                                    val roleIntent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
+                                    context.startActivity(roleIntent)
+                                } else {
+                                    Toast.makeText(context, "Лаунчер уже установлен по умолчанию", Toast.LENGTH_SHORT).show()
+                                }
+                                return@Button
+                            }
+                        }
+                        
+                        // Fallback
+                        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                            addCategory(Intent.CATEGORY_HOME)
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(homeIntent)
+                    } catch (e: Exception) {
+                        try {
+                            val settingsIntent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(settingsIntent)
+                        } catch (e2: Exception) {
+                            Toast.makeText(context, "Не удалось открыть настройки: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF00FF88).copy(alpha = 0.15f),
+                    contentColor = Color(0xFF00FF88)
+                ),
+                border = BorderStroke(1.dp, Color(0xFF00FF88).copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text("Привязать", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
 
         if (state.shapeType == ShapeType.SPHERE) {

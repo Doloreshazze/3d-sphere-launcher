@@ -1,4 +1,4 @@
-package com.example.spherelauncher.data
+package com.playeverywhere.spherelauncher.data
 
 import androidx.compose.ui.graphics.ImageBitmap
 

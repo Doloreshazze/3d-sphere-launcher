@@ -13,6 +13,8 @@
         android:theme="@style/Theme.SphereLauncher">
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleInstance"
+            android:stateNotNeeded="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

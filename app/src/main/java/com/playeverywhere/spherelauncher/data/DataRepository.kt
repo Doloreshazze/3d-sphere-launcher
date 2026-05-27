@@ -1,4 +1,4 @@
-package com.example.spherelauncher.data
+package com.playeverywhere.spherelauncher.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

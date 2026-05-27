@@ -1,4 +1,4 @@
-package com.example.spherelauncher.theme
+package com.playeverywhere.spherelauncher.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

@@ -1,4 +1,4 @@
-package com.example.spherelauncher.ui.main
+package com.playeverywhere.spherelauncher.ui.main
 
 import android.content.Context
 import android.hardware.Sensor
@@ -47,7 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.spherelauncher.data.AppInfo
+import com.playeverywhere.spherelauncher.data.AppInfo
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin

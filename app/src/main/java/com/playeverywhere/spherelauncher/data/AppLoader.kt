@@ -1,4 +1,4 @@
-package com.example.spherelauncher.data
+package com.playeverywhere.spherelauncher.data
 
 import android.content.Context
 import android.content.Intent

@@ -1,4 +1,4 @@
-package com.example.spherelauncher
+package com.playeverywhere.spherelauncher
 
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable

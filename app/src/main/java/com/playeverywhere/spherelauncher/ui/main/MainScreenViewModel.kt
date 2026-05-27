@@ -1,10 +1,10 @@
-package com.example.spherelauncher.ui.main
+package com.playeverywhere.spherelauncher.ui.main
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.spherelauncher.data.AppInfo
-import com.example.spherelauncher.data.AppLoader
+import com.playeverywhere.spherelauncher.data.AppInfo
+import com.playeverywhere.spherelauncher.data.AppLoader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

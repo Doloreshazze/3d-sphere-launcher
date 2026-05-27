@@ -1,4 +1,4 @@
-package com.example.spherelauncher.theme
+package com.playeverywhere.spherelauncher.theme
 
 import androidx.compose.ui.graphics.Color
 

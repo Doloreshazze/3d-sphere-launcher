@@ -5,10 +5,10 @@ plugins {
 }
 
 android {
-    namespace = "com.example.spherelauncher"
+    namespace = "com.playeverywhere.spherelauncher"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example.spherelauncher"
+        applicationId = "com.playeverywhere.spherelauncher"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
