@@ -1,0 +1,178 @@
+package com.example.spherelauncher.ui.main
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.spherelauncher.data.AppInfo
+import com.example.spherelauncher.data.AppLoader
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+enum class SphereStyle {
+    FLOATING_ICONS
+}
+
+enum class ShapeType {
+    SPHERE,
+    POLYHEDRON,
+    SOLID_SPHERE,
+    FLAT_PLANE,
+    SNAKE
+}
+
+data class MainUiState(
+    val apps: List<AppInfo> = emptyList(),
+    val filteredApps: List<AppInfo> = emptyList(),
+    val style: SphereStyle = SphereStyle.FLOATING_ICONS,
+    val isAutoDriftEnabled: Boolean = true,
+    val isTiltEnabled: Boolean = false,
+    val shapeType: ShapeType = ShapeType.SPHERE,
+    val isPerspectiveEnabled: Boolean = false,
+    val searchQuery: String = "",
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null,
+    val isStandardView: Boolean = false,
+    val isShapeLocked: Boolean = false,
+    val isInertiaEnabled: Boolean = true
+)
+
+data class SettingsState(
+    val style: SphereStyle,
+    val isAutoDriftEnabled: Boolean,
+    val isTiltEnabled: Boolean,
+    val shapeType: ShapeType,
+    val isPerspectiveEnabled: Boolean
+)
+
+class MainScreenViewModel(application: Application) : AndroidViewModel(application) {
+    private val appLoader = AppLoader(application)
+
+    private val appsState = MutableStateFlow<List<AppInfo>>(emptyList())
+    private val styleState = MutableStateFlow(SphereStyle.FLOATING_ICONS)
+    private val autoDriftState = MutableStateFlow(true)
+    private val tiltEnabledState = MutableStateFlow(false)
+    private val shapeTypeState = MutableStateFlow(ShapeType.SPHERE)
+    private val perspectiveEnabledState = MutableStateFlow(false)
+    private val searchQueryState = MutableStateFlow("")
+    private val loadingState = MutableStateFlow(true)
+    private val errorState = MutableStateFlow<String?>(null)
+    private val isStandardViewState = MutableStateFlow(false)
+    private val isShapeLockedState = MutableStateFlow(false)
+    private val isInertiaEnabledState = MutableStateFlow(true)
+
+    private val settingsFlow = combine(
+        styleState,
+        autoDriftState,
+        tiltEnabledState,
+        shapeTypeState,
+        perspectiveEnabledState
+    ) { style, autoDrift, tiltEnabled, shapeType, perspectiveEnabled ->
+        SettingsState(style, autoDrift, tiltEnabled, shapeType, perspectiveEnabled)
+    }
+
+    val uiState: StateFlow<MainUiState> = combine(
+        appsState,
+        settingsFlow,
+        searchQueryState,
+        loadingState,
+        errorState,
+        isStandardViewState,
+        isShapeLockedState,
+        isInertiaEnabledState
+    ) { array ->
+        @Suppress("UNCHECKED_CAST")
+        val apps = array[0] as List<AppInfo>
+        val settings = array[1] as SettingsState
+        val query = array[2] as String
+        val loading = array[3] as Boolean
+        val error = array[4] as String?
+        val isStandard = array[5] as Boolean
+        val isShapeLocked = array[6] as Boolean
+        val isInertiaEnabled = array[7] as Boolean
+
+        val filtered = if (query.isBlank()) {
+            apps
+        } else {
+            apps.filter { it.label.contains(query, ignoreCase = true) }
+        }
+        MainUiState(
+            apps = apps,
+            filteredApps = filtered,
+            style = settings.style,
+            isAutoDriftEnabled = settings.isAutoDriftEnabled,
+            isTiltEnabled = settings.isTiltEnabled,
+            shapeType = settings.shapeType,
+            isPerspectiveEnabled = settings.isPerspectiveEnabled,
+            searchQuery = query,
+            isLoading = loading,
+            errorMessage = error,
+            isStandardView = isStandard,
+            isShapeLocked = isShapeLocked,
+            isInertiaEnabled = isInertiaEnabled
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        MainUiState()
+    )
+
+    init {
+        loadApps()
+    }
+
+    fun loadApps() {
+        viewModelScope.launch {
+            loadingState.value = true
+            errorState.value = null
+            try {
+                val loadedApps = appLoader.loadInstalledApps()
+                appsState.value = loadedApps
+            } catch (e: Exception) {
+                e.printStackTrace()
+                errorState.value = "Failed to load apps: ${e.message}"
+            } finally {
+                loadingState.value = false
+            }
+        }
+    }
+
+    fun setStyle(style: SphereStyle) {
+        styleState.value = style
+    }
+
+    fun setAutoDrift(enabled: Boolean) {
+        autoDriftState.value = enabled
+    }
+
+    fun setTiltEnabled(enabled: Boolean) {
+        tiltEnabledState.value = enabled
+    }
+
+    fun setShapeType(shapeType: ShapeType) {
+        shapeTypeState.value = shapeType
+    }
+
+    fun setPerspectiveEnabled(enabled: Boolean) {
+        perspectiveEnabledState.value = enabled
+    }
+
+    fun setSearchQuery(query: String) {
+        searchQueryState.value = query
+    }
+
+    fun setStandardView(enabled: Boolean) {
+        isStandardViewState.value = enabled
+    }
+
+    fun setShapeLocked(locked: Boolean) {
+        isShapeLockedState.value = locked
+    }
+
+    fun setInertiaEnabled(enabled: Boolean) {
+        isInertiaEnabledState.value = enabled
+    }
+}
