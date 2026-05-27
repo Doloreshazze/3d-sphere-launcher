@@ -620,33 +620,29 @@ fun SettingsSheetContent(
             Button(
                 onClick = {
                     try {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                            val roleManager = context.getSystemService(android.content.Context.ROLE_SERVICE) as? android.app.role.RoleManager
-                            if (roleManager != null && roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
-                                if (!roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) {
-                                    val roleIntent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
-                                    context.startActivity(roleIntent)
-                                } else {
-                                    Toast.makeText(context, "Лаунчер уже установлен по умолчанию", Toast.LENGTH_SHORT).show()
-                                }
-                                return@Button
-                            }
-                        }
-                        
-                        // Fallback
-                        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
-                            addCategory(Intent.CATEGORY_HOME)
+                        // Direct, ultra-reliable way to open system Default Home settings screen on Samsung/all Androids
+                        val intent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         }
-                        context.startActivity(homeIntent)
+                        context.startActivity(intent)
                     } catch (e: Exception) {
                         try {
-                            val settingsIntent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS).apply {
+                            // Fallback to manage default apps settings screen (API 24+)
+                            val intent = Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
-                            context.startActivity(settingsIntent)
+                            context.startActivity(intent)
                         } catch (e2: Exception) {
-                            Toast.makeText(context, "Не удалось открыть настройки: ${e.message}", Toast.LENGTH_LONG).show()
+                            try {
+                                // Fallback to prompt Home chooser
+                                val intent = Intent(Intent.ACTION_MAIN).apply {
+                                    addCategory(Intent.CATEGORY_HOME)
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            } catch (e3: Exception) {
+                                Toast.makeText(context, "Не удалось открыть настройки: ${e3.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 },
