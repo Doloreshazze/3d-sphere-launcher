@@ -24,6 +24,14 @@ enum class ShapeType {
     SNAKE
 }
 
+enum class GlowColorOption(val color1: Long, val color2: Long, val label: String, val previewColor: Long) {
+    CYAN(0xFF00F2FE, 0xFF4FACFE, "Голубой", 0xFF00F2FE),
+    PURPLE(0xFFF355FF, 0xFF8E25FF, "Сиреневый", 0xFFF355FF),
+    GREEN(0xFF00FF88, 0xFF00FFCC, "Зеленый", 0xFF00FF88),
+    ORANGE(0xFFFF5E3A, 0xFFFF2A68, "Красный", 0xFFFF5E3A),
+    GOLD(0xFFFFE259, 0xFFFFA751, "Золотой", 0xFFFFE259)
+}
+
 data class MainUiState(
     val apps: List<AppInfo> = emptyList(),
     val filteredApps: List<AppInfo> = emptyList(),
@@ -37,7 +45,10 @@ data class MainUiState(
     val errorMessage: String? = null,
     val isStandardView: Boolean = false,
     val isShapeLocked: Boolean = false,
-    val isInertiaEnabled: Boolean = true
+    val isInertiaEnabled: Boolean = true,
+    val glowColor: GlowColorOption = GlowColorOption.CYAN,
+    val glowOpacity: Float = 3.0f,
+    val glowBrightness: Float = 1.0f
 )
 
 data class SettingsState(
@@ -63,6 +74,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isStandardViewState = MutableStateFlow(false)
     private val isShapeLockedState = MutableStateFlow(false)
     private val isInertiaEnabledState = MutableStateFlow(true)
+    private val glowColorState = MutableStateFlow(GlowColorOption.CYAN)
+    private val glowOpacityState = MutableStateFlow(3.0f)
+    private val glowBrightnessState = MutableStateFlow(1.0f)
 
     private val settingsFlow = combine(
         styleState,
@@ -82,7 +96,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         errorState,
         isStandardViewState,
         isShapeLockedState,
-        isInertiaEnabledState
+        isInertiaEnabledState,
+        glowColorState,
+        glowOpacityState,
+        glowBrightnessState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -93,6 +110,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val isStandard = array[5] as Boolean
         val isShapeLocked = array[6] as Boolean
         val isInertiaEnabled = array[7] as Boolean
+        val glowColor = array[8] as GlowColorOption
+        val glowOpacity = array[9] as Float
+        val glowBrightness = array[10] as Float
 
         val filtered = if (query.isBlank()) {
             apps
@@ -112,7 +132,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             errorMessage = error,
             isStandardView = isStandard,
             isShapeLocked = isShapeLocked,
-            isInertiaEnabled = isInertiaEnabled
+            isInertiaEnabled = isInertiaEnabled,
+            glowColor = glowColor,
+            glowOpacity = glowOpacity,
+            glowBrightness = glowBrightness
         )
     }.stateIn(
         viewModelScope,
@@ -174,5 +197,17 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setInertiaEnabled(enabled: Boolean) {
         isInertiaEnabledState.value = enabled
+    }
+
+    fun setGlowColor(color: GlowColorOption) {
+        glowColorState.value = color
+    }
+
+    fun setGlowOpacity(opacity: Float) {
+        glowOpacityState.value = opacity
+    }
+
+    fun setGlowBrightness(brightness: Float) {
+        glowBrightnessState.value = brightness
     }
 }

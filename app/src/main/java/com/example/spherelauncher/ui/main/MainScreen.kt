@@ -253,6 +253,9 @@ fun MainScreen(
                             isPerspectiveEnabled = state.isPerspectiveEnabled,
                             isShapeLocked = state.isShapeLocked,
                             isInertiaEnabled = state.isInertiaEnabled,
+                            glowColor = state.glowColor,
+                            glowOpacity = state.glowOpacity,
+                            glowBrightness = state.glowBrightness,
                             onAppClick = { app ->
                                 try {
                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
@@ -416,6 +419,9 @@ fun MainScreen(
                     onTiltChanged = { viewModel.setTiltEnabled(it) },
                     onShapeSelected = { viewModel.setShapeType(it) },
                     onPerspectiveChanged = { viewModel.setPerspectiveEnabled(it) },
+                    onGlowColorSelected = { viewModel.setGlowColor(it) },
+                    onGlowOpacityChanged = { viewModel.setGlowOpacity(it) },
+                    onGlowBrightnessChanged = { viewModel.setGlowBrightness(it) },
                     onRefreshApps = {
                         viewModel.loadApps()
                         showSettings = false
@@ -454,6 +460,9 @@ fun SettingsSheetContent(
     onTiltChanged: (Boolean) -> Unit,
     onShapeSelected: (ShapeType) -> Unit,
     onPerspectiveChanged: (Boolean) -> Unit,
+    onGlowColorSelected: (GlowColorOption) -> Unit,
+    onGlowOpacityChanged: (Float) -> Unit,
+    onGlowBrightnessChanged: (Float) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -612,6 +621,134 @@ fun SettingsSheetContent(
                     uncheckedThumbColor = Color(0xFF808080),
                     uncheckedTrackColor = Color(0x1Fffffff)
                 )
+            )
+        }
+
+        if (state.shapeType == ShapeType.SPHERE) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(Color(0x1FFFFFFF))
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Настройка свечения ореола",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00F2FE),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            // Horizontal color dot selector
+            Text(
+                text = "Цвет неона:",
+                fontSize = 12.sp,
+                color = Color(0x80FFFFFF),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                GlowColorOption.values().forEach { option ->
+                    val isSelected = state.glowColor == option
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) Color.White else Color(0x33FFFFFF),
+                                shape = CircleShape
+                            )
+                            .padding(4.dp)
+                            .background(Color.Transparent, CircleShape)
+                            .clip(CircleShape)
+                            .clickable { onGlowColorSelected(option) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            Color(option.color1),
+                                            Color(option.color2)
+                                        )
+                                    ),
+                                    shape = CircleShape
+                                )
+                        )
+                    }
+                }
+            }
+
+            // Opacity slider (0% to 300%)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Интенсивность неона:",
+                    fontSize = 12.sp,
+                    color = Color(0xB3FFFFFF)
+                )
+                Text(
+                    text = "${(state.glowOpacity * 100).toInt()}%",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF00F2FE)
+                )
+            }
+            Slider(
+                value = state.glowOpacity,
+                onValueChange = onGlowOpacityChanged,
+                valueRange = 0f..3f,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFF00F2FE),
+                    activeTrackColor = Color(0xFF00F2FE),
+                    inactiveTrackColor = Color(0x1Fffffff)
+                ),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            // Brightness / Size slider (50% to 200%)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Размер свечения:",
+                    fontSize = 12.sp,
+                    color = Color(0xB3FFFFFF)
+                )
+                Text(
+                    text = "${(state.glowBrightness * 100).toInt()}%",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF00F2FE)
+                )
+            }
+            Slider(
+                value = state.glowBrightness,
+                onValueChange = onGlowBrightnessChanged,
+                valueRange = 0.5f..2.0f,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFF00F2FE),
+                    activeTrackColor = Color(0xFF00F2FE),
+                    inactiveTrackColor = Color(0x1Fffffff)
+                ),
+                modifier = Modifier.padding(bottom = 12.dp)
             )
         }
 

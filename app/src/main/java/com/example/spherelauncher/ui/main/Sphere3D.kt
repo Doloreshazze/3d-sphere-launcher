@@ -114,6 +114,9 @@ fun Sphere3D(
     modifier: Modifier = Modifier,
     isShapeLocked: Boolean = false,
     isInertiaEnabled: Boolean = true,
+    glowColor: GlowColorOption,
+    glowOpacity: Float,
+    glowBrightness: Float,
     onAppClick: (AppInfo) -> Unit
 ) {
     val context = LocalContext.current
@@ -160,6 +163,13 @@ fun Sphere3D(
     }
     
     val canvasGlossPaint = remember {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            this.style = android.graphics.Paint.Style.FILL
+        }
+    }
+    
+    val canvasGlowPaint = remember {
         android.graphics.Paint().apply {
             isAntiAlias = true
             this.style = android.graphics.Paint.Style.FILL
@@ -646,11 +656,11 @@ fun Sphere3D(
                 // 1. Holographic background pulsing glow
                 val rad = frameRotationData.radius
                 val pulse = pulseScale
-                val sizePx = rad * 1.6f * pulse
+                val sizePx = rad * 1.6f * pulse * glowBrightness
                 
                 val colorsHolo = intArrayOf(
-                    0xFF00F2FE.toInt(),
-                    0xFF4FACFE.toInt(),
+                    glowColor.color1.toInt(),
+                    glowColor.color2.toInt(),
                     0x00000000
                 )
                 val stopsHolo = floatArrayOf(0.0f, 0.5f, 1.0f)
@@ -663,8 +673,9 @@ fun Sphere3D(
                     stopsHolo,
                     android.graphics.Shader.TileMode.CLAMP
                 )
-                canvasGlossPaint.shader = shaderHolo
-                nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlossPaint)
+                canvasGlowPaint.shader = shaderHolo
+                canvasGlowPaint.alpha = (0.08f * glowOpacity * 255).toInt().coerceIn(0, 255)
+                nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlowPaint)
                 
                 // 2. Trig cache
                 val cosP = frameRotationData.cosP
