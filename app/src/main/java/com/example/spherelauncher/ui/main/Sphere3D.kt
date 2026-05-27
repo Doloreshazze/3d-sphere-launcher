@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -1207,6 +1208,12 @@ fun AppSphereItem(
 ) {
     val density = LocalDensity.current.density
     
+    val shadowPaint = remember {
+        androidx.compose.ui.graphics.Paint().apply {
+            asFrameworkPaint().color = Color.Black.copy(alpha = 0.005f).toArgb()
+        }
+    }
+    
     // Dynamically calculate tile, icon and text sizing based on the number of apps
     // to ensure perfectly proportioned layout with absolutely 0 overlaps!
     val tileSize = remember(appCount, shapeType) {
@@ -1344,20 +1351,16 @@ fun AppSphereItem(
                             val depth = depthRatioProvider()
                             if (depth > 0.35f) {
                                 drawIntoCanvas { canvas ->
-                                    val paint = androidx.compose.ui.graphics.Paint().apply {
-                                        val frameworkPaint = asFrameworkPaint()
-                                        val blurRadius = 14f * density * depth
-                                        val offsetY = 8f * density * depth
-                                        // Draw the base circle almost fully transparent so it doesn't show behind transparent icons,
-                                        // but keep it technically active so Android's shadow layer is still drawn perfectly!
-                                        frameworkPaint.color = Color.Black.copy(alpha = 0.005f).toArgb()
-                                        frameworkPaint.setShadowLayer(
-                                            blurRadius,
-                                            0f,
-                                            offsetY,
-                                            Color.Black.copy(alpha = 0.42f * depth).toArgb()
-                                        )
-                                    }
+                                    val paint = shadowPaint
+                                    val frameworkPaint = paint.asFrameworkPaint()
+                                    val blurRadius = 14f * density * depth
+                                    val offsetY = 8f * density * depth
+                                    frameworkPaint.setShadowLayer(
+                                        blurRadius,
+                                        0f,
+                                        offsetY,
+                                        Color.Black.copy(alpha = 0.42f * depth).toArgb()
+                                    )
                                     val shadowRadius = (size.width / 2f) * 0.9f
                                     canvas.drawCircle(
                                         center = center,
@@ -1384,37 +1387,34 @@ fun AppSphereItem(
                             Modifier
                                 .clip(CircleShape)
                                 .border(0.8.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                                .drawWithContent {
+                                    drawContent()
+                                    val x = xProvider()
+                                    val y = yProvider()
+                                    val radius = size.width.coerceAtMost(size.height) * 0.75f
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                Color.White.copy(alpha = 0.45f), // Dynamic specular shine
+                                                Color.White.copy(alpha = 0.08f),
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = 0.42f)  // Spherical shading rim restored!
+                                            ),
+                                            center = androidx.compose.ui.geometry.Offset(
+                                                x = size.width * (0.35f - x * 0.15f),
+                                                y = size.height * (0.35f - y * 0.15f)
+                                            ),
+                                            radius = radius
+                                        ),
+                                        radius = size.width / 2f
+                                    )
+                                }
                         } else {
                             Modifier
                         }
                     ),
                 contentScale = ContentScale.Fit
             )
-            
-            // Only draw the glossy glass dome lens over standard Sphere or Polyhedron/Waterfall,
-            // keep the SOLID_SPHERE completely flat like a real matte sticker!
-            if (shapeType != ShapeType.SOLID_SPHERE && shapeType != ShapeType.POLYHEDRON && shapeType != ShapeType.FLAT_PLANE && shapeType != ShapeType.SNAKE) {
-                Box(
-                    modifier = Modifier
-                        .size(iconSize.dp)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.45f), // Dynamic specular shine
-                                    Color.White.copy(alpha = 0.08f),
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.42f)  // Spherical shading rim restored!
-                                ),
-                                center = androidx.compose.ui.geometry.Offset(
-                                    x = iconSize * density * (0.35f - xProvider() * 0.15f),
-                                    y = iconSize * density * (0.35f - yProvider() * 0.15f)
-                                ),
-                                radius = iconSize * density * 0.75f
-                            )
-                        )
-                )
-            }
         }
     }
 }
