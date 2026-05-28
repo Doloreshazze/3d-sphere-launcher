@@ -120,7 +120,8 @@ fun Sphere3D(
     isPulsingEnabled: Boolean = false,
     isAudioReactiveEnabled: Boolean = false,
     audioAmplitude: Float = 0.0f,
-    onAppClick: (AppInfo) -> Unit
+    onAppClick: (AppInfo) -> Unit,
+    onAppLongClick: ((AppInfo) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -632,33 +633,62 @@ fun Sphere3D(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(apps) {
-                        detectTapGestures { tapOffset ->
-                            if (allowClicks) {
-                                val canvasWidth = size.width
-                                val canvasHeight = size.height
-                                val tapX = tapOffset.x - canvasWidth / 2f
-                                val tapY = tapOffset.y - canvasHeight / 2f
-                                
-                                val hitTarget = lastProjectedNodes
-                                    .filter { it.depthRatio > 0.35f }
-                                    .minByOrNull { node ->
-                                        val dx = tapX - node.xProj
-                                        val dy = tapY - node.yProj
-                                        kotlin.math.sqrt(dx * dx + dy * dy)
-                                    }
+                        detectTapGestures(
+                            onTap = { tapOffset ->
+                                if (allowClicks) {
+                                    val canvasWidth = size.width
+                                    val canvasHeight = size.height
+                                    val tapX = tapOffset.x - canvasWidth / 2f
+                                    val tapY = tapOffset.y - canvasHeight / 2f
                                     
-                                if (hitTarget != null) {
-                                    val dx = tapX - hitTarget.xProj
-                                    val dy = tapY - hitTarget.yProj
-                                    val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-                                    val currentIconSize = iconSizePx * hitTarget.finalScale
-                                    val maxTouchDist = currentIconSize / 2f + 12f * densityDp
-                                    if (dist < maxTouchDist) {
-                                        onAppClick(hitTarget.appInfo)
+                                    val hitTarget = lastProjectedNodes
+                                        .filter { it.depthRatio > 0.35f }
+                                        .minByOrNull { node ->
+                                            val dx = tapX - node.xProj
+                                            val dy = tapY - node.yProj
+                                            kotlin.math.sqrt(dx * dx + dy * dy)
+                                        }
+                                        
+                                    if (hitTarget != null) {
+                                        val dx = tapX - hitTarget.xProj
+                                        val dy = tapY - hitTarget.yProj
+                                        val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                                        val currentIconSize = iconSizePx * hitTarget.finalScale
+                                        val maxTouchDist = currentIconSize / 2f + 12f * densityDp
+                                        if (dist < maxTouchDist) {
+                                            onAppClick(hitTarget.appInfo)
+                                        }
+                                    }
+                                }
+                            },
+                            onLongPress = { tapOffset ->
+                                if (allowClicks && onAppLongClick != null) {
+                                    val canvasWidth = size.width
+                                    val canvasHeight = size.height
+                                    val tapX = tapOffset.x - canvasWidth / 2f
+                                    val tapY = tapOffset.y - canvasHeight / 2f
+                                    
+                                    val hitTarget = lastProjectedNodes
+                                        .filter { it.depthRatio > 0.35f }
+                                        .minByOrNull { node ->
+                                            val dx = tapX - node.xProj
+                                            val dy = tapY - node.yProj
+                                            kotlin.math.sqrt(dx * dx + dy * dy)
+                                        }
+                                        
+                                    if (hitTarget != null) {
+                                        val dx = tapX - hitTarget.xProj
+                                        val dy = tapY - hitTarget.yProj
+                                        val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                                        val currentIconSize = iconSizePx * hitTarget.finalScale
+                                        val maxTouchDist = currentIconSize / 2f + 12f * densityDp
+                                        if (dist < maxTouchDist) {
+                                            onAppLongClick(hitTarget.appInfo)
+                                        }
                                     }
                                 }
                             }
-                        }
+                        )
                     }
             ) {
                 val ticket = frameTicket

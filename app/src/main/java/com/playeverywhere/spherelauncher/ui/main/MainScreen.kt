@@ -8,6 +8,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -52,6 +53,7 @@ fun MainScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     var showSettings by remember { mutableStateOf(false) }
+    var selectedAppForAction by remember { mutableStateOf<AppInfo?>(null) }
 
     // Intercept back presses (a launcher should prevent closing on back button)
     BackHandler {
@@ -242,7 +244,8 @@ fun MainScreen(
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
-                            }
+                            },
+                            onAppLongClick = { selectedAppForAction = it }
                         )
                     } else {
                         Sphere3D(
@@ -271,27 +274,10 @@ fun MainScreen(
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
-                            }
+                            },
+                            onAppLongClick = { selectedAppForAction = it }
                         )
                     }
-                }
-            }
-
-            if (!state.isStandardView) {
-                // 3. Floating Bottom Controls Indicator
-                Box(
-                    modifier = Modifier
-                        .padding(bottom = 12.dp)
-                        .background(Color(0x1F000000), RoundedCornerShape(12.dp))
-                        .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "Используйте жесты: Свайп - Инерция, Щипок - Зум, Наклон - 3D-эффект",
-                        fontSize = 10.sp,
-                        color = Color(0x66FFFFFF),
-                        textAlign = TextAlign.Center
-                    )
                 }
             }
         }
@@ -530,6 +516,10 @@ fun MainScreen(
                     onShowOnboarding = {
                         viewModel.showOnboarding()
                         showSettings = false
+                    },
+                    onUnhideAllApps = {
+                        viewModel.unhideAllApps()
+                        showSettings = false
                     }
                 )
             }
@@ -538,6 +528,99 @@ fun MainScreen(
         if (state.isFirstLaunch) {
             OnboardingTour(
                 onComplete = { viewModel.completeOnboarding() }
+            )
+        }
+
+        if (selectedAppForAction != null) {
+            val app = selectedAppForAction!!
+            AlertDialog(
+                onDismissRequest = { selectedAppForAction = null },
+                containerColor = Color(0xE00D0B18), // Gorgeous glassmorphic deep space dark
+                shape = RoundedCornerShape(20.dp),
+                title = {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    ) {
+                        Text(
+                            text = app.label,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00F2FE),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = app.packageName,
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.4f),
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                text = {
+                    Text(
+                        text = "Выберите действие для приложения. При скрытии иконка исчезнет с лаунчера, но приложение останется установленным. При удалении приложение будет полностью удалено с устройства.",
+                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
+                },
+                confirmButton = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.hideApp(app.packageName)
+                                selectedAppForAction = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0x33FFFFFF),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                        ) {
+                            Text("Скрыть иконку", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_DELETE).apply {
+                                        data = android.net.Uri.parse("package:${app.packageName}")
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Не удалось открыть удаление: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                                selectedAppForAction = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFFF5252).copy(alpha = 0.15f),
+                                contentColor = Color(0xFFFF5252)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.4f))
+                        ) {
+                            Text("Удалить приложение", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        TextButton(
+                            onClick = { selectedAppForAction = null },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Отмена", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                        }
+                    }
+                }
             )
         }
     }
@@ -576,7 +659,8 @@ fun SettingsSheetContent(
     onAudioReactiveChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit,
-    onShowOnboarding: () -> Unit
+    onShowOnboarding: () -> Unit,
+    onUnhideAllApps: () -> Unit
 ) {
     val systemPrimary = MaterialTheme.colorScheme.primary
     val systemSecondary = MaterialTheme.colorScheme.secondary
@@ -983,6 +1067,23 @@ fun SettingsSheetContent(
             Text("Показать инструкцию пользователя", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
 
+        if (state.hiddenAppsCount > 0) {
+            Button(
+                onClick = onUnhideAllApps,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF00F2FE).copy(alpha = 0.15f),
+                    contentColor = Color(0xFF00F2FE)
+                ),
+                border = BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.4f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Восстановить скрытые приложения (${state.hiddenAppsCount})", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
         // Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1080,6 +1181,7 @@ fun ViewTypeToggle(
 fun StandardAppGrid(
     apps: List<AppInfo>,
     onAppClick: (AppInfo) -> Unit,
+    onAppLongClick: (AppInfo) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -1092,16 +1194,19 @@ fun StandardAppGrid(
         items(apps, key = { it.packageName }) { app ->
             StandardAppCard(
                 app = app,
-                onClick = { onAppClick(app) }
+                onClick = { onAppClick(app) },
+                onLongClick = { onAppLongClick(app) }
             )
         }
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun StandardAppCard(
     app: AppInfo,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1127,7 +1232,10 @@ fun StandardAppCard(
                 ),
                 shape = RoundedCornerShape(16.dp)
             )
-            .clickable { onClick() }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(vertical = 12.dp, horizontal = 6.dp)
     ) {
         // App Icon Container with dynamic neon space glow

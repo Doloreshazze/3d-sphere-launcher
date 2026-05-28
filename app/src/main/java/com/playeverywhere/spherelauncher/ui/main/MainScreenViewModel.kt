@@ -54,7 +54,8 @@ data class MainUiState(
     val isPulsingEnabled: Boolean = false,
     val isAudioReactiveEnabled: Boolean = false,
     val audioAmplitude: Float = 0.0f,
-    val isFirstLaunch: Boolean = true
+    val isFirstLaunch: Boolean = true,
+    val hiddenAppsCount: Int = 0
 )
 
 data class SettingsState(
@@ -68,6 +69,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val appLoader = AppLoader(application)
     private val prefs = application.getSharedPreferences("sphere_launcher_prefs", android.content.Context.MODE_PRIVATE)
     private val isFirstLaunchState = MutableStateFlow(prefs.getBoolean("first_launch", true))
+    private val hiddenPackagesState = MutableStateFlow<Set<String>>(
+        prefs.getStringSet("hidden_packages", emptySet()) ?: emptySet()
+    )
 
     private val appsState = MutableStateFlow<List<AppInfo>>(emptyList())
     private val styleState = MutableStateFlow(SphereStyle.FLOATING_ICONS)
@@ -111,7 +115,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isPulsingEnabledState,
         isAudioReactiveEnabledState,
         audioAmplitudeState,
-        isFirstLaunchState
+        isFirstLaunchState,
+        hiddenPackagesState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -129,14 +134,16 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val isAudioReactiveEnabled = array[12] as Boolean
         val audioAmplitude = array[13] as Float
         val isFirstLaunch = array[14] as Boolean
+        val hiddenPackages = array[15] as Set<String>
 
+        val visibleApps = apps.filter { it.packageName !in hiddenPackages }
         val filtered = if (query.isBlank()) {
-            apps
+            visibleApps
         } else {
-            apps.filter { it.label.contains(query, ignoreCase = true) }
+            visibleApps.filter { it.label.contains(query, ignoreCase = true) }
         }
         MainUiState(
-            apps = apps,
+            apps = visibleApps,
             filteredApps = filtered,
             style = settings.style,
             isAutoDriftEnabled = settings.isAutoDriftEnabled,
@@ -154,7 +161,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isPulsingEnabled = isPulsingEnabled,
             isAudioReactiveEnabled = isAudioReactiveEnabled,
             audioAmplitude = audioAmplitude,
-            isFirstLaunch = isFirstLaunch
+            isFirstLaunch = isFirstLaunch,
+            hiddenAppsCount = hiddenPackages.size
         )
     }.stateIn(
         viewModelScope,
@@ -403,5 +411,17 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun showOnboarding() {
         isFirstLaunchState.value = true
+    }
+
+    fun hideApp(packageName: String) {
+        val current = hiddenPackagesState.value.toMutableSet()
+        current.add(packageName)
+        prefs.edit().putStringSet("hidden_packages", current).apply()
+        hiddenPackagesState.value = current
+    }
+
+    fun unhideAllApps() {
+        prefs.edit().putStringSet("hidden_packages", emptySet()).apply()
+        hiddenPackagesState.value = emptySet()
     }
 }
