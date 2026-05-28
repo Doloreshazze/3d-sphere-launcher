@@ -21,7 +21,8 @@ enum class ShapeType {
     POLYHEDRON,
     SOLID_SPHERE,
     FLAT_PLANE,
-    SNAKE
+    SNAKE,
+    HEAD
 }
 
 enum class GlowColorOption(val color1: Long, val color2: Long, val label: String, val previewColor: Long) {
@@ -222,8 +223,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isPulsingEnabledState.value = enabled
     }
 
-    // --- LOW-LATENCY MICROPHONE AUDIO VISUALIZER ENGINE ---
+    // --- LOW-LATENCY DUAL-MODE AUDIO VISUALIZER ENGINE ---
     private var audioRecord: android.media.AudioRecord? = null
+    private var visualizer: android.media.audiofx.Visualizer? = null
     private var audioJob: kotlinx.coroutines.Job? = null
 
     fun setAudioReactiveEnabled(enabled: Boolean) {
@@ -239,6 +241,51 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         if (audioJob != null) return // Already running
         
         audioJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            var smoothedAmp = 0f
+            
+            // Tier 1: Try Global System-wide Visualizer first (captures YouTube/Spotify directly)
+            try {
+                val maxResolution = android.media.audiofx.Visualizer.getCaptureSizeRange()[1]
+                val vis = android.media.audiofx.Visualizer(0).apply {
+                    captureSize = maxResolution
+                }
+                
+                vis.setDataCaptureListener(object : android.media.audiofx.Visualizer.OnDataCaptureListener {
+                    override fun onWaveFormDataCapture(visualizer: android.media.audiofx.Visualizer?, waveform: ByteArray?, samplingRate: Int) {
+                        if (waveform == null || !isAudioReactiveEnabledState.value) return
+                        
+                        // Compute amplitude (RMS) from waveform bytes (unsigned 8-bit PCM offset by 128)
+                        var sum = 0.0
+                        for (i in 0 until waveform.size) {
+                            val v = (waveform[i].toInt() and 0xFF) - 128
+                            sum += v * v
+                        }
+                        val rms = kotlin.math.sqrt(sum / waveform.size)
+                        
+                        // Scale and normalize 8-bit RMS (max possible RMS is 128)
+                        val normalized = ((rms - 1.5) / 54.0).coerceIn(0.0, 1.0).toFloat()
+                        
+                        // Low-pass exponential filter
+                        smoothedAmp = smoothedAmp * 0.72f + normalized * 0.28f
+                        audioAmplitudeState.value = smoothedAmp
+                    }
+
+                    override fun onFftDataCapture(visualizer: android.media.audiofx.Visualizer?, fft: ByteArray?, samplingRate: Int) {}
+                }, android.media.audiofx.Visualizer.getMaxCaptureRate() / 2, true, false)
+                
+                visualizer = vis
+                vis.enabled = true
+                
+                while (isAudioReactiveEnabledState.value) {
+                    kotlinx.coroutines.delay(100L)
+                }
+                return@launch // Success!
+            } catch (e: Exception) {
+                android.util.Log.w("SphereViewModel", "Visualizer(0) failed, falling back to AudioRecord: ${e.message}")
+                stopVisualizerInternal()
+            }
+            
+            // Tier 2: Fallback to Microphone recorder
             val sampleRate = 16000
             val channelConfig = android.media.AudioFormat.CHANNEL_IN_MONO
             val audioFormat = android.media.AudioFormat.ENCODING_PCM_16BIT
@@ -275,7 +322,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 record.startRecording()
                 
                 val audioBuffer = ShortArray(bufferSize / 2)
-                var smoothedAmp = 0f
                 
                 while (isAudioReactiveEnabledState.value) {
                     val readResult = record.read(audioBuffer, 0, audioBuffer.size)
@@ -287,14 +333,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                         }
                         val rms = kotlin.math.sqrt(sum / readResult)
                         
-                        // Scale RMS to clean, contrasty 0f..1f amplitude trigger (ambient baseline RMS is 50-200)
                         val normalized = ((rms - 150.0) / 4500.0).coerceIn(0.0, 1.0).toFloat()
-                        
-                        // Low-pass exponential filter to keep physics perfectly buttery
                         smoothedAmp = smoothedAmp * 0.75f + normalized * 0.25f
                         audioAmplitudeState.value = smoothedAmp
                     }
-                    kotlinx.coroutines.delay(16L) // ~60Hz sample check matches screen refreshing
+                    kotlinx.coroutines.delay(16L)
                 }
             } catch (e: SecurityException) {
                 e.printStackTrace()
@@ -307,6 +350,18 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
     
+    private fun stopVisualizerInternal() {
+        try {
+            visualizer?.apply {
+                enabled = false
+                release()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        visualizer = null
+    }
+
     private fun stopAudioRecordingInternal() {
         try {
             audioRecord?.apply {
@@ -325,6 +380,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private fun stopAudioRecording() {
         audioJob?.cancel()
         audioJob = null
+        stopVisualizerInternal()
         stopAudioRecordingInternal()
     }
 

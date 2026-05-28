@@ -477,6 +477,54 @@ fun Sphere3D(
                 
                 SphereNode(app, x, y, z)
             }
+        } else if (shapeType == ShapeType.HEAD) {
+            // Custom 3D Human Head model!
+            val goldenAngle = Math.PI * (3.0 - sqrt(5.0))
+            apps.mapIndexed { index, app ->
+                val y = 1.0f - (index.toFloat() / (count - 1)) * 2.0f
+                val radiusAtY = sqrt((1.0f - y * y).coerceAtLeast(0f))
+                val theta = (index * goldenAngle).toFloat()
+                val x = cos(theta.toDouble()).toFloat() * radiusAtY
+                val z = sin(theta.toDouble()).toFloat() * radiusAtY
+                
+                // Deform the sphere mathematically into a gorgeous 3D Human Head/Face sculpture
+                // Cranium elongation (head is taller than it is wide)
+                var newY = y * 1.15f
+                
+                // Compression for narrower head
+                var newX = x * 0.82f
+                var newZ = z * 0.95f
+                
+                if (newZ > 0f) {
+                    // Narrow face front
+                    newX *= 0.9f
+                    
+                    // Nose protrusion (front center)
+                    if (newY in -0.05f..0.2f && kotlin.math.abs(newX) < 0.12f) {
+                        val noseIntensity = (1.0f - kotlin.math.abs(newX) / 0.12f) * (1.0f - kotlin.math.abs(newY - 0.08f) / 0.13f)
+                        newZ += 0.35f * noseIntensity
+                    }
+                    
+                    // Chin protrusion (lower center)
+                    if (newY in -0.65f..-0.35f && kotlin.math.abs(newX) < 0.15f) {
+                        val chinIntensity = (1.0f - kotlin.math.abs(newX) / 0.15f) * (1.0f - kotlin.math.abs(newY + 0.5f) / 0.15f)
+                        newZ += 0.18f * chinIntensity
+                        newY -= 0.05f * chinIntensity
+                    }
+                    
+                    // Forehead slope
+                    if (newY > 0.3f) {
+                        newZ -= (newY - 0.3f) * 0.15f
+                    }
+                }
+                
+                // Jaw narrowing
+                if (newY < -0.4f) {
+                    newX *= (1.0f - (newY + 0.4f) * 0.3f)
+                }
+                
+                SphereNode(app, newX, newY, newZ)
+            }
         } else {
             // All our shapes (Sphere, Polyhedron, Solid Sphere) distribute points perfectly uniformly 
             // across the entire sphere bounds to maximize visual balance and eliminate overlaps!
@@ -621,7 +669,7 @@ fun Sphere3D(
             },
         contentAlignment = Alignment.Center
     ) {
-        if (shapeType == ShapeType.SPHERE) {
+        if (shapeType == ShapeType.SPHERE || shapeType == ShapeType.HEAD) {
             val tileSize = (400f / kotlin.math.sqrt(apps.size.toFloat())).coerceIn(45f, 80f)
             val iconSize = tileSize * 0.70f
             

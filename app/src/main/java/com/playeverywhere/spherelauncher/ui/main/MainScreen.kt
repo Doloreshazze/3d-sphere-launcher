@@ -527,6 +527,7 @@ fun SettingsSheetContent(
         ) {
             val shapes = listOf(
                 Triple(ShapeType.SPHERE, "Сфера", Color(0xFF00F2FE)),
+                Triple(ShapeType.HEAD, "Голова", Color(0xFFFF55BB)),
                 Triple(ShapeType.SNAKE, "Змейка", Color(0xFF00FF88))
             )
             shapes.forEach { (shapeOption, label, colorAccent) ->
