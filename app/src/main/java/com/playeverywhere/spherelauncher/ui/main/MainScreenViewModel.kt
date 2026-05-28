@@ -53,7 +53,8 @@ data class MainUiState(
     val glowBrightness: Float = 1.0f,
     val isPulsingEnabled: Boolean = false,
     val isAudioReactiveEnabled: Boolean = false,
-    val audioAmplitude: Float = 0.0f
+    val audioAmplitude: Float = 0.0f,
+    val isFirstLaunch: Boolean = true
 )
 
 data class SettingsState(
@@ -65,6 +66,8 @@ data class SettingsState(
 
 class MainScreenViewModel(application: Application) : AndroidViewModel(application) {
     private val appLoader = AppLoader(application)
+    private val prefs = application.getSharedPreferences("sphere_launcher_prefs", android.content.Context.MODE_PRIVATE)
+    private val isFirstLaunchState = MutableStateFlow(prefs.getBoolean("first_launch", true))
 
     private val appsState = MutableStateFlow<List<AppInfo>>(emptyList())
     private val styleState = MutableStateFlow(SphereStyle.FLOATING_ICONS)
@@ -107,7 +110,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         glowBrightnessState,
         isPulsingEnabledState,
         isAudioReactiveEnabledState,
-        audioAmplitudeState
+        audioAmplitudeState,
+        isFirstLaunchState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -124,6 +128,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val isPulsingEnabled = array[11] as Boolean
         val isAudioReactiveEnabled = array[12] as Boolean
         val audioAmplitude = array[13] as Float
+        val isFirstLaunch = array[14] as Boolean
 
         val filtered = if (query.isBlank()) {
             apps
@@ -148,7 +153,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             glowBrightness = glowBrightness,
             isPulsingEnabled = isPulsingEnabled,
             isAudioReactiveEnabled = isAudioReactiveEnabled,
-            audioAmplitude = audioAmplitude
+            audioAmplitude = audioAmplitude,
+            isFirstLaunch = isFirstLaunch
         )
     }.stateIn(
         viewModelScope,
@@ -388,5 +394,14 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     override fun onCleared() {
         super.onCleared()
         stopAudioRecording()
+    }
+
+    fun completeOnboarding() {
+        prefs.edit().putBoolean("first_launch", false).apply()
+        isFirstLaunchState.value = false
+    }
+
+    fun showOnboarding() {
+        isFirstLaunchState.value = true
     }
 }

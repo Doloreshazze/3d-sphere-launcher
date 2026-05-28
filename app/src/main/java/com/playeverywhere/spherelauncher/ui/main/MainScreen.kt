@@ -4,6 +4,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -296,36 +297,108 @@ fun MainScreen(
         }
 
         if (!state.isStandardView) {
-            // 4. Floating Glowing Settings Button (Bottom-Right)
-            Box(
+            // 5. Floating Bottom-Right Stack (Camera Quick Button + Settings Button)
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(24.dp)
-                    .size(54.dp)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF00F2FE),
-                                Color(0xFF4FACFE)
-                            )
-                        ),
-                        shape = CircleShape
-                    )
-                    .border(
-                        width = 2.dp,
-                        color = Color.White.copy(alpha = 0.6f),
-                        shape = CircleShape
-                    )
-                    .clip(CircleShape)
-                    .clickable { showSettings = true },
-                contentAlignment = Alignment.Center
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Настройки",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
-                )
+                // Camera Quick Launch Button
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFFFF55BB),
+                                    Color(0xFFFF2A68)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = Color.White.copy(alpha = 0.6f),
+                            shape = CircleShape
+                        )
+                        .clip(CircleShape)
+                        .clickable {
+                            try {
+                                val intent = Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Камера недоступна: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.foundation.Canvas(modifier = Modifier.size(24.dp)) {
+                        val tintColor = Color.Black
+                        val strokeWidth = 2.dp.toPx()
+                        
+                        // Draw top bump
+                        drawRect(
+                            color = tintColor,
+                            topLeft = androidx.compose.ui.geometry.Offset(size.width / 2f - 4.dp.toPx(), 2.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(8.dp.toPx(), 3.dp.toPx())
+                        )
+                        // Draw camera body
+                        drawRoundRect(
+                            color = tintColor,
+                            topLeft = androidx.compose.ui.geometry.Offset(2.dp.toPx(), 5.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(20.dp.toPx(), 14.dp.toPx()),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx()),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+                        )
+                        // Draw lens
+                        drawCircle(
+                            color = tintColor,
+                            radius = 3.8f.dp.toPx(),
+                            center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f + 1.dp.toPx()),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+                        )
+                        // Draw flash dot
+                        drawCircle(
+                            color = tintColor,
+                            radius = 1.dp.toPx(),
+                            center = androidx.compose.ui.geometry.Offset(size.width - 5.dp.toPx(), 8.dp.toPx())
+                        )
+                    }
+                }
+
+                // Settings Button
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF00F2FE),
+                                    Color(0xFF4FACFE)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = Color.White.copy(alpha = 0.6f),
+                            shape = CircleShape
+                        )
+                        .clip(CircleShape)
+                        .clickable { showSettings = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Настройки",
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
             // 6. Floating Cyber Action Stack (Bottom-Left)
@@ -453,9 +526,19 @@ fun MainScreen(
                         viewModel.loadApps()
                         showSettings = false
                     },
-                    onClose = { showSettings = false }
+                    onClose = { showSettings = false },
+                    onShowOnboarding = {
+                        viewModel.showOnboarding()
+                        showSettings = false
+                    }
                 )
             }
+        }
+
+        if (state.isFirstLaunch) {
+            OnboardingTour(
+                onComplete = { viewModel.completeOnboarding() }
+            )
         }
     }
 }
@@ -492,7 +575,8 @@ fun SettingsSheetContent(
     onPulsingChanged: (Boolean) -> Unit,
     onAudioReactiveChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onShowOnboarding: () -> Unit
 ) {
     val systemPrimary = MaterialTheme.colorScheme.primary
     val systemSecondary = MaterialTheme.colorScheme.secondary
@@ -527,8 +611,6 @@ fun SettingsSheetContent(
         ) {
             val shapes = listOf(
                 Triple(ShapeType.SPHERE, "Сфера", Color(0xFF00F2FE)),
-                Triple(ShapeType.CUBE, "Куб", Color(0xFFFFCC00)),
-                Triple(ShapeType.PYRAMID, "Пирамида", Color(0xFFFF55BB)),
                 Triple(ShapeType.SNAKE, "Змейка", Color(0xFF00FF88))
             )
             shapes.forEach { (shapeOption, label, colorAccent) ->
@@ -756,7 +838,7 @@ fun SettingsSheetContent(
             }
         }
 
-        if (state.shapeType == ShapeType.SPHERE || state.shapeType == ShapeType.CUBE || state.shapeType == ShapeType.PYRAMID) {
+        if (state.shapeType == ShapeType.SPHERE) {
             Spacer(modifier = Modifier.height(12.dp))
             Box(
                 modifier = Modifier
@@ -885,7 +967,21 @@ fun SettingsSheetContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // User Guide Tour Button
+        Button(
+            onClick = onShowOnboarding,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFF55BB).copy(alpha = 0.15f),
+                contentColor = Color(0xFFFF55BB)
+            ),
+            border = BorderStroke(1.dp, Color(0xFFFF55BB).copy(alpha = 0.4f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Показать инструкцию пользователя", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
 
         // Action Buttons
         Row(
@@ -1073,5 +1169,280 @@ fun StandardAppCard(
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp)
         )
+    }
+}
+
+@Composable
+fun OnboardingTour(
+    onComplete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var currentSlide by remember { mutableStateOf(0) }
+    val totalSlides = 3
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.85f))
+            .clickable(enabled = false) {}, // Intercept clicks to background
+        contentAlignment = Alignment.Center
+    ) {
+        // Main Glassmorphic Dialog Card
+        Box(
+            modifier = Modifier
+                .width(320.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0x2BFFFFFF),
+                            Color(0x0FFFFFFF)
+                        )
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                )
+                .border(
+                    width = 1.8.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF00F2FE),
+                            Color(0xFFFF55BB)
+                        )
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                )
+                .padding(24.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Interactive Animated Visual for each slide
+                Box(
+                    modifier = Modifier
+                        .size(120.dp)
+                        .background(Color(0x1F000000), CircleShape)
+                        .border(1.dp, Color(0x12FFFFFF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when (currentSlide) {
+                        0 -> {
+                            // Slide 1: Glowing 3D Wireframe Sphere
+                            val infiniteTransition = rememberInfiniteTransition(label = "sphere")
+                            val rotAngle by infiniteTransition.animateFloat(
+                                initialValue = 0f,
+                                targetValue = 360f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(4000, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Restart
+                                ),
+                                label = "rot"
+                            )
+                            androidx.compose.foundation.Canvas(modifier = Modifier.size(80.dp)) {
+                                val cX = size.width / 2f
+                                val cY = size.height / 2f
+                                val rad = size.width / 2f
+                                val strokeW = 1.5.dp.toPx()
+                                
+                                drawCircle(
+                                    color = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                                    radius = rad,
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
+                                )
+                                drawCircle(
+                                    color = Color(0xFF00F2FE).copy(alpha = 0.15f),
+                                    radius = rad * 0.6f,
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
+                                )
+                                
+                                // Rotating ellipse lines to simulate 3D rotation
+                                val ellipseW = rad * kotlin.math.abs(kotlin.math.cos(Math.toRadians(rotAngle.toDouble()))).toFloat()
+                                drawOval(
+                                    color = Color(0xFF00F2FE).copy(alpha = 0.4f),
+                                    topLeft = androidx.compose.ui.geometry.Offset(cX - ellipseW, 0f),
+                                    size = androidx.compose.ui.geometry.Size(ellipseW * 2f, size.height),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
+                                )
+                                val ellipseH = rad * kotlin.math.abs(kotlin.math.sin(Math.toRadians(rotAngle.toDouble()))).toFloat()
+                                drawOval(
+                                    color = Color(0xFF00F2FE).copy(alpha = 0.4f),
+                                    topLeft = androidx.compose.ui.geometry.Offset(0f, cY - ellipseH),
+                                    size = androidx.compose.ui.geometry.Size(size.width, ellipseH * 2f),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
+                                )
+                            }
+                        }
+                        1 -> {
+                            // Slide 2: Symmetrical buttons panel mock
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .background(Color(0xFF00F2FE).copy(alpha = 0.2f), CircleShape)
+                                        .border(2.dp, Color(0xFF00F2FE), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF00F2FE), modifier = Modifier.size(20.dp))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .background(Color(0xFFFF55BB).copy(alpha = 0.2f), CircleShape)
+                                        .border(2.dp, Color(0xFFFF55BB), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    androidx.compose.foundation.Canvas(modifier = Modifier.size(20.dp)) {
+                                        val tintColor = Color(0xFFFF55BB)
+                                        val strokeWidth = 1.5.dp.toPx()
+                                        drawRect(
+                                            color = tintColor,
+                                            topLeft = androidx.compose.ui.geometry.Offset(size.width / 2f - 3.dp.toPx(), 2.dp.toPx()),
+                                            size = androidx.compose.ui.geometry.Size(6.dp.toPx(), 2.dp.toPx())
+                                        )
+                                        drawRoundRect(
+                                            color = tintColor,
+                                            topLeft = androidx.compose.ui.geometry.Offset(1.dp.toPx(), 4.dp.toPx()),
+                                            size = androidx.compose.ui.geometry.Size(18.dp.toPx(), 13.dp.toPx()),
+                                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx()),
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+                                        )
+                                        drawCircle(
+                                            color = tintColor,
+                                            radius = 3f.dp.toPx(),
+                                            center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f + 1.dp.toPx()),
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        2 -> {
+                            // Slide 3: Pulsing audio wave visualizer
+                            val infiniteTransition = rememberInfiniteTransition(label = "audio")
+                            val anim1 by infiniteTransition.animateFloat(initialValue = 0.2f, targetValue = 0.9f, animationSpec = infiniteRepeatable(tween(550, easing = LinearEasing), RepeatMode.Reverse), label = "a1")
+                            val anim2 by infiniteTransition.animateFloat(initialValue = 0.4f, targetValue = 1.0f, animationSpec = infiniteRepeatable(tween(400, easing = LinearEasing), RepeatMode.Reverse), label = "a2")
+                            val anim3 by infiniteTransition.animateFloat(initialValue = 0.1f, targetValue = 0.8f, animationSpec = infiniteRepeatable(tween(650, easing = LinearEasing), RepeatMode.Reverse), label = "a3")
+                            val anim4 by infiniteTransition.animateFloat(initialValue = 0.3f, targetValue = 0.95f, animationSpec = infiniteRepeatable(tween(480, easing = LinearEasing), RepeatMode.Reverse), label = "a4")
+                            
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.height(60.dp)
+                            ) {
+                                val heights = listOf(anim1, anim2, anim3, anim4, anim1)
+                                val colors = listOf(Color(0xFF00F2FE), Color(0xFF4FACFE), Color(0xFFFF55BB), Color(0xFFFF2A68), Color(0xFF00FF88))
+                                heights.forEachIndexed { i, scale ->
+                                    Box(
+                                        modifier = Modifier
+                                            .width(5.dp)
+                                            .fillMaxHeight(scale)
+                                            .background(colors[i % colors.size], RoundedCornerShape(2.5.dp))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Title
+                val titles = listOf(
+                    "3D Сфера приложений",
+                    "Быстрый доступ",
+                    "Музыкальный бит"
+                )
+                Text(
+                    text = titles[currentSlide],
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Description
+                val descriptions = listOf(
+                    "Добро пожаловать! Ваши приложения парят в трехмерном пространстве. Вращайте сферу свайпами в любом направлении и запускайте их в одно касание.",
+                    "В левом нижнем углу замораживайте вращение сферы кнопкой «Замок» или управляйте инерцией. В правом нижнем углу мгновенно открывайте Камеру одной кнопкой!",
+                    "Включите режим «Аудио-реактивность» в настройках: сфера и неоновый туман начнут динамично раздуваться и вспыхивать в такт музыке на YouTube или вашему голосу."
+                )
+                Text(
+                    text = descriptions[currentSlide],
+                    color = Color(0xFFCCCCCC),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.height(80.dp)
+                )
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Pager Indicators
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(bottom = 20.dp)
+                ) {
+                    repeat(totalSlides) { i ->
+                        val isActive = i == currentSlide
+                        Box(
+                            modifier = Modifier
+                                .height(6.dp)
+                                .width(if (isActive) 18.dp else 6.dp)
+                                .background(
+                                    color = if (isActive) Color(0xFF00F2FE) else Color(0x33FFFFFF),
+                                    shape = RoundedCornerShape(3.dp)
+                                )
+                        )
+                    }
+                }
+                
+                // Bottom control row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (currentSlide < totalSlides - 1) {
+                        Text(
+                            text = "Пропустить",
+                            color = Color(0x80FFFFFF),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier
+                                .clickable { onComplete() }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.width(70.dp))
+                    }
+                    
+                    Button(
+                        onClick = {
+                            if (currentSlide < totalSlides - 1) {
+                                currentSlide++
+                            } else {
+                                onComplete()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00F2FE),
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = if (currentSlide == totalSlides - 1) "Начать" else "Далее",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
     }
 }
