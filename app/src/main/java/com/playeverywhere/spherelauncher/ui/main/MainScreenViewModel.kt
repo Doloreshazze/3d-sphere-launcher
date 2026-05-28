@@ -21,8 +21,7 @@ enum class ShapeType {
     POLYHEDRON,
     SOLID_SPHERE,
     FLAT_PLANE,
-    SNAKE,
-    HEAD
+    SNAKE
 }
 
 enum class GlowColorOption(val color1: Long, val color2: Long, val label: String, val previewColor: Long) {
