@@ -1286,7 +1286,7 @@ fun OnboardingTour(
     modifier: Modifier = Modifier
 ) {
     var currentSlide by remember { mutableStateOf(0) }
-    val totalSlides = 3
+    val totalSlides = 4
 
     Box(
         modifier = modifier
@@ -1334,6 +1334,66 @@ fun OnboardingTour(
                 ) {
                     when (currentSlide) {
                         0 -> {
+                            // Slide 0: Permission Disclosure Shield with dynamic green pulse
+                            val infiniteTransition = rememberInfiniteTransition(label = "shield")
+                            val pulseScale by infiniteTransition.animateFloat(
+                                initialValue = 0.85f,
+                                targetValue = 1.15f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(1200, easing = FastOutSlowInEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "pulse"
+                            )
+                            androidx.compose.foundation.Canvas(modifier = Modifier.size(80.dp)) {
+                                val cX = size.width / 2f
+                                val cY = size.height / 2f
+                                val width = size.width
+                                val height = size.height
+                                
+                                // Glowing background pulse
+                                drawCircle(
+                                    color = Color(0xFF00FF88).copy(alpha = 0.15f * (2f - pulseScale)),
+                                    radius = (width / 2f) * pulseScale
+                                )
+                                
+                                // Shield path drawing
+                                val shieldPath = androidx.compose.ui.graphics.Path().apply {
+                                    moveTo(cX, cY - 24.dp.toPx())
+                                    quadraticTo(cX + 18.dp.toPx(), cY - 24.dp.toPx(), cX + 20.dp.toPx(), cY - 16.dp.toPx())
+                                    lineTo(cX + 20.dp.toPx(), cY + 4.dp.toPx())
+                                    quadraticTo(cX + 20.dp.toPx(), cY + 18.dp.toPx(), cX, cY + 24.dp.toPx())
+                                    quadraticTo(cX - 20.dp.toPx(), cY + 18.dp.toPx(), cX - 20.dp.toPx(), cY + 4.dp.toPx())
+                                    lineTo(cX - 20.dp.toPx(), cY - 16.dp.toPx())
+                                    quadraticTo(cX - 18.dp.toPx(), cY - 24.dp.toPx(), cX, cY - 24.dp.toPx())
+                                    close()
+                                }
+                                
+                                drawPath(
+                                    path = shieldPath,
+                                    color = Color(0xFF00FF88).copy(alpha = 0.2f)
+                                )
+                                
+                                drawPath(
+                                    path = shieldPath,
+                                    color = Color(0xFF00FF88),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                                )
+                                
+                                // Inner keyhole
+                                drawCircle(
+                                    color = Color(0xFF00FF88),
+                                    radius = 4.dp.toPx(),
+                                    center = androidx.compose.ui.geometry.Offset(cX, cY - 2.dp.toPx())
+                                )
+                                drawRect(
+                                    color = Color(0xFF00FF88),
+                                    topLeft = androidx.compose.ui.geometry.Offset(cX - 2.dp.toPx(), cY + 2.dp.toPx()),
+                                    size = androidx.compose.ui.geometry.Size(4.dp.toPx(), 8.dp.toPx())
+                                )
+                            }
+                        }
+                        1 -> {
                             // Slide 1: Glowing 3D Wireframe Sphere
                             val infiniteTransition = rememberInfiniteTransition(label = "sphere")
                             val rotAngle by infiniteTransition.animateFloat(
@@ -1379,7 +1439,7 @@ fun OnboardingTour(
                                 )
                             }
                         }
-                        1 -> {
+                        2 -> {
                             // Slide 2: Symmetrical buttons panel mock
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -1426,7 +1486,7 @@ fun OnboardingTour(
                                 }
                             }
                         }
-                        2 -> {
+                        3 -> {
                             // Slide 3: Pulsing audio wave visualizer
                             val infiniteTransition = rememberInfiniteTransition(label = "audio")
                             val anim1 by infiniteTransition.animateFloat(initialValue = 0.2f, targetValue = 0.9f, animationSpec = infiniteRepeatable(tween(550, easing = LinearEasing), RepeatMode.Reverse), label = "a1")
@@ -1458,6 +1518,7 @@ fun OnboardingTour(
                 
                 // Title
                 val titles = listOf(
+                    "Доступ к приложениям",
                     "3D Сфера приложений",
                     "Быстрый доступ",
                     "Музыкальный бит"
@@ -1474,6 +1535,7 @@ fun OnboardingTour(
                 
                 // Description
                 val descriptions = listOf(
+                    "Для работы лаунчеру требуется ваше согласие на получение списка приложений (QUERY_ALL_PACKAGES). Это используется исключительно локально на вашем устройстве для отображения иконок в 3D Сфере и 2D сетке, а также их запуска. Мы гарантируем 100% приватность.",
                     "Добро пожаловать! Ваши приложения парят в трехмерном пространстве. Вращайте сферу свайпами в любом направлении и запускайте их в одно касание.",
                     "В левом нижнем углу замораживайте вращение сферы кнопкой «Замок» или управляйте инерцией. В правом нижнем углу мгновенно открывайте Камеру одной кнопкой!",
                     "Включите режим «Аудио-реактивность» в настройках: сфера и неоновый туман начнут динамично раздуваться и вспыхивать в такт музыке на YouTube или вашему голосу."
@@ -1544,7 +1606,7 @@ fun OnboardingTour(
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
                     ) {
                         Text(
-                            text = if (currentSlide == totalSlides - 1) "Начать" else "Далее",
+                            text = if (currentSlide == 0) "Согласиться" else if (currentSlide == totalSlides - 1) "Начать" else "Далее",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
