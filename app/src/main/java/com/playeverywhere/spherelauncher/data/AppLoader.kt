@@ -9,20 +9,20 @@ import android.graphics.drawable.Drawable
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import android.content.pm.LauncherApps
-import android.os.Process
 
 class AppLoader(private val context: Context) {
     suspend fun loadInstalledApps(): List<AppInfo> = withContext(Dispatchers.IO) {
-        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-        val user = Process.myUserHandle()
-        val resolveInfos = launcherApps.getActivityList(null, user)
+        val pm = context.packageManager
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
         resolveInfos.mapNotNull { resolveInfo ->
             try {
-                val label = resolveInfo.label.toString()
-                val packageName = resolveInfo.componentName.packageName
-                val activityName = resolveInfo.componentName.className
-                val rawIcon = resolveInfo.getIcon(0)
+                val label = resolveInfo.loadLabel(pm).toString()
+                val packageName = resolveInfo.activityInfo.packageName
+                val activityName = resolveInfo.activityInfo.name
+                val rawIcon = resolveInfo.loadIcon(pm)
                 val rawBitmap = drawableToBitmap(rawIcon)
                 val circularBitmap = getCircularBitmap(rawBitmap)
                 val iconBitmap = circularBitmap.asImageBitmap()
