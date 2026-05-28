@@ -48,7 +48,10 @@ data class MainUiState(
     val isInertiaEnabled: Boolean = true,
     val glowColor: GlowColorOption = GlowColorOption.SYSTEM,
     val glowOpacity: Float = 1.0f,
-    val glowBrightness: Float = 1.0f
+    val glowBrightness: Float = 1.0f,
+    val isPulsingEnabled: Boolean = false,
+    val isAudioReactiveEnabled: Boolean = false,
+    val audioAmplitude: Float = 0.0f
 )
 
 data class SettingsState(
@@ -75,6 +78,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val glowColorState = MutableStateFlow(GlowColorOption.SYSTEM)
     private val glowOpacityState = MutableStateFlow(1.0f)
     private val glowBrightnessState = MutableStateFlow(1.0f)
+    private val isPulsingEnabledState = MutableStateFlow(false)
+    private val isAudioReactiveEnabledState = MutableStateFlow(false)
+    private val audioAmplitudeState = MutableStateFlow(0.0f)
 
     private val settingsFlow = combine(
         styleState,
@@ -96,7 +102,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isInertiaEnabledState,
         glowColorState,
         glowOpacityState,
-        glowBrightnessState
+        glowBrightnessState,
+        isPulsingEnabledState,
+        isAudioReactiveEnabledState,
+        audioAmplitudeState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -110,6 +119,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val glowColor = array[8] as GlowColorOption
         val glowOpacity = array[9] as Float
         val glowBrightness = array[10] as Float
+        val isPulsingEnabled = array[11] as Boolean
+        val isAudioReactiveEnabled = array[12] as Boolean
+        val audioAmplitude = array[13] as Float
 
         val filtered = if (query.isBlank()) {
             apps
@@ -131,7 +143,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isInertiaEnabled = isInertiaEnabled,
             glowColor = glowColor,
             glowOpacity = glowOpacity,
-            glowBrightness = glowBrightness
+            glowBrightness = glowBrightness,
+            isPulsingEnabled = isPulsingEnabled,
+            isAudioReactiveEnabled = isAudioReactiveEnabled,
+            audioAmplitude = audioAmplitude
         )
     }.stateIn(
         viewModelScope,
@@ -201,5 +216,120 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setGlowBrightness(brightness: Float) {
         glowBrightnessState.value = brightness
+    }
+
+    fun setPulsingEnabled(enabled: Boolean) {
+        isPulsingEnabledState.value = enabled
+    }
+
+    // --- LOW-LATENCY MICROPHONE AUDIO VISUALIZER ENGINE ---
+    private var audioRecord: android.media.AudioRecord? = null
+    private var audioJob: kotlinx.coroutines.Job? = null
+
+    fun setAudioReactiveEnabled(enabled: Boolean) {
+        isAudioReactiveEnabledState.value = enabled
+        if (enabled) {
+            startAudioRecording()
+        } else {
+            stopAudioRecording()
+        }
+    }
+
+    private fun startAudioRecording() {
+        if (audioJob != null) return // Already running
+        
+        audioJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val sampleRate = 16000
+            val channelConfig = android.media.AudioFormat.CHANNEL_IN_MONO
+            val audioFormat = android.media.AudioFormat.ENCODING_PCM_16BIT
+            val bufferSize = android.media.AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+            
+            if (bufferSize == android.media.AudioRecord.ERROR || bufferSize == android.media.AudioRecord.ERROR_BAD_VALUE) {
+                return@launch
+            }
+            
+            try {
+                if (androidx.core.content.ContextCompat.checkSelfPermission(
+                        getApplication(),
+                        android.Manifest.permission.RECORD_AUDIO
+                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    isAudioReactiveEnabledState.value = false
+                    return@launch
+                }
+
+                val record = android.media.AudioRecord(
+                    android.media.MediaRecorder.AudioSource.MIC,
+                    sampleRate,
+                    channelConfig,
+                    audioFormat,
+                    bufferSize * 2
+                )
+                
+                if (record.state != android.media.AudioRecord.STATE_INITIALIZED) {
+                    record.release()
+                    return@launch
+                }
+                
+                audioRecord = record
+                record.startRecording()
+                
+                val audioBuffer = ShortArray(bufferSize / 2)
+                var smoothedAmp = 0f
+                
+                while (isAudioReactiveEnabledState.value) {
+                    val readResult = record.read(audioBuffer, 0, audioBuffer.size)
+                    if (readResult > 0) {
+                        var sum = 0.0
+                        for (i in 0 until readResult) {
+                            val sample = audioBuffer[i].toDouble()
+                            sum += sample * sample
+                        }
+                        val rms = kotlin.math.sqrt(sum / readResult)
+                        
+                        // Scale RMS to clean, contrasty 0f..1f amplitude trigger (ambient baseline RMS is 50-200)
+                        val normalized = ((rms - 150.0) / 4500.0).coerceIn(0.0, 1.0).toFloat()
+                        
+                        // Low-pass exponential filter to keep physics perfectly buttery
+                        smoothedAmp = smoothedAmp * 0.75f + normalized * 0.25f
+                        audioAmplitudeState.value = smoothedAmp
+                    }
+                    kotlinx.coroutines.delay(16L) // ~60Hz sample check matches screen refreshing
+                }
+            } catch (e: SecurityException) {
+                e.printStackTrace()
+                isAudioReactiveEnabledState.value = false
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                stopAudioRecordingInternal()
+            }
+        }
+    }
+    
+    private fun stopAudioRecordingInternal() {
+        try {
+            audioRecord?.apply {
+                if (recordingState == android.media.AudioRecord.RECORDSTATE_RECORDING) {
+                    stop()
+                }
+                release()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        audioRecord = null
+        audioAmplitudeState.value = 0f
+    }
+    
+    private fun stopAudioRecording() {
+        audioJob?.cancel()
+        audioJob = null
+        stopAudioRecordingInternal()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopAudioRecording()
     }
 }

@@ -255,6 +255,9 @@ fun MainScreen(
                             glowColor = state.glowColor,
                             glowOpacity = state.glowOpacity,
                             glowBrightness = state.glowBrightness,
+                            isPulsingEnabled = state.isPulsingEnabled,
+                            isAudioReactiveEnabled = state.isAudioReactiveEnabled,
+                            audioAmplitude = state.audioAmplitude,
                             onAppClick = { app ->
                                 try {
                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
@@ -413,6 +416,15 @@ fun MainScreen(
                     )
                 }
             ) {
+                val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                    if (isGranted) {
+                        viewModel.setAudioReactiveEnabled(true)
+                    } else {
+                        Toast.makeText(context, "Разрешение на доступ к микрофону отклонено", Toast.LENGTH_SHORT).show()
+                    }
+                }
                 SettingsSheetContent(
                     state = state,
                     onAutoDriftChanged = { viewModel.setAutoDrift(it) },
@@ -421,6 +433,22 @@ fun MainScreen(
                     onGlowColorSelected = { viewModel.setGlowColor(it) },
                     onGlowOpacityChanged = { viewModel.setGlowOpacity(it) },
                     onGlowBrightnessChanged = { viewModel.setGlowBrightness(it) },
+                    onPulsingChanged = { viewModel.setPulsingEnabled(it) },
+                    onAudioReactiveChanged = { enabled ->
+                        if (enabled) {
+                            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.RECORD_AUDIO
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            ) {
+                                viewModel.setAudioReactiveEnabled(true)
+                            } else {
+                                permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                            }
+                        } else {
+                            viewModel.setAudioReactiveEnabled(false)
+                        }
+                    },
                     onRefreshApps = {
                         viewModel.loadApps()
                         showSettings = false
@@ -461,6 +489,8 @@ fun SettingsSheetContent(
     onGlowColorSelected: (GlowColorOption) -> Unit,
     onGlowOpacityChanged: (Float) -> Unit,
     onGlowBrightnessChanged: (Float) -> Unit,
+    onPulsingChanged: (Boolean) -> Unit,
+    onAudioReactiveChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -584,6 +614,72 @@ fun SettingsSheetContent(
             Switch(
                 checked = state.isTiltEnabled,
                 onCheckedChange = onTiltChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF00F2FE),
+                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                    uncheckedThumbColor = Color(0xFF808080),
+                    uncheckedTrackColor = Color(0x1Fffffff)
+                )
+            )
+        }
+
+        // --- BREEDING PULSATION ROW ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "Пульсация 3D-пространства",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+                Text(
+                    text = "Иконки ритмично приближаются и отдаляются",
+                    fontSize = 11.sp,
+                    color = Color(0x66FFFFFF)
+                )
+            }
+            Switch(
+                checked = state.isPulsingEnabled,
+                onCheckedChange = onPulsingChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF00F2FE),
+                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                    uncheckedThumbColor = Color(0xFF808080),
+                    uncheckedTrackColor = Color(0x1Fffffff)
+                )
+            )
+        }
+
+        // --- AUDIO REACTIVITY ROW ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "Аудио-реактивность",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+                Text(
+                    text = "Сфера пульсирует в такт музыке и звукам (микрофон)",
+                    fontSize = 11.sp,
+                    color = Color(0x66FFFFFF)
+                )
+            }
+            Switch(
+                checked = state.isAudioReactiveEnabled,
+                onCheckedChange = onAudioReactiveChanged,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFF00F2FE),
                     checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),

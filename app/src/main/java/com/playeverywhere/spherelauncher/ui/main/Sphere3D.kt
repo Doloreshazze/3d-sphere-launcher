@@ -117,6 +117,9 @@ fun Sphere3D(
     glowColor: GlowColorOption,
     glowOpacity: Float,
     glowBrightness: Float,
+    isPulsingEnabled: Boolean = false,
+    isAudioReactiveEnabled: Boolean = false,
+    audioAmplitude: Float = 0.0f,
     onAppClick: (AppInfo) -> Unit
 ) {
     val context = LocalContext.current
@@ -196,6 +199,16 @@ fun Sphere3D(
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse"
+    )
+
+    val spherePulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.78f,
+        targetValue = 1.22f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "spherePulse"
     )
 
     val columns = 4
@@ -658,8 +671,16 @@ fun Sphere3D(
                 
                 // 1. Holographic background pulsing glow
                 val rad = frameRotationData.radius
+                val currentRad = if (isPulsingEnabled) {
+                    rad * spherePulseScale
+                } else if (isAudioReactiveEnabled) {
+                    rad * (1.0f + audioAmplitude * 0.40f)
+                } else {
+                    rad
+                }
+                
                 val pulse = pulseScale
-                val sizePx = rad * 1.6f * pulse * glowBrightness
+                val sizePx = currentRad * 1.6f * pulse * glowBrightness * (if (isAudioReactiveEnabled) 1.0f + audioAmplitude * 1.5f else 1.0f)
                 
                 val c1 = if (glowColor == GlowColorOption.SYSTEM) systemPrimary.toArgb() else glowColor.color1.toInt()
                 val c2 = if (glowColor == GlowColorOption.SYSTEM) systemSecondary.toArgb() else glowColor.color2.toInt()
@@ -680,7 +701,8 @@ fun Sphere3D(
                     android.graphics.Shader.TileMode.CLAMP
                 )
                 canvasGlowPaint.shader = shaderHolo
-                canvasGlowPaint.alpha = (0.24f * glowOpacity * 255).toInt().coerceIn(0, 255)
+                val audioAlphaMultiplier = if (isAudioReactiveEnabled) 1.0f + audioAmplitude * 2.0f else 1.0f
+                canvasGlowPaint.alpha = (0.24f * glowOpacity * audioAlphaMultiplier * 255).toInt().coerceIn(0, 255)
                 nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlowPaint)
                 
                 // 2. Trig cache
@@ -701,11 +723,11 @@ fun Sphere3D(
                     val cameraDist = 3.0f
                     val scale = cameraDist / (cameraDist + z2)
                     
-                    val zoomFactor = rad / baseRadius
+                    val zoomFactor = currentRad / baseRadius
                     val finalScale = scale * zoomFactor
                     
-                    val xProj = x2 * rad * scale
-                    val yProj = y1 * rad * scale
+                    val xProj = x2 * currentRad * scale
+                    val yProj = y1 * currentRad * scale
                     
                     val depthRatio = (1.0f - z2) / 2.0f
                     
@@ -803,24 +825,34 @@ fun Sphere3D(
                 }
             }
         } else {
+            val finalRadiusProvider = {
+                val base = frameRotationData.radius
+                if (isPulsingEnabled) {
+                    base * spherePulseScale
+                } else if (isAudioReactiveEnabled) {
+                    base * (1.0f + audioAmplitude * 0.40f)
+                } else {
+                    base
+                }
+            }
             // Render Snake mode using standard Composable layers (only active inside SNAKE mode, 0 lag!)
             if (shapeType == ShapeType.SOLID_SPHERE) {
                 SolidSphereCore(
-                    radiusProvider = { frameRotationData.radius },
+                    radiusProvider = finalRadiusProvider,
                     yawProvider = { rotationState.yaw },
                     pitchProvider = { rotationState.pitch },
                     frameTicketProvider = { frameTicket }
                 )
             } else if (shapeType == ShapeType.POLYHEDRON) {
                 MoonCore(
-                    radiusProvider = { frameRotationData.radius },
+                    radiusProvider = finalRadiusProvider,
                     yawProvider = { rotationState.yaw },
                     pitchProvider = { rotationState.pitch },
                     frameTicketProvider = { frameTicket }
                 )
             } else if (shapeType == ShapeType.FLAT_PLANE) {
                 PlaneBoardCore(
-                    radiusProvider = { frameRotationData.radius },
+                    radiusProvider = finalRadiusProvider,
                     yawProvider = { rotationState.yaw },
                     pitchProvider = { rotationState.pitch },
                     tiltYawProvider = { rotationState.tiltYaw },
@@ -831,7 +863,7 @@ fun Sphere3D(
                 )
             } else if (shapeType == ShapeType.SNAKE) {
                 PlaneBoardCore(
-                    radiusProvider = { frameRotationData.radius },
+                    radiusProvider = finalRadiusProvider,
                     yawProvider = { 0f },
                     pitchProvider = { 0f },
                     tiltYawProvider = { 0f },
