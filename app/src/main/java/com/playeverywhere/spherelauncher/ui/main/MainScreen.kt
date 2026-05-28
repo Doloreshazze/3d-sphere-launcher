@@ -527,6 +527,8 @@ fun SettingsSheetContent(
         ) {
             val shapes = listOf(
                 Triple(ShapeType.SPHERE, "Сфера", Color(0xFF00F2FE)),
+                Triple(ShapeType.CUBE, "Куб", Color(0xFFFFCC00)),
+                Triple(ShapeType.PYRAMID, "Пирамида", Color(0xFFFF55BB)),
                 Triple(ShapeType.SNAKE, "Змейка", Color(0xFF00FF88))
             )
             shapes.forEach { (shapeOption, label, colorAccent) ->
@@ -754,7 +756,7 @@ fun SettingsSheetContent(
             }
         }
 
-        if (state.shapeType == ShapeType.SPHERE) {
+        if (state.shapeType == ShapeType.SPHERE || state.shapeType == ShapeType.CUBE || state.shapeType == ShapeType.PYRAMID) {
             Spacer(modifier = Modifier.height(12.dp))
             Box(
                 modifier = Modifier

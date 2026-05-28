@@ -477,6 +477,42 @@ fun Sphere3D(
                 
                 SphereNode(app, x, y, z)
             }
+        } else if (shapeType == ShapeType.CUBE) {
+            val goldenAngle = Math.PI * (3.0 - sqrt(5.0))
+            apps.mapIndexed { index, app ->
+                val ySphere = 1.0f - (index.toFloat() / (count - 1)) * 2.0f
+                val radiusAtY = sqrt((1.0f - ySphere * ySphere).coerceAtLeast(0f))
+                val theta = (index * goldenAngle).toFloat()
+                val xSphere = cos(theta.toDouble()).toFloat() * radiusAtY
+                val zSphere = sin(theta.toDouble()).toFloat() * radiusAtY
+                
+                // Project onto cube surface
+                val maxCoord = maxOf(kotlin.math.abs(xSphere), kotlin.math.abs(ySphere), kotlin.math.abs(zSphere)).coerceAtLeast(0.01f)
+                val x = (xSphere / maxCoord) * 0.80f
+                val y = (ySphere / maxCoord) * 0.80f
+                val z = (zSphere / maxCoord) * 0.80f
+                
+                SphereNode(app, x, y, z)
+            }
+        } else if (shapeType == ShapeType.PYRAMID) {
+            val goldenAngle = Math.PI * (3.0 - sqrt(5.0))
+            apps.mapIndexed { index, app ->
+                val ratio = index.toFloat() / (count - 1)
+                val y = -0.7f + ratio * 1.45f
+                
+                val widthFactor = 1.0f - ratio
+                val r = 0.72f * widthFactor + 0.08f
+                
+                val theta = (index * goldenAngle).toFloat()
+                val cosTheta = cos(theta.toDouble()).toFloat()
+                val sinTheta = sin(theta.toDouble()).toFloat()
+                val squareProj = 1.0f / maxOf(kotlin.math.abs(cosTheta), kotlin.math.abs(sinTheta)).coerceAtLeast(0.01f)
+                
+                val x = cosTheta * r * squareProj
+                val z = sinTheta * r * squareProj
+                
+                SphereNode(app, x, y, z)
+            }
         } else {
             // All our shapes (Sphere, Polyhedron, Solid Sphere) distribute points perfectly uniformly 
             // across the entire sphere bounds to maximize visual balance and eliminate overlaps!
@@ -621,7 +657,7 @@ fun Sphere3D(
             },
         contentAlignment = Alignment.Center
     ) {
-        if (shapeType == ShapeType.SPHERE) {
+        if (shapeType == ShapeType.SPHERE || shapeType == ShapeType.CUBE || shapeType == ShapeType.PYRAMID) {
             val tileSize = (400f / kotlin.math.sqrt(apps.size.toFloat())).coerceIn(45f, 80f)
             val iconSize = tileSize * 0.70f
             
