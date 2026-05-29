@@ -288,30 +288,28 @@ fun MainScreen(
         }
 
         if (!state.isStandardView) {
-            // 5. Floating Bottom-Right Stack (Exit Button + Camera Quick Button + Settings Button)
-            Column(
+            // Floating Bottom-Center Home Button
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
             ) {
                 // Exit to System Launcher Button
                 Box(
                     modifier = Modifier
-                        .size(54.dp)
+                        .size(56.dp)
                         .background(
                             brush = Brush.linearGradient(
                                 colors = listOf(
-                                    Color(0xFF8E25FF), // Gorgeous glowing violet
+                                    Color(0xFF8E25FF), // Gorgeous violet
                                     Color(0xFFF355FF)  // to magenta
                                 )
                             ),
                             shape = CircleShape
                         )
                         .border(
-                            width = 2.dp,
-                            color = Color.White.copy(alpha = 0.6f),
+                            width = 2.5.dp,
+                            color = Color.White.copy(alpha = 0.8f),
                             shape = CircleShape
                         )
                         .clip(CircleShape)
@@ -359,10 +357,19 @@ fun MainScreen(
                         imageVector = Icons.Default.Home,
                         contentDescription = stringResource(R.string.exit_to_system_launcher),
                         tint = Color.Black,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
+            }
 
+            // 5. Floating Bottom-Right Stack (Camera Quick Button + Settings Button)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 // Camera Quick Launch Button
                 Box(
                     modifier = Modifier
@@ -666,7 +673,6 @@ fun MainScreen(
                                 try {
                                     val intent = Intent(Intent.ACTION_DELETE).apply {
                                         data = android.net.Uri.parse("package:${app.packageName}")
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                     }
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
