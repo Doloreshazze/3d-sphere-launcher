@@ -43,6 +43,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.playeverywhere.spherelauncher.data.AppInfo
 import androidx.compose.ui.res.stringResource
 import com.playeverywhere.spherelauncher.R
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -285,7 +288,7 @@ fun MainScreen(
         }
 
         if (!state.isStandardView) {
-            // 5. Floating Bottom-Right Stack (Camera Quick Button + Settings Button)
+            // 5. Floating Bottom-Right Stack (Exit Button + Camera Quick Button + Settings Button)
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -293,6 +296,73 @@ fun MainScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Exit to System Launcher Button
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF8E25FF), // Gorgeous glowing violet
+                                    Color(0xFFF355FF)  // to magenta
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = Color.White.copy(alpha = 0.6f),
+                            shape = CircleShape
+                        )
+                        .clip(CircleShape)
+                        .clickable {
+                            try {
+                                val pm = context.packageManager
+                                val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                    addCategory(Intent.CATEGORY_HOME)
+                                }
+                                val resolveInfos = pm.queryIntentActivities(homeIntent, 0)
+                                val otherLaunchers = resolveInfos.filter {
+                                    it.activityInfo.packageName != context.packageName
+                                }
+                                val systemLauncher = otherLaunchers.find {
+                                    (it.activityInfo.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+                                } ?: otherLaunchers.firstOrNull()
+
+                                if (systemLauncher != null) {
+                                    val intent = Intent(Intent.ACTION_MAIN).apply {
+                                        addCategory(Intent.CATEGORY_HOME)
+                                        setClassName(systemLauncher.activityInfo.packageName, systemLauncher.activityInfo.name)
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                } else {
+                                    val intent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                }
+                            } catch (e: Exception) {
+                                try {
+                                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e2: Exception) {
+                                    Toast.makeText(context, "Settings unavailable", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = stringResource(R.string.exit_to_system_launcher),
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 // Camera Quick Launch Button
                 Box(
                     modifier = Modifier
@@ -1548,7 +1618,9 @@ fun OnboardingTour(
                     fontSize = 13.sp,
                     lineHeight = 18.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.height(80.dp)
+                    modifier = Modifier
+                        .heightIn(min = 80.dp)
+                        .verticalScroll(rememberScrollState())
                 )
                 
                 Spacer(modifier = Modifier.height(20.dp))

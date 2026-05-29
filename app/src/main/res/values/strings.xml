@@ -60,4 +60,5 @@
     <string name="color_green">Green</string>
     <string name="color_red">Red</string>
     <string name="color_gold">Gold</string>
+    <string name="exit_to_system_launcher">System Launcher</string>
 </resources>
