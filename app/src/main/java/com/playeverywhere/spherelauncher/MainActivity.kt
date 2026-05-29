@@ -18,7 +18,21 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
 
     enableEdgeToEdge()
+    hideSystemUI()
 
+    setContent {
+      SphereLauncherTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+    }
+  }
+
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    if (hasFocus) {
+      hideSystemUI()
+    }
+  }
+
+  private fun hideSystemUI() {
     try {
         // Immersive fullscreen: hide system navigation bars entirely (swipe to show transiently)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -29,10 +43,6 @@ class MainActivity : ComponentActivity() {
         windowInsetsController.isAppearanceLightStatusBars = false
     } catch (e: Exception) {
         e.printStackTrace()
-    }
-
-    setContent {
-      SphereLauncherTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
     }
   }
 }
