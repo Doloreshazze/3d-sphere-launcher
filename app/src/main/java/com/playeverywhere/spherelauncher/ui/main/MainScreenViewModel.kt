@@ -171,8 +171,25 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         MainUiState()
     )
 
+    private val packageReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            loadApps()
+        }
+    }
+
     init {
         loadApps()
+        try {
+            val filter = android.content.IntentFilter().apply {
+                addAction(android.content.Intent.ACTION_PACKAGE_ADDED)
+                addAction(android.content.Intent.ACTION_PACKAGE_REMOVED)
+                addAction(android.content.Intent.ACTION_PACKAGE_CHANGED)
+                addDataScheme("package")
+            }
+            application.registerReceiver(packageReceiver, filter)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun loadApps() {
@@ -403,6 +420,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     override fun onCleared() {
         super.onCleared()
         stopAudioRecording()
+        try {
+            getApplication<Application>().unregisterReceiver(packageReceiver)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun completeOnboarding() {
