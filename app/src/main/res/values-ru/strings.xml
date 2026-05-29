@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SphereLauncher</string>
+    <string name="search_placeholder">Поиск приложений...</string>
+    <string name="fail_launch_app">Не удалось запустить %1$s</string>
+    <string name="error_prefix">Ошибка: %1$s</string>
+    <string name="camera_unavailable">Камера недоступна: %1$s</string>
+    <string name="no_apps_found">Приложения не найдены</string>
+    <string name="rotation_inertia">Инерция вращения</string>
+    <string name="rotation_lock">Блокировка вращения</string>
+    <string name="settings_title">Настройки 3D Сферы</string>
+    <string name="shape_selector_title">Форма 3D-пространства:</string>
+    <string name="shape_sphere">Сфера</string>
+    <string name="shape_snake">Змейка</string>
+    <string name="auto_drift_title">Авто-вращение сферы</string>
+    <string name="auto_drift_desc">Медленный автоматический дрейф икон</string>
+    <string name="device_tilt_title">Наклон устройства (3D-эффект)</string>
+    <string name="device_tilt_desc">Вращение и наклон сферы гироскопом</string>
+    <string name="pulsation_title">Пульсация 3D-пространства</string>
+    <string name="pulsation_desc">Иконки ритмично приближаются и отдаляются</string>
+    <string name="audio_reactivity">Аудио-реактивность</string>
+    <string name="audio_reactive_desc">Сфера пульсирует в такт музыке и звукам (микрофон)</string>
+    <string name="bind_home_title">Кнопка HOME по умолчанию</string>
+    <string name="bind_home_desc">Привязать лаунчер к системной кнопке Home</string>
+    <string name="bind_home_btn">Привязать</string>
+    <string name="neon_glow_settings">Настройка свечения ореола</string>
+    <string name="neon_color">Цвет неона:</string>
+    <string name="glow_intensity">Интенсивность неона:</string>
+    <string name="glow_size">Размер свечения:</string>
+    <string name="show_manual">Показать инструкцию пользователя</string>
+    <string name="restore_hidden_apps">Восстановить скрытые приложения (%1$d)</string>
+    <string name="refresh_button">Обновить</string>
+    <string name="close_button">Закрыть</string>
+    <string name="retry_button">Повторить</string>
+    <string name="mic_permission_denied">Разрешение на доступ к микрофону отклонено</string>
+    <string name="uninstall_fail">Не удалось открыть удаление: %1$s</string>
+    <string name="dialog_choose_action">Выберите действие для приложения. При скрытии иконка исчезнет с лаунчера, но приложение останется установленным. При удалении приложение будет полностью удалено с устройства.</string>
+    <string name="dialog_hide_icon">Скрыть иконку</string>
+    <string name="dialog_uninstall_app">Удалить приложение</string>
+    <string name="dialog_cancel">Отмена</string>
+
+    <!-- Onboarding Tour Strings -->
+    <string name="ob_title_permission">Доступ к приложениям</string>
+    <string name="ob_desc_permission">Для работы лаунчеру требуется ваше согласие на получение списка приложений (QUERY_ALL_PACKAGES). Это используется исключительно локально на вашем устройстве для отображения иконок в 3D Сфере и 2D сетке, а также их запуска. Мы гарантируем 100% приватность.</string>
+    <string name="ob_title_sphere">3D Сфера приложений</string>
+    <string name="ob_desc_sphere">Добро пожаловать! Ваши приложения парят в трехмерном пространстве. Вращайте сферу свайпами в любом направлении и запускайте их в одно касание.</string>
+    <string name="ob_title_access">Быстрый доступ</string>
+    <string name="ob_desc_access">В левом нижнем углу замораживайте вращение сферы кнопкой «Замок» или управляйте инерцией. В правом нижнем углу мгновенно открывайте Камеру одной кнопкой!</string>
+    <string name="ob_title_music">Музыкальный бит</string>
+    <string name="ob_desc_music">Включите режим «Аудио-реактивность» в настройках: сфера и неоновый туман начнут динамично раздуваться и вспыхивать в такт музыке на YouTube или вашему голосу.</string>
+    <string name="ob_btn_agree">Согласиться</string>
+    <string name="ob_btn_next">Далее</string>
+    <string name="ob_btn_start">Начать</string>
+    <string name="ob_btn_skip">Пропустить</string>
+
+    <!-- Glow Color Selector Strings -->
+    <string name="color_system">Системный</string>
+    <string name="color_cyan">Голубой</string>
+    <string name="color_purple">Сиреневый</string>
+    <string name="color_green">Зеленый</string>
+    <string name="color_red">Красный</string>
+    <string name="color_gold">Золотой</string>
+</resources>

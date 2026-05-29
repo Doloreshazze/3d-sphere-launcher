@@ -41,6 +41,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.text.style.TextOverflow
 import com.playeverywhere.spherelauncher.data.AppInfo
+import androidx.compose.ui.res.stringResource
+import com.playeverywhere.spherelauncher.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -152,7 +154,7 @@ fun MainScreen(
                             decorationBox = { innerTextField ->
                                 if (state.searchQuery.isEmpty()) {
                                     Text(
-                                        text = "Поиск приложений...",
+                                        text = stringResource(R.string.search_placeholder),
                                         color = Color(0x80FFFFFF),
                                         fontSize = 15.sp
                                     )
@@ -217,12 +219,12 @@ fun MainScreen(
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = "Retry")
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Повторить", color = Color.Black)
+                            Text(stringResource(R.string.retry_button), color = Color.Black)
                         }
                     }
                 } else if (state.filteredApps.isEmpty()) {
                     Text(
-                        text = "Приложения не найдены",
+                        text = stringResource(R.string.no_apps_found),
                         color = Color(0x80FFFFFF),
                         fontSize = 16.sp,
                         textAlign = TextAlign.Center,
@@ -239,10 +241,10 @@ fun MainScreen(
                                         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         context.startActivity(launchIntent)
                                     } else {
-                                        Toast.makeText(context, "Не удалось запустить ${app.label}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onAppLongClick = { selectedAppForAction = it }
@@ -269,10 +271,10 @@ fun MainScreen(
                                         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         context.startActivity(launchIntent)
                                     } else {
-                                        Toast.makeText(context, "Не удалось запустить ${app.label}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onAppLongClick = { selectedAppForAction = it }
@@ -317,7 +319,7 @@ fun MainScreen(
                                 }
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, "Камера недоступна: ${e.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.camera_unavailable, e.message ?: ""), Toast.LENGTH_SHORT).show()
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -380,7 +382,7 @@ fun MainScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
-                        contentDescription = "Настройки",
+                        contentDescription = stringResource(R.string.settings_title),
                         tint = Color.Black,
                         modifier = Modifier.size(24.dp)
                     )
@@ -419,7 +421,7 @@ fun MainScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.RotateRight,
-                        contentDescription = "Инерция вращения",
+                        contentDescription = stringResource(R.string.rotation_inertia),
                         tint = if (isInertia) Color.Black else Color(0xFF00F2FE),
                         modifier = Modifier.size(24.dp)
                     )
@@ -449,7 +451,7 @@ fun MainScreen(
                 ) {
                     Icon(
                         imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                        contentDescription = "Блокировка вращения",
+                        contentDescription = stringResource(R.string.rotation_lock),
                         tint = if (isLocked) Color.Black else Color(0xFF00F2FE),
                         modifier = Modifier.size(24.dp)
                     )
@@ -481,7 +483,7 @@ fun MainScreen(
                     if (isGranted) {
                         viewModel.setAudioReactiveEnabled(true)
                     } else {
-                        Toast.makeText(context, "Разрешение на доступ к микрофону отклонено", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.mic_permission_denied), Toast.LENGTH_SHORT).show()
                     }
                 }
                 SettingsSheetContent(
@@ -562,7 +564,7 @@ fun MainScreen(
                 },
                 text = {
                     Text(
-                        text = "Выберите действие для приложения. При скрытии иконка исчезнет с лаунчера, но приложение останется установленным. При удалении приложение будет полностью удалено с устройства.",
+                        text = stringResource(R.string.dialog_choose_action),
                         fontSize = 13.sp,
                         color = Color.White.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center
@@ -586,7 +588,7 @@ fun MainScreen(
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
                         ) {
-                            Text("Скрыть иконку", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.dialog_hide_icon), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         }
 
                         Button(
@@ -598,7 +600,7 @@ fun MainScreen(
                                     }
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Не удалось открыть удаление: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.uninstall_fail, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                 }
                                 selectedAppForAction = null
                             },
@@ -610,14 +612,14 @@ fun MainScreen(
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.4f))
                         ) {
-                            Text("Удалить приложение", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.dialog_uninstall_app), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         }
 
                         TextButton(
                             onClick = { selectedAppForAction = null },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Отмена", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                            Text(stringResource(R.string.dialog_cancel), color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
                         }
                     }
                 }
@@ -672,7 +674,7 @@ fun SettingsSheetContent(
             .padding(horizontal = 24.dp, vertical = 8.dp)
     ) {
         Text(
-            text = "Настройки 3D Сферы",
+            text = stringResource(R.string.settings_title),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF00F2FE),
@@ -681,7 +683,7 @@ fun SettingsSheetContent(
 
         // 3D Shape Selector
         Text(
-            text = "Форма 3D-пространства:",
+            text = stringResource(R.string.shape_selector_title),
             fontSize = 13.sp,
             color = Color(0x80FFFFFF),
             modifier = Modifier.padding(bottom = 8.dp)
@@ -694,10 +696,10 @@ fun SettingsSheetContent(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val shapes = listOf(
-                Triple(ShapeType.SPHERE, "Сфера", Color(0xFF00F2FE)),
-                Triple(ShapeType.SNAKE, "Змейка", Color(0xFF00FF88))
+                Triple(ShapeType.SPHERE, R.string.shape_sphere, Color(0xFF00F2FE)),
+                Triple(ShapeType.SNAKE, R.string.shape_snake, Color(0xFF00FF88))
             )
-            shapes.forEach { (shapeOption, label, colorAccent) ->
+            shapes.forEach { (shapeOption, labelRes, colorAccent) ->
                 val isSelected = state.shapeType == shapeOption
                 Box(
                     modifier = Modifier
@@ -717,7 +719,7 @@ fun SettingsSheetContent(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = label,
+                        text = stringResource(labelRes),
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) Color.White else Color(0xB3FFFFFF)
@@ -736,13 +738,13 @@ fun SettingsSheetContent(
         ) {
             Column {
                 Text(
-                    text = "Авто-вращение сферы",
+                    text = stringResource(R.string.auto_drift_title),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
                 Text(
-                    text = "Медленный автоматический дрейф икон",
+                    text = stringResource(R.string.auto_drift_desc),
                     fontSize = 11.sp,
                     color = Color(0x66FFFFFF)
                 )
@@ -768,13 +770,13 @@ fun SettingsSheetContent(
         ) {
             Column {
                 Text(
-                    text = "Наклон устройства (3D-эффект)",
+                    text = stringResource(R.string.device_tilt_title),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
                 Text(
-                    text = "Вращение и наклон сферы гироскопом",
+                    text = stringResource(R.string.device_tilt_desc),
                     fontSize = 11.sp,
                     color = Color(0x66FFFFFF)
                 )
@@ -801,13 +803,13 @@ fun SettingsSheetContent(
         ) {
             Column {
                 Text(
-                    text = "Пульсация 3D-пространства",
+                    text = stringResource(R.string.pulsation_title),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
                 Text(
-                    text = "Иконки ритмично приближаются и отдаляются",
+                    text = stringResource(R.string.pulsation_desc),
                     fontSize = 11.sp,
                     color = Color(0x66FFFFFF)
                 )
@@ -834,13 +836,13 @@ fun SettingsSheetContent(
         ) {
             Column {
                 Text(
-                    text = "Аудио-реактивность",
+                    text = stringResource(R.string.audio_reactivity),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
                 Text(
-                    text = "Сфера пульсирует в такт музыке и звукам (микрофон)",
+                    text = stringResource(R.string.audio_reactive_desc),
                     fontSize = 11.sp,
                     color = Color(0x66FFFFFF)
                 )
@@ -869,13 +871,13 @@ fun SettingsSheetContent(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Кнопка HOME по умолчанию",
+                    text = stringResource(R.string.bind_home_title),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
                 Text(
-                    text = "Привязать лаунчер к системной кнопке Home",
+                    text = stringResource(R.string.bind_home_desc),
                     fontSize = 11.sp,
                     color = Color(0x66FFFFFF)
                 )
@@ -905,7 +907,7 @@ fun SettingsSheetContent(
                                 }
                                 context.startActivity(intent)
                             } catch (e3: Exception) {
-                                Toast.makeText(context, "Не удалось открыть настройки: ${e3.message}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, context.getString(R.string.uninstall_fail, e3.message ?: ""), Toast.LENGTH_LONG).show()
                             }
                         }
                     }
@@ -918,7 +920,7 @@ fun SettingsSheetContent(
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text("Привязать", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.bind_home_btn), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -933,7 +935,7 @@ fun SettingsSheetContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Настройка свечения ореола",
+                text = stringResource(R.string.neon_glow_settings),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF00F2FE),
@@ -942,7 +944,7 @@ fun SettingsSheetContent(
 
             // Horizontal color dot selector
             Text(
-                text = "Цвет неона:",
+                text = stringResource(R.string.neon_color),
                 fontSize = 12.sp,
                 color = Color(0x80FFFFFF),
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -997,7 +999,7 @@ fun SettingsSheetContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Интенсивность неона:",
+                    text = stringResource(R.string.glow_intensity),
                     fontSize = 12.sp,
                     color = Color(0xB3FFFFFF)
                 )
@@ -1027,7 +1029,7 @@ fun SettingsSheetContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Размер свечения:",
+                    text = stringResource(R.string.glow_size),
                     fontSize = 12.sp,
                     color = Color(0xB3FFFFFF)
                 )
@@ -1064,7 +1066,7 @@ fun SettingsSheetContent(
             border = BorderStroke(1.dp, Color(0xFFFF55BB).copy(alpha = 0.4f)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Показать инструкцию пользователя", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.show_manual), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
 
         if (state.hiddenAppsCount > 0) {
@@ -1080,7 +1082,7 @@ fun SettingsSheetContent(
                 border = BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.4f)),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Восстановить скрытые приложения (${state.hiddenAppsCount})", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.restore_hidden_apps, state.hiddenAppsCount), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -1098,7 +1100,7 @@ fun SettingsSheetContent(
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Обновить", fontSize = 13.sp)
+                Text(stringResource(R.string.refresh_button), fontSize = 13.sp)
             }
 
             Button(
@@ -1110,7 +1112,7 @@ fun SettingsSheetContent(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Закрыть", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.close_button), fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
         
@@ -1518,13 +1520,13 @@ fun OnboardingTour(
                 
                 // Title
                 val titles = listOf(
-                    "Доступ к приложениям",
-                    "3D Сфера приложений",
-                    "Быстрый доступ",
-                    "Музыкальный бит"
+                    R.string.ob_title_permission,
+                    R.string.ob_title_sphere,
+                    R.string.ob_title_access,
+                    R.string.ob_title_music
                 )
                 Text(
-                    text = titles[currentSlide],
+                    text = stringResource(titles[currentSlide]),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -1535,13 +1537,13 @@ fun OnboardingTour(
                 
                 // Description
                 val descriptions = listOf(
-                    "Для работы лаунчеру требуется ваше согласие на получение списка приложений (QUERY_ALL_PACKAGES). Это используется исключительно локально на вашем устройстве для отображения иконок в 3D Сфере и 2D сетке, а также их запуска. Мы гарантируем 100% приватность.",
-                    "Добро пожаловать! Ваши приложения парят в трехмерном пространстве. Вращайте сферу свайпами в любом направлении и запускайте их в одно касание.",
-                    "В левом нижнем углу замораживайте вращение сферы кнопкой «Замок» или управляйте инерцией. В правом нижнем углу мгновенно открывайте Камеру одной кнопкой!",
-                    "Включите режим «Аудио-реактивность» в настройках: сфера и неоновый туман начнут динамично раздуваться и вспыхивать в такт музыке на YouTube или вашему голосу."
+                    R.string.ob_desc_permission,
+                    R.string.ob_desc_sphere,
+                    R.string.ob_desc_access,
+                    R.string.ob_desc_music
                 )
                 Text(
-                    text = descriptions[currentSlide],
+                    text = stringResource(descriptions[currentSlide]),
                     color = Color(0xFFCCCCCC),
                     fontSize = 13.sp,
                     lineHeight = 18.sp,
@@ -1578,7 +1580,7 @@ fun OnboardingTour(
                 ) {
                     if (currentSlide < totalSlides - 1) {
                         Text(
-                            text = "Пропустить",
+                            text = stringResource(R.string.ob_btn_skip),
                             color = Color(0x80FFFFFF),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
@@ -1606,7 +1608,13 @@ fun OnboardingTour(
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
                     ) {
                         Text(
-                            text = if (currentSlide == 0) "Согласиться" else if (currentSlide == totalSlides - 1) "Начать" else "Далее",
+                            text = if (currentSlide == 0) {
+                                stringResource(R.string.ob_btn_agree)
+                            } else if (currentSlide == totalSlides - 1) {
+                                stringResource(R.string.ob_btn_start)
+                            } else {
+                                stringResource(R.string.ob_btn_next)
+                            },
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.playeverywhere.spherelauncher.R
 
 enum class SphereStyle {
     FLOATING_ICONS
@@ -26,13 +27,13 @@ enum class ShapeType {
     PYRAMID
 }
 
-enum class GlowColorOption(val color1: Long, val color2: Long, val label: String, val previewColor: Long) {
-    SYSTEM(0, 0, "Система", 0xFF808080),
-    CYAN(0xFF00F2FE, 0xFF4FACFE, "Голубой", 0xFF00F2FE),
-    PURPLE(0xFFF355FF, 0xFF8E25FF, "Сиреневый", 0xFFF355FF),
-    GREEN(0xFF00FF88, 0xFF00FFCC, "Зеленый", 0xFF00FF88),
-    ORANGE(0xFFFF5E3A, 0xFFFF2A68, "Красный", 0xFFFF5E3A),
-    GOLD(0xFFFFE259, 0xFFFFA751, "Золотой", 0xFFFFE259)
+enum class GlowColorOption(val color1: Long, val color2: Long, val labelResId: Int, val previewColor: Long) {
+    SYSTEM(0, 0, R.string.color_system, 0xFF808080),
+    CYAN(0xFF00F2FE, 0xFF4FACFE, R.string.color_cyan, 0xFF00F2FE),
+    PURPLE(0xFFF355FF, 0xFF8E25FF, R.string.color_purple, 0xFFF355FF),
+    GREEN(0xFF00FF88, 0xFF00FFCC, R.string.color_green, 0xFF00FF88),
+    ORANGE(0xFFFF5E3A, 0xFFFF2A68, R.string.color_red, 0xFFFF5E3A),
+    GOLD(0xFFFFE259, 0xFFFFA751, R.string.color_gold, 0xFFFFE259)
 }
 
 data class MainUiState(

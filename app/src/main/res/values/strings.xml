@@ -1,3 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SphereLauncher</string>
+    <string name="search_placeholder">Search apps...</string>
+    <string name="fail_launch_app">Failed to launch %1$s</string>
+    <string name="error_prefix">Error: %1$s</string>
+    <string name="camera_unavailable">Camera unavailable: %1$s</string>
+    <string name="no_apps_found">No apps found</string>
+    <string name="rotation_inertia">Rotation Inertia</string>
+    <string name="rotation_lock">Rotation Lock</string>
+    <string name="settings_title">3D Sphere Settings</string>
+    <string name="shape_selector_title">3D Shape:</string>
+    <string name="shape_sphere">Sphere</string>
+    <string name="shape_snake">Snake</string>
+    <string name="auto_drift_title">Auto-rotation</string>
+    <string name="auto_drift_desc">Slow automatic drift of icons</string>
+    <string name="device_tilt_title">Device Tilt (3D Effect)</string>
+    <string name="device_tilt_desc">Rotate and tilt sphere using gyroscope</string>
+    <string name="pulsation_title">3D Space Pulsation</string>
+    <string name="pulsation_desc">Icons rhythmically approach and recede</string>
+    <string name="audio_reactivity">Audio Reactivity</string>
+    <string name="audio_reactive_desc">Sphere pulses in sync with music and sounds (microphone)</string>
+    <string name="bind_home_title">Default HOME Button</string>
+    <string name="bind_home_desc">Bind launcher to system Home button</string>
+    <string name="bind_home_btn">Bind</string>
+    <string name="neon_glow_settings">Halo Glow Customization</string>
+    <string name="neon_color">Neon Color:</string>
+    <string name="glow_intensity">Neon Intensity:</string>
+    <string name="glow_size">Glow Size:</string>
+    <string name="show_manual">Show User Guide</string>
+    <string name="restore_hidden_apps">Restore Hidden Apps (%1$d)</string>
+    <string name="refresh_button">Refresh</string>
+    <string name="close_button">Close</string>
+    <string name="retry_button">Retry</string>
+    <string name="mic_permission_denied">Microphone record permission denied</string>
+    <string name="uninstall_fail">Failed to open uninstall dialog: %1$s</string>
+    <string name="dialog_choose_action">Choose action for app. Hiding it will remove it from the launcher but keep it installed. Uninstalling will remove it completely from the device.</string>
+    <string name="dialog_hide_icon">Hide Icon</string>
+    <string name="dialog_uninstall_app">Uninstall App</string>
+    <string name="dialog_cancel">Cancel</string>
+
+    <!-- Onboarding Tour Strings -->
+    <string name="ob_title_permission">App Access</string>
+    <string name="ob_desc_permission">The launcher requires your consent to query installed applications (QUERY_ALL_PACKAGES). This is used strictly locally on your device to display and launch applications in the 3D Sphere and 2D grid. We guarantee 100% privacy.</string>
+    <string name="ob_title_sphere">3D App Sphere</string>
+    <string name="ob_desc_sphere">Welcome! Your applications float in three-dimensional space. Rotate the sphere in any direction with swipes and launch them with a single tap.</string>
+    <string name="ob_title_access">Quick Access</string>
+    <string name="ob_desc_access">Freeze sphere rotation with the padlock button or control inertia in the bottom-left corner. Launch the Camera instantly with one tap in the bottom-right corner!</string>
+    <string name="ob_title_music">Music Beat</string>
+    <string name="ob_desc_music">Enable \'Audio Reactivity\' in settings: the sphere and neon nebula will dynamically swell and flash in sync with your YouTube music or your voice.</string>
+    <string name="ob_btn_agree">Agree</string>
+    <string name="ob_btn_next">Next</string>
+    <string name="ob_btn_start">Start</string>
+    <string name="ob_btn_skip">Skip</string>
+
+    <!-- Glow Color Selector Strings -->
+    <string name="color_system">System</string>
+    <string name="color_cyan">Cyan</string>
+    <string name="color_purple">Purple</string>
+    <string name="color_green">Green</string>
+    <string name="color_red">Red</string>
+    <string name="color_gold">Gold</string>
 </resources>
