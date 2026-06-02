@@ -124,6 +124,7 @@ fun Sphere3D(
     handCursorX: Float = 0.5f,
     handCursorY: Float = 0.5f,
     isHandDetected: Boolean = false,
+    isHandClenched: Boolean = false,
     projectedNodes: ArrayList<AppRenderNode>? = null,
     onAppClick: (AppInfo) -> Unit,
     onAppLongClick: ((AppInfo) -> Unit)? = null
@@ -340,7 +341,7 @@ fun Sphere3D(
     val currentCursorY = rememberUpdatedState(handCursorY)
 
     // Unified VSYNC-based loop for physics, auto-drift, and tilt updates (recomposes 0 times!)
-    LaunchedEffect(isUserInteracting, isAutoDriftEnabled, isTiltEnabled, shapeType, isShapeLocked, isGestureEnabled, isHandDetected) {
+    LaunchedEffect(isUserInteracting, isAutoDriftEnabled, isTiltEnabled, shapeType, isShapeLocked) {
         if (shapeType == ShapeType.FLAT_PLANE) {
             rotationState.yaw = 0f
             rotationState.pitch = 0f
@@ -363,32 +364,6 @@ fun Sphere3D(
                     // Lock active rotation and drift, preserving current yaw/pitch values!
                     yawVelocity[0] = 0f
                     yawVelocity[1] = 0f
-                    rotationState.tiltYaw = 0f
-                    rotationState.tiltPitch = 0f
-                } else if (isGestureEnabled && isHandDetected) {
-                    // 1. Continuous rotation based on cursor displacement from center!
-                    val dx = currentCursorX.value - 0.5f
-                    val dy = currentCursorY.value - 0.5f
-                    
-                    val deadZone = 0.12f
-                    val rotationSpeed = 0.045f // continuous rotation speed factor
-                    
-                    if (kotlin.math.abs(dx) > deadZone) {
-                        val sign = if (dx > 0) 1f else -1f
-                        val force = (kotlin.math.abs(dx) - deadZone) / (0.5f - deadZone)
-                        rotationState.yaw += sign * force * rotationSpeed * timeFactor
-                    }
-                    if (kotlin.math.abs(dy) > deadZone) {
-                        val sign = if (dy > 0) 1f else -1f
-                        val force = (kotlin.math.abs(dy) - deadZone) / (0.5f - deadZone)
-                        rotationState.pitch += -sign * force * rotationSpeed * timeFactor
-                    }
-                    
-                    // Stop inertia
-                    yawVelocity[0] = 0f
-                    yawVelocity[1] = 0f
-                    
-                    // Sync tilt values to 0 during active gesture rotation
                     rotationState.tiltYaw = 0f
                     rotationState.tiltPitch = 0f
                 } else {

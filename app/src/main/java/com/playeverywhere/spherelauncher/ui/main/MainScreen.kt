@@ -52,6 +52,10 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.antigravity.gesture.HandGestureDetector
+import com.antigravity.gesture.Gesture
+import androidx.compose.ui.platform.LocalView
+import android.view.MotionEvent
+import android.os.SystemClock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,6 +109,8 @@ fun MainScreen(
     // Initialize the HandGestureDetector
     val gestureDetector = remember { HandGestureDetector(context.applicationContext) }
     val landmarks by gestureDetector.landmarksFlow.collectAsStateWithLifecycle()
+    val activeGesture by gestureDetector.gestureFlow.collectAsStateWithLifecycle()
+    val isHandClenched = activeGesture == Gesture.ACTIVATE
 
     // Background gesture camera engine launch
     GestureCameraLauncher(
@@ -126,6 +132,68 @@ fun MainScreen(
             viewModel.updateHandCursor(palmCenterX, palmCenterY, true)
         } else {
             viewModel.updateHandCursor(0.5f, 0.5f, false)
+        }
+    }
+
+    // Translate coordinates and their changes (deltas) to simulated native touch events on the main screen.
+    val view = LocalView.current
+    var wasClenched by remember { mutableStateOf(false) }
+    var touchDownTime by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(state.handCursorX, state.handCursorY, isHandClenched, state.isHandDetected, state.isGestureControlEnabled) {
+        if (!state.isGestureControlEnabled) {
+            if (wasClenched) {
+                val eventTime = SystemClock.uptimeMillis()
+                val x = state.handCursorX * view.width
+                val y = state.handCursorY * view.height
+                val event = MotionEvent.obtain(touchDownTime, eventTime, MotionEvent.ACTION_UP, x, y, 0)
+                view.dispatchTouchEvent(event)
+                event.recycle()
+                wasClenched = false
+            }
+            return@LaunchedEffect
+        }
+
+        if (!state.isHandDetected) {
+            if (wasClenched) {
+                // Hand lost while clenched -> release touch safely
+                val eventTime = SystemClock.uptimeMillis()
+                val x = state.handCursorX * view.width
+                val y = state.handCursorY * view.height
+                val event = MotionEvent.obtain(touchDownTime, eventTime, MotionEvent.ACTION_UP, x, y, 0)
+                view.dispatchTouchEvent(event)
+                event.recycle()
+                wasClenched = false
+            }
+            return@LaunchedEffect
+        }
+
+        val x = state.handCursorX * view.width
+        val y = state.handCursorY * view.height
+        val now = SystemClock.uptimeMillis()
+
+        if (isHandClenched) {
+            if (!wasClenched) {
+                // Active mode gesture start (pinch fingers together) -> dispatch ACTION_DOWN
+                touchDownTime = now
+                val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_DOWN, x, y, 0)
+                view.dispatchTouchEvent(event)
+                event.recycle()
+                wasClenched = true
+            } else {
+                // Active mode gesture drag -> dispatch ACTION_MOVE
+                val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_MOVE, x, y, 0)
+                view.dispatchTouchEvent(event)
+                event.recycle()
+            }
+        } else {
+            if (wasClenched) {
+                // Active mode gesture end (release fingers) -> dispatch ACTION_UP
+                val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_UP, x, y, 0)
+                view.dispatchTouchEvent(event)
+                event.recycle()
+                wasClenched = false
+            }
         }
     }
 
@@ -351,6 +419,7 @@ fun MainScreen(
                             handCursorX = state.handCursorX,
                             handCursorY = state.handCursorY,
                             isHandDetected = state.isHandDetected,
+                            isHandClenched = isHandClenched,
                             projectedNodes = projectedNodesList,
                             onAppClick = { app ->
                                 try {
@@ -905,6 +974,7 @@ fun MainScreen(
 
             // 2. Glowing Neon Hand Cursor
             if (state.isHandDetected) {
+                val cursorColor = if (isHandClenched) Color(0xFFCC00FF) else Color(0xFF00F2FE)
                 Box(
                     modifier = Modifier
                         .offset(
@@ -922,7 +992,7 @@ fun MainScreen(
                             .background(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
-                                        Color(0xFF00F2FE).copy(alpha = 0.4f),
+                                        cursorColor.copy(alpha = 0.4f),
                                         Color(0xFF8E25FF).copy(alpha = 0.1f),
                                         Color.Transparent
                                     )
@@ -934,7 +1004,7 @@ fun MainScreen(
                     Box(
                         modifier = Modifier
                             .size(16.dp)
-                            .border(2.dp, Color(0xFF00F2FE), CircleShape)
+                            .border(2.dp, cursorColor, CircleShape)
                             .background(Color.White.copy(alpha = 0.8f), CircleShape)
                     )
 
