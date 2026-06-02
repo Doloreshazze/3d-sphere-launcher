@@ -61,4 +61,11 @@
     <string name="color_red">Red</string>
     <string name="color_gold">Gold</string>
     <string name="exit_to_system_launcher">System Launcher</string>
+
+    <!-- Air Gesture Control strings -->
+    <string name="gesture_control_title">Air Gesture Control</string>
+    <string name="gesture_control_desc">Control the sphere and launch apps with hand movements in front of the camera</string>
+    <string name="camera_permission_denied">Camera permission is required for Air Gesture Control</string>
+    <string name="hand_detected">Tracking active</string>
+    <string name="hand_searching">Place hand in front of camera</string>
 </resources>

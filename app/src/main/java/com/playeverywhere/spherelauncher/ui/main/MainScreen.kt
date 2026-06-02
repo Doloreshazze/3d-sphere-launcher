@@ -29,6 +29,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,6 +51,7 @@ import com.playeverywhere.spherelauncher.R
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.antigravity.gesture.HandGestureDetector
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +65,72 @@ fun MainScreen(
 
     var showSettings by remember { mutableStateOf(false) }
     var selectedAppForAction by remember { mutableStateOf<AppInfo?>(null) }
+
+    // Gesture tracking variables
+    val projectedNodesList = remember { ArrayList<AppRenderNode>() }
+    var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
+    var previewViewInstance by remember { mutableStateOf<androidx.camera.view.PreviewView?>(null) }
+
+    val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.setGestureControlEnabled(true)
+        } else {
+            Toast.makeText(context, context.getString(R.string.camera_permission_denied), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Proactively request camera permission on startup if gesture control is enabled
+    LaunchedEffect(state.isGestureControlEnabled) {
+        if (state.isGestureControlEnabled) {
+            val hasCameraPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.CAMERA
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!hasCameraPermission) {
+                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+            }
+        }
+    }
+
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidthDp = configuration.screenWidthDp
+    val screenHeightDp = configuration.screenHeightDp
+    val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
+    val densityDp = density.density
+
+    // Initialize the HandGestureDetector
+    val gestureDetector = remember { HandGestureDetector(context.applicationContext) }
+    val landmarks by gestureDetector.landmarksFlow.collectAsStateWithLifecycle()
+
+    // Background gesture camera engine launch
+    GestureCameraLauncher(
+        gestureDetector = gestureDetector,
+        isEnabled = state.isGestureControlEnabled,
+        previewSurfaceProvider = surfaceProvider
+    )
+
+    // Sync hand cursor position and presence to the ViewModel using landmarks
+    LaunchedEffect(landmarks) {
+        val lms = landmarks
+        if (lms != null) {
+            val wrist = lms[0]
+            val indexMcp = lms[5]
+            val pinkyMcp = lms[17]
+            val palmCenterX = (wrist.x + indexMcp.x + pinkyMcp.x) / 3f
+            val palmCenterY = (wrist.y + indexMcp.y + pinkyMcp.y) / 3f
+            // MediaPipe coordinates are already rotated and mirrored horizontally, so they map perfectly
+            viewModel.updateHandCursor(palmCenterX, palmCenterY, true)
+        } else {
+            viewModel.updateHandCursor(0.5f, 0.5f, false)
+        }
+    }
+
+    // Gesture-based app launching and hover focus have been removed per user request.
+    // Gestures are now strictly used to rotate/control the 3D sphere.
 
     // Intercept back presses (a launcher should prevent closing on back button)
     BackHandler {
@@ -94,6 +166,14 @@ fun MainScreen(
                     )
                 )
         )
+
+        // Draw the semi-transparent hand overlay matching user movements
+        if (state.isGestureControlEnabled) {
+            SemiTransparentHandOverlay(
+                landmarks = landmarks,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -267,6 +347,11 @@ fun MainScreen(
                             isPulsingEnabled = state.isPulsingEnabled,
                             isAudioReactiveEnabled = state.isAudioReactiveEnabled,
                             audioAmplitude = state.audioAmplitude,
+                            isGestureEnabled = state.isGestureControlEnabled,
+                            handCursorX = state.handCursorX,
+                            handCursorY = state.handCursorY,
+                            isHandDetected = state.isHandDetected,
+                            projectedNodes = projectedNodesList,
                             onAppClick = { app ->
                                 try {
                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
@@ -587,6 +672,21 @@ fun MainScreen(
                             viewModel.setAudioReactiveEnabled(false)
                         }
                     },
+                    onGestureControlChanged = { enabled ->
+                        if (enabled) {
+                            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.CAMERA
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            ) {
+                                viewModel.setGestureControlEnabled(true)
+                            } else {
+                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            }
+                        } else {
+                            viewModel.setGestureControlEnabled(false)
+                        }
+                    },
                     onRefreshApps = {
                         viewModel.loadApps()
                         showSettings = false
@@ -701,6 +801,158 @@ fun MainScreen(
                 }
             )
         }
+
+        // ---------------- AIR GESTURE CONTROL HUD & CURSOR OVERLAYS ----------------
+        if (state.isGestureControlEnabled) {
+            // 1. Cyber Floating camera preview (Top-Right HUD Bubble)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 90.dp, end = 20.dp)
+                    .size(90.dp)
+                    .background(Color(0x5507050C), CircleShape)
+                    .border(
+                        width = 2.dp,
+                        brush = Brush.linearGradient(
+                            colors = if (state.isHandDetected) listOf(Color(0xFF00FF88), Color(0xFF00FFCC))
+                            else listOf(Color(0xFFFF55BB), Color(0xFFFF2A68))
+                        ),
+                        shape = CircleShape
+                    )
+                    .clip(CircleShape)
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        androidx.camera.view.PreviewView(ctx).apply {
+                            scaleType = androidx.camera.view.PreviewView.ScaleType.FILL_CENTER
+                            implementationMode = androidx.camera.view.PreviewView.ImplementationMode.COMPATIBLE
+                            previewViewInstance = this
+                        }
+                    },
+                    update = { view ->
+                        surfaceProvider = view.surfaceProvider
+                        previewViewInstance = view
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Holographic Scanner Overlay Target Reticle
+                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                    val color = if (state.isHandDetected) Color(0x6000FF88) else Color(0x60FF55BB)
+                    val strokeWidth = 1.dp.toPx()
+                    // Draw horizontal and vertical scan crosshairs
+                    drawLine(
+                        color = color,
+                        start = Offset(0f, size.height / 2f),
+                        end = Offset(size.width, size.height / 2f),
+                        strokeWidth = strokeWidth
+                    )
+                    drawLine(
+                        color = color,
+                        start = Offset(size.width / 2f, 0f),
+                        end = Offset(size.width / 2f, size.height),
+                        strokeWidth = strokeWidth
+                    )
+                    drawCircle(
+                        color = color,
+                        radius = 12.dp.toPx(),
+                        style = Stroke(width = strokeWidth)
+                    )
+                }
+            }
+
+            // Sleek glowing tracking indicator card
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 188.dp, end = 20.dp)
+                    .background(Color(0xE007050C), RoundedCornerShape(8.dp))
+                    .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    // Small blinking status light
+                    val infiniteTransition = rememberInfiniteTransition(label = "blink")
+                    val alphaPulse by infiniteTransition.animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 1.0f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "blinkAlpha"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(
+                                color = (if (state.isHandDetected) Color(0xFF00FF88) else Color(0xFFFF55BB)).copy(alpha = alphaPulse),
+                                shape = CircleShape
+                            )
+                    )
+                    Text(
+                        text = stringResource(if (state.isHandDetected) R.string.hand_detected else R.string.hand_searching),
+                        color = if (state.isHandDetected) Color(0xFF00FF88) else Color(0xFFFF55BB),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            // 2. Glowing Neon Hand Cursor
+            if (state.isHandDetected) {
+                Box(
+                    modifier = Modifier
+                        .offset(
+                            x = (state.handCursorX * screenWidthDp).dp - 24.dp,
+                            y = (state.handCursorY * screenHeightDp).dp - 24.dp
+                        )
+                        .size(48.dp)
+                        .background(Color.Transparent, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Soft outer radial halo glow
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFF00F2FE).copy(alpha = 0.4f),
+                                        Color(0xFF8E25FF).copy(alpha = 0.1f),
+                                        Color.Transparent
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                    )
+                    // Inner bright targeting ring
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .border(2.dp, Color(0xFF00F2FE), CircleShape)
+                            .background(Color.White.copy(alpha = 0.8f), CircleShape)
+                    )
+
+                    // Radial countdown progress circle (fills up on hover selection)
+                    if (state.hoverProgress > 0f) {
+                        androidx.compose.foundation.Canvas(modifier = Modifier.size(36.dp)) {
+                            drawArc(
+                                color = Color(0xFF00FF88),
+                                startAngle = -90f,
+                                sweepAngle = state.hoverProgress * 360f,
+                                useCenter = false,
+                                style = Stroke(width = 3.dp.toPx())
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -735,6 +987,7 @@ fun SettingsSheetContent(
     onGlowBrightnessChanged: (Float) -> Unit,
     onPulsingChanged: (Boolean) -> Unit,
     onAudioReactiveChanged: (Boolean) -> Unit,
+    onGestureControlChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit,
     onShowOnboarding: () -> Unit,
@@ -926,6 +1179,39 @@ fun SettingsSheetContent(
             Switch(
                 checked = state.isAudioReactiveEnabled,
                 onCheckedChange = onAudioReactiveChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF00F2FE),
+                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                    uncheckedThumbColor = Color(0xFF808080),
+                    uncheckedTrackColor = Color(0x1Fffffff)
+                )
+            )
+        }
+
+        // --- AIR GESTURE CONTROL ROW ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = stringResource(R.string.gesture_control_title),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+                Text(
+                    text = stringResource(R.string.gesture_control_desc),
+                    fontSize = 11.sp,
+                    color = Color(0x66FFFFFF)
+                )
+            }
+            Switch(
+                checked = state.isGestureControlEnabled,
+                onCheckedChange = onGestureControlChanged,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFF00F2FE),
                     checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),

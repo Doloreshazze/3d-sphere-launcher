@@ -31,3 +31,4 @@ plugins {
 
 rootProject.name = "SphereLauncher"
 include(":app")
+include(":gesture-library")

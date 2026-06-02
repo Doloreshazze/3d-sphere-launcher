@@ -56,7 +56,13 @@ data class MainUiState(
     val isAudioReactiveEnabled: Boolean = false,
     val audioAmplitude: Float = 0.0f,
     val isFirstLaunch: Boolean = true,
-    val hiddenAppsCount: Int = 0
+    val hiddenAppsCount: Int = 0,
+    val isGestureControlEnabled: Boolean = true,
+    val handCursorX: Float = 0.5f,
+    val handCursorY: Float = 0.5f,
+    val isHandDetected: Boolean = false,
+    val hoverProgress: Float = 0f,
+    val focusedApp: AppInfo? = null
 )
 
 data class SettingsState(
@@ -91,6 +97,14 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isPulsingEnabledState = MutableStateFlow(false)
     private val isAudioReactiveEnabledState = MutableStateFlow(false)
     private val audioAmplitudeState = MutableStateFlow(0.0f)
+    
+    // Gesture tracking state flows
+    private val gestureControlEnabledState = MutableStateFlow(prefs.getBoolean("gesture_control_enabled", true))
+    private val handCursorXState = MutableStateFlow(0.5f)
+    private val handCursorYState = MutableStateFlow(0.5f)
+    private val isHandDetectedState = MutableStateFlow(false)
+    private val hoverProgressState = MutableStateFlow(0f)
+    private val focusedAppState = MutableStateFlow<AppInfo?>(null)
 
     private val settingsFlow = combine(
         styleState,
@@ -117,7 +131,13 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isAudioReactiveEnabledState,
         audioAmplitudeState,
         isFirstLaunchState,
-        hiddenPackagesState
+        hiddenPackagesState,
+        gestureControlEnabledState,
+        handCursorXState,
+        handCursorYState,
+        isHandDetectedState,
+        hoverProgressState,
+        focusedAppState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -136,6 +156,12 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val audioAmplitude = array[13] as Float
         val isFirstLaunch = array[14] as Boolean
         val hiddenPackages = array[15] as Set<String>
+        val isGestureEnabled = array[16] as Boolean
+        val handCursorX = array[17] as Float
+        val handCursorY = array[18] as Float
+        val isHandDetected = array[19] as Boolean
+        val hoverProgress = array[20] as Float
+        val focusedApp = array[21] as AppInfo?
 
         val visibleApps = apps.filter { it.packageName !in hiddenPackages }
         val filtered = if (query.isBlank()) {
@@ -163,7 +189,13 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isAudioReactiveEnabled = isAudioReactiveEnabled,
             audioAmplitude = audioAmplitude,
             isFirstLaunch = isFirstLaunch,
-            hiddenAppsCount = hiddenPackages.size
+            hiddenAppsCount = hiddenPackages.size,
+            isGestureControlEnabled = isGestureEnabled,
+            handCursorX = handCursorX,
+            handCursorY = handCursorY,
+            isHandDetected = isHandDetected,
+            hoverProgress = hoverProgress,
+            focusedApp = focusedApp
         )
     }.stateIn(
         viewModelScope,
@@ -446,5 +478,24 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     fun unhideAllApps() {
         prefs.edit().putStringSet("hidden_packages", emptySet()).apply()
         hiddenPackagesState.value = emptySet()
+    }
+
+    fun setGestureControlEnabled(enabled: Boolean) {
+        gestureControlEnabledState.value = enabled
+        prefs.edit().putBoolean("gesture_control_enabled", enabled).apply()
+    }
+
+    fun updateHandCursor(x: Float, y: Float, isDetected: Boolean) {
+        handCursorXState.value = x
+        handCursorYState.value = y
+        isHandDetectedState.value = isDetected
+    }
+
+    fun updateHoverProgress(progress: Float) {
+        hoverProgressState.value = progress
+    }
+
+    fun setFocusedApp(app: AppInfo?) {
+        focusedAppState.value = app
     }
 }
