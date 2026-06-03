@@ -27,9 +27,9 @@ fun GestureCameraLauncher(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
 
     DisposableEffect(isEnabled, previewSurfaceProvider) {
+        val cameraExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             try {
