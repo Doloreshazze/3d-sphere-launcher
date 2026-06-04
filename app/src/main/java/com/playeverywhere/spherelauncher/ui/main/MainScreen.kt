@@ -896,10 +896,10 @@ fun MainScreen(
                             scaleType = androidx.camera.view.PreviewView.ScaleType.FILL_CENTER
                             implementationMode = androidx.camera.view.PreviewView.ImplementationMode.COMPATIBLE
                             previewViewInstance = this
+                            surfaceProvider = this.surfaceProvider
                         }
                     },
                     update = { view ->
-                        surfaceProvider = view.surfaceProvider
                         previewViewInstance = view
                     },
                     modifier = Modifier.fillMaxSize()
