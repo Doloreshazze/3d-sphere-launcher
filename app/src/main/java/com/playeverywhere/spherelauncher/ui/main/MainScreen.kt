@@ -119,13 +119,16 @@ fun MainScreen(
         previewSurfaceProvider = surfaceProvider
     )
 
-    // Sync hand cursor position and presence to the ViewModel using landmarks (aiming using index finger tip)
+    // Sync hand cursor position and presence to the ViewModel using landmarks (aiming between thumb and index finger tips)
     LaunchedEffect(landmarks) {
         val lms = landmarks
         if (lms != null && lms.size > 8) {
+            val thumbTip = lms[4]
             val indexTip = lms[8]
-            // Track the index finger tip for precise target aiming
-            viewModel.updateHandCursor(indexTip.x, indexTip.y, true)
+            val cursorX = (thumbTip.x + indexTip.x) / 2f
+            val cursorY = (thumbTip.y + indexTip.y) / 2f
+            // Track the middle point between thumb and index finger tip for intuitive aiming
+            viewModel.updateHandCursor(cursorX, cursorY, true)
         } else {
             viewModel.updateHandCursor(0.5f, 0.5f, false)
         }
