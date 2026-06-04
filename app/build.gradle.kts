@@ -11,8 +11,8 @@ android {
         applicationId = "com.playeverywhere.spherelauncher"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "3.0"
     }
 
     buildTypes {
