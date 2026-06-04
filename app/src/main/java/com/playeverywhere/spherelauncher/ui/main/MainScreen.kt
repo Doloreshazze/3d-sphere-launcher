@@ -119,17 +119,13 @@ fun MainScreen(
         previewSurfaceProvider = surfaceProvider
     )
 
-    // Sync hand cursor position and presence to the ViewModel using landmarks
+    // Sync hand cursor position and presence to the ViewModel using landmarks (aiming using index finger tip)
     LaunchedEffect(landmarks) {
         val lms = landmarks
-        if (lms != null) {
-            val wrist = lms[0]
-            val indexMcp = lms[5]
-            val pinkyMcp = lms[17]
-            val palmCenterX = (wrist.x + indexMcp.x + pinkyMcp.x) / 3f
-            val palmCenterY = (wrist.y + indexMcp.y + pinkyMcp.y) / 3f
-            // MediaPipe coordinates are already rotated and mirrored horizontally, so they map perfectly
-            viewModel.updateHandCursor(palmCenterX, palmCenterY, true)
+        if (lms != null && lms.size > 8) {
+            val indexTip = lms[8]
+            // Track the index finger tip for precise target aiming
+            viewModel.updateHandCursor(indexTip.x, indexTip.y, true)
         } else {
             viewModel.updateHandCursor(0.5f, 0.5f, false)
         }
