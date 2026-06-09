@@ -72,8 +72,9 @@ fun MainScreen(
 
     // Gesture tracking variables
     val projectedNodesList = remember { ArrayList<AppRenderNode>() }
-    var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
-    var previewViewInstance by remember { mutableStateOf<androidx.camera.view.PreviewView?>(null) }
+    // Smoothed (damped) cursor position – prevents micro-tremors from jittering the sphere
+    var smoothCursorX by remember { mutableStateOf(0.5f) }
+    var smoothCursorY by remember { mutableStateOf(0.5f) }
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -112,24 +113,29 @@ fun MainScreen(
     val activeGesture by gestureDetector.gestureFlow.collectAsStateWithLifecycle()
     val isHandClenched = activeGesture == Gesture.ACTIVATE
 
-    // Background gesture camera engine launch
+    // Background gesture camera engine — ImageAnalysis only, no visible preview
     GestureCameraLauncher(
         gestureDetector = gestureDetector,
-        isEnabled = state.isGestureControlEnabled,
-        previewSurfaceProvider = surfaceProvider
+        isEnabled = state.isGestureControlEnabled
     )
 
-    // Sync hand cursor position and presence to the ViewModel using landmarks (aiming between thumb and index finger tips)
+    // Sync hand cursor with exponential smoothing – alpha 0.12 damps micro-tremors strongly
+    // while still following intentional movements responsively
+    val cursorDampingAlpha = 0.12f
     LaunchedEffect(landmarks) {
         val lms = landmarks
         if (lms != null && lms.size > 8) {
             val thumbTip = lms[4]
             val indexTip = lms[8]
-            val cursorX = (thumbTip.x + indexTip.x) / 2f
-            val cursorY = (thumbTip.y + indexTip.y) / 2f
-            // Track the middle point between thumb and index finger tip for intuitive aiming
-            viewModel.updateHandCursor(cursorX, cursorY, true)
+            val rawX = (thumbTip.x + indexTip.x) / 2f
+            val rawY = (thumbTip.y + indexTip.y) / 2f
+            // Exponential low-pass filter: smooth = smooth + alpha * (raw - smooth)
+            smoothCursorX = smoothCursorX + cursorDampingAlpha * (rawX - smoothCursorX)
+            smoothCursorY = smoothCursorY + cursorDampingAlpha * (rawY - smoothCursorY)
+            viewModel.updateHandCursor(smoothCursorX, smoothCursorY, true)
         } else {
+            smoothCursorX = 0.5f
+            smoothCursorY = 0.5f
             viewModel.updateHandCursor(0.5f, 0.5f, false)
         }
     }
@@ -138,6 +144,9 @@ fun MainScreen(
     val view = LocalView.current
     var wasClenched by remember { mutableStateOf(false) }
     var touchDownTime by remember { mutableStateOf(0L) }
+    var touchDownX by remember { mutableStateOf(0f) }
+    var touchDownY by remember { mutableStateOf(0f) }
+    var hasMovedSignificantly by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.handCursorX, state.handCursorY, isHandClenched, state.isHandDetected, state.isGestureControlEnabled) {
         if (!state.isGestureControlEnabled) {
@@ -175,20 +184,37 @@ fun MainScreen(
             if (!wasClenched) {
                 // Active mode gesture start (pinch fingers together) -> dispatch ACTION_DOWN
                 touchDownTime = now
+                touchDownX = x
+                touchDownY = y
+                hasMovedSignificantly = false
                 val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_DOWN, x, y, 0)
                 view.dispatchTouchEvent(event)
                 event.recycle()
                 wasClenched = true
             } else {
-                // Active mode gesture drag -> dispatch ACTION_MOVE
-                val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_MOVE, x, y, 0)
-                view.dispatchTouchEvent(event)
-                event.recycle()
+                // Active mode gesture drag
+                val dx = x - touchDownX
+                val dy = y - touchDownY
+                // Require ~35 pixels of movement to transition from "tap" to "drag"
+                if (!hasMovedSignificantly && (dx * dx + dy * dy) > 1200f) {
+                    hasMovedSignificantly = true
+                }
+                
+                // Only send MOVE events if we broke the slop threshold
+                if (hasMovedSignificantly) {
+                    val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_MOVE, x, y, 0)
+                    view.dispatchTouchEvent(event)
+                    event.recycle()
+                }
             }
         } else {
             if (wasClenched) {
                 // Active mode gesture end (release fingers) -> dispatch ACTION_UP
-                val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_UP, x, y, 0)
+                // If they just pinched and released without moving much, force UP at the exact DOWN coordinates.
+                // This prevents the fingers opening motion from shifting the cursor and ruining the click.
+                val finalX = if (hasMovedSignificantly) x else touchDownX
+                val finalY = if (hasMovedSignificantly) y else touchDownY
+                val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_UP, finalX, finalY, 0)
                 view.dispatchTouchEvent(event)
                 event.recycle()
                 wasClenched = false
@@ -432,8 +458,7 @@ fun MainScreen(
                                 } catch (e: Exception) {
                                     Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                 }
-                            },
-                            onAppLongClick = { selectedAppForAction = it }
+                            }
                         )
                     }
                 }
@@ -872,106 +897,7 @@ fun MainScreen(
 
         // ---------------- AIR GESTURE CONTROL HUD & CURSOR OVERLAYS ----------------
         if (state.isGestureControlEnabled) {
-            // 1. Cyber Floating camera preview (Top-Right HUD Bubble)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 90.dp, end = 20.dp)
-                    .size(90.dp)
-                    .background(Color(0x5507050C), CircleShape)
-                    .border(
-                        width = 2.dp,
-                        brush = Brush.linearGradient(
-                            colors = if (state.isHandDetected) listOf(Color(0xFF00FF88), Color(0xFF00FFCC))
-                            else listOf(Color(0xFFFF55BB), Color(0xFFFF2A68))
-                        ),
-                        shape = CircleShape
-                    )
-                    .clip(CircleShape)
-            ) {
-                AndroidView(
-                    factory = { ctx ->
-                        androidx.camera.view.PreviewView(ctx).apply {
-                            scaleType = androidx.camera.view.PreviewView.ScaleType.FILL_CENTER
-                            implementationMode = androidx.camera.view.PreviewView.ImplementationMode.COMPATIBLE
-                            previewViewInstance = this
-                            surfaceProvider = this.surfaceProvider
-                        }
-                    },
-                    update = { view ->
-                        previewViewInstance = view
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                // Holographic Scanner Overlay Target Reticle
-                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                    val color = if (state.isHandDetected) Color(0x6000FF88) else Color(0x60FF55BB)
-                    val strokeWidth = 1.dp.toPx()
-                    // Draw horizontal and vertical scan crosshairs
-                    drawLine(
-                        color = color,
-                        start = Offset(0f, size.height / 2f),
-                        end = Offset(size.width, size.height / 2f),
-                        strokeWidth = strokeWidth
-                    )
-                    drawLine(
-                        color = color,
-                        start = Offset(size.width / 2f, 0f),
-                        end = Offset(size.width / 2f, size.height),
-                        strokeWidth = strokeWidth
-                    )
-                    drawCircle(
-                        color = color,
-                        radius = 12.dp.toPx(),
-                        style = Stroke(width = strokeWidth)
-                    )
-                }
-            }
-
-            // Sleek glowing tracking indicator card
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 188.dp, end = 20.dp)
-                    .background(Color(0xE007050C), RoundedCornerShape(8.dp))
-                    .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    // Small blinking status light
-                    val infiniteTransition = rememberInfiniteTransition(label = "blink")
-                    val alphaPulse by infiniteTransition.animateFloat(
-                        initialValue = 0.3f,
-                        targetValue = 1.0f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(800, easing = FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "blinkAlpha"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .background(
-                                color = (if (state.isHandDetected) Color(0xFF00FF88) else Color(0xFFFF55BB)).copy(alpha = alphaPulse),
-                                shape = CircleShape
-                            )
-                    )
-                    Text(
-                        text = stringResource(if (state.isHandDetected) R.string.hand_detected else R.string.hand_searching),
-                        color = if (state.isHandDetected) Color(0xFF00FF88) else Color(0xFFFF55BB),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-            }
-
-            // 2. Glowing Neon Hand Cursor
+            // Hand cursor
             if (state.isHandDetected) {
                 val cursorColor = if (isHandClenched) Color(0xFFCC00FF) else Color(0xFF00F2FE)
                 Box(

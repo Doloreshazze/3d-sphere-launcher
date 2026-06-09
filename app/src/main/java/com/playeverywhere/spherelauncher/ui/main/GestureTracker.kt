@@ -1,6 +1,5 @@
 package com.playeverywhere.spherelauncher.ui.main
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.os.SystemClock
@@ -8,49 +7,44 @@ import android.util.Log
 import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.content.ContextCompat
 import com.antigravity.gesture.HandGestureDetector
-import java.util.concurrent.Executors
 
+/**
+ * Launches the front camera with only an ImageAnalysis use case (no Preview).
+ * Frames are fed to MediaPipe HandGestureDetector for hand landmark detection.
+ * No visible camera surface is shown — gesture tracking works entirely in the background.
+ */
 @Composable
 fun GestureCameraLauncher(
     gestureDetector: HandGestureDetector,
-    isEnabled: Boolean,
-    previewSurfaceProvider: Preview.SurfaceProvider?
+    isEnabled: Boolean
 ) {
-    if (!isEnabled || previewSurfaceProvider == null) return
+    if (!isEnabled) return
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    DisposableEffect(isEnabled, previewSurfaceProvider) {
+    DisposableEffect(isEnabled) {
         val cameraExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+
         cameraProviderFuture.addListener({
             try {
                 val cameraProvider = cameraProviderFuture.get()
 
-                // Configure Front Camera Selector
+                // Front camera
                 val cameraSelector = CameraSelector.Builder()
                     .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                     .build()
 
-                // Target standard matching resolution
                 val cameraResolution = Size(640, 480)
 
-                // Configure Preview Use Case
-                val preview = Preview.Builder()
-                    .setTargetResolution(cameraResolution)
-                    .build().apply {
-                        setSurfaceProvider(previewSurfaceProvider)
-                    }
-
-                // Configure Image Analysis Use Case to feed MediaPipe HandGestureDetector
+                // ImageAnalysis only — no Preview use case needed
                 val imageAnalyzer = ImageAnalysis.Builder()
                     .setTargetResolution(cameraResolution)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -62,19 +56,18 @@ fun GestureCameraLauncher(
                                 val rotationDegrees = imageProxy.imageInfo.rotationDegrees
                                 val bitmap = imageProxy.toBitmap()
 
-                                // Rotate and mirror horizontally for front camera preview
+                                // Rotate and mirror horizontally for front camera
                                 val matrix = Matrix().apply {
                                     postRotate(rotationDegrees.toFloat())
                                     postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f)
                                 }
 
-                                val transformedBitmap = Bitmap.createBitmap(
+                                val transformed = Bitmap.createBitmap(
                                     bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
                                 )
-                                bitmap.recycle() // Recycle temporary bitmap immediately
+                                bitmap.recycle()
 
-                                val timestampMs = SystemClock.uptimeMillis()
-                                gestureDetector.detectAsync(transformedBitmap, timestampMs)
+                                gestureDetector.detectAsync(transformed, SystemClock.uptimeMillis())
                             } catch (e: Exception) {
                                 Log.e("GestureCameraLauncher", "Frame analysis failed", e)
                             } finally {
@@ -83,31 +76,28 @@ fun GestureCameraLauncher(
                         }
                     }
 
-                // Unbind previous use cases before binding new ones
                 cameraProvider.unbindAll()
 
-                // Bind both Preview (for screen HUD view) and ImageAnalysis (for MediaPipe tracking)
+                // Bind only ImageAnalysis — no Preview
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
-                    preview,
                     imageAnalyzer
                 )
-                
-                Log.d("GestureCameraLauncher", "CameraX successfully bound Preview + ImageAnalysis to front camera.")
+
+                Log.d("GestureCameraLauncher", "CameraX bound ImageAnalysis-only to front camera.")
             } catch (e: Exception) {
-                Log.e("GestureCameraLauncher", "Failed to bind CameraX Preview + ImageAnalysis", e)
+                Log.e("GestureCameraLauncher", "Failed to bind camera", e)
             }
         }, ContextCompat.getMainExecutor(context))
 
         onDispose {
             try {
                 cameraExecutor.shutdown()
-                val cameraProvider = ProcessCameraProvider.getInstance(context).get()
-                cameraProvider.unbindAll()
-                Log.d("GestureCameraLauncher", "CameraX successfully unbound.")
+                ProcessCameraProvider.getInstance(context).get().unbindAll()
+                Log.d("GestureCameraLauncher", "CameraX unbound.")
             } catch (e: Exception) {
-                // Ignore
+                // Ignore cleanup errors
             }
         }
     }

@@ -1,0 +1,24 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.antigravity.gesture" >
+4
+5    <uses-sdk android:minSdkVersion="24" />
+6
+7    <uses-permission android:name="android.permission.CAMERA" />
+7-->C:\Users\79270\.gemini\antigravity\scratch\HandGestureRecognizer\gesture-library\src\main\AndroidManifest.xml:4:5-65
+7-->C:\Users\79270\.gemini\antigravity\scratch\HandGestureRecognizer\gesture-library\src\main\AndroidManifest.xml:4:22-62
+8
+9    <uses-feature
+9-->C:\Users\79270\.gemini\antigravity\scratch\HandGestureRecognizer\gesture-library\src\main\AndroidManifest.xml:5:5-84
+10        android:name="android.hardware.camera"
+10-->C:\Users\79270\.gemini\antigravity\scratch\HandGestureRecognizer\gesture-library\src\main\AndroidManifest.xml:5:19-57
+11        android:required="true" />
+11-->C:\Users\79270\.gemini\antigravity\scratch\HandGestureRecognizer\gesture-library\src\main\AndroidManifest.xml:5:58-81
+12    <uses-feature
+12-->C:\Users\79270\.gemini\antigravity\scratch\HandGestureRecognizer\gesture-library\src\main\AndroidManifest.xml:6:5-95
+13        android:name="android.hardware.camera.autofocus"
+13-->C:\Users\79270\.gemini\antigravity\scratch\HandGestureRecognizer\gesture-library\src\main\AndroidManifest.xml:6:19-67
+14        android:required="false" />
+14-->C:\Users\79270\.gemini\antigravity\scratch\HandGestureRecognizer\gesture-library\src\main\AndroidManifest.xml:6:68-92
+15
+16</manifest>

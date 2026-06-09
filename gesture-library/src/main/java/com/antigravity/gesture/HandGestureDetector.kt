@@ -44,12 +44,24 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
     private var lastGestureTimeMs = 0L
     private var lastHandDetectedTimeMs = 0L
 
+    // Hysteresis state for pinch (ACTIVATE) gesture.
+    // Once clenched, a larger distance is required to release — prevents flickering.
+    @Volatile private var isPinchActive = false
+    private var lastPinchValidTimeMs = 0L
+    private val pinchReleaseDebounceMs = 400L // Increased to 400ms to tolerate faster swipes
+
     companion object {
         private const val TAG = "HandGestureDetector"
         private const val MODEL_FILE = "hand_landmarker.task"
         private const val COOLDOWN_MS = 650L
         private const val DISPLACEMENT_THRESHOLD = 0.08f
         private const val SPEED_THRESHOLD = 0.25f // normalized units per second
+
+        // Pinch hysteresis thresholds (as fraction of hand scale = wrist→middleMcp distance)
+        // Pinch ENGAGES when dist < PINCH_ENGAGE_RATIO  (fingers close together)
+        // Pinch RELEASES when dist > PINCH_RELEASE_RATIO (fingers clearly apart)
+        private const val PINCH_ENGAGE_RATIO  = 0.28f
+        private const val PINCH_RELEASE_RATIO = 0.40f
     }
 
     private data class TimestampedPoint(val x: Float, val y: Float, val timestampMs: Long, val isClenched: Boolean)
@@ -65,9 +77,9 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
 
             val options = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(baseOptionsBuilder.build())
-                .setMinHandDetectionConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
-                .setMinHandPresenceConfidence(0.5f)
+                .setMinHandDetectionConfidence(0.4f)
+                .setMinTrackingConfidence(0.4f)
+                .setMinHandPresenceConfidence(0.4f)
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setResultListener { result, mpImage ->
                     processResult(result)
@@ -115,8 +127,15 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         val landmarksList = result.landmarks()
         val now = SystemClock.uptimeMillis()
         if (landmarksList.isNullOrEmpty()) {
+            // Debounce completely lost tracking frames (e.g. from motion blur)
+            // Maintain the last known good state for up to 250ms before clearing it.
+            if (now - lastHandDetectedTimeMs < 250L && isPinchActive) {
+                return
+            }
+
             _landmarksFlow.value = null
             _gestureFlow.value = Gesture.NONE
+            isPinchActive = false // Reset pinch state when hand is completely lost for >250ms
             synchronized(history) {
                 // Clear history only if hand has been missing for a significant duration (e.g. 350ms)
                 if (now - lastHandDetectedTimeMs > 350L) {
@@ -159,13 +178,33 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         val pinkyMcp = landmarks[17]
 
         // Pre-evaluate static clenched state (Pinch of Thumb & Index finger tips)
+        // Uses hysteresis: different thresholds for engage vs. release to prevent flicker.
         val handScale = distance(wrist, middleMcp)
-        val isClenched = if (handScale > 0.01f) {
-            val pinchDist = distance(thumbTip, indexTip)
-            pinchDist < handScale * 0.22f
+        val pinchDist = distance(thumbTip, indexTip)
+        
+        val isClenched: Boolean
+        
+        if (isPinchActive) {
+            // Already pinching — only release if fingers are clearly apart AND scale is valid,
+            // OR if the tracking is bad (scale < 0.01f). In BOTH release cases, we use the debounce!
+            val isValidAndPinched = handScale > 0.01f && pinchDist < handScale * PINCH_RELEASE_RATIO
+            if (isValidAndPinched) {
+                lastPinchValidTimeMs = now
+                isClenched = true
+            } else {
+                // If it's invalid or fingers opened, hold the state for the debounce period
+                isClenched = now - lastPinchValidTimeMs < pinchReleaseDebounceMs
+            }
         } else {
-            false
+            // Not yet pinching — engage only when tracking is good and fingers are clearly close
+            if (handScale > 0.01f && pinchDist < handScale * PINCH_ENGAGE_RATIO) {
+                lastPinchValidTimeMs = now
+                isClenched = true
+            } else {
+                isClenched = false
+            }
         }
+        isPinchActive = isClenched
 
         // 1. Evaluate dynamic wave gestures first
         val palmCenterX = (wrist.x + indexMcp.x + pinkyMcp.x) / 3f
