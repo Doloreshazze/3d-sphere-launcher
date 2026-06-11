@@ -62,7 +62,8 @@ data class MainUiState(
     val handCursorY: Float = 0.5f,
     val isHandDetected: Boolean = false,
     val hoverProgress: Float = 0f,
-    val focusedApp: AppInfo? = null
+    val focusedApp: AppInfo? = null,
+    val reductionCoefficient: Float = 0.75f
 )
 
 data class SettingsState(
@@ -478,6 +479,26 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     fun unhideAllApps() {
         prefs.edit().putStringSet("hidden_packages", emptySet()).apply()
         hiddenPackagesState.value = emptySet()
+    }
+
+    fun resetSettings() {
+        prefs.edit().clear().apply()
+        styleState.value = SphereStyle.FLOATING_ICONS
+        autoDriftState.value = true
+        tiltEnabledState.value = false
+        shapeTypeState.value = ShapeType.SPHERE
+        isStandardViewState.value = false
+        isShapeLockedState.value = false
+        isInertiaEnabledState.value = true
+        glowColorState.value = GlowColorOption.SYSTEM
+        glowOpacityState.value = 1.0f
+        glowBrightnessState.value = 1.0f
+        isPulsingEnabledState.value = false
+        isAudioReactiveEnabledState.value = false
+        audioAmplitudeState.value = 0.0f
+        gestureControlEnabledState.value = true
+        hiddenPackagesState.value = emptySet()
+        stopAudioRecording()
     }
 
     fun setGestureControlEnabled(enabled: Boolean) {

@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.playeverywhere.spherelauncher.data.AppInfo
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -94,14 +95,32 @@ class RotationState(
     var yaw: Float = 0f,
     var tiltPitch: Float = 0f,
     var tiltYaw: Float = 0f,
-    var radius: Float = 300f
+    var radius: Float = 300f,
+    var trackballMatrix: FloatArray = FloatArray(16).apply { android.opengl.Matrix.setIdentityM(this, 0) }
 )
 
 class FrameRotationData(
-    var cosP: Float = 1f, var sinP: Float = 0f,
-    var cosY: Float = 1f, var sinY: Float = 0f,
+    var finalMatrix: FloatArray = FloatArray(16).apply { android.opengl.Matrix.setIdentityM(this, 0) },
     var radius: Float = 300f
 )
+
+fun applyTrackballRotation(matrix: FloatArray, dx: Float, dy: Float) {
+    val angleRad = kotlin.math.sqrt(dx * dx + dy * dy)
+    if (angleRad > 0.00001f) {
+        val axisX = dy
+        val axisY = -dx
+        val axisLen = kotlin.math.sqrt(axisX * axisX + axisY * axisY)
+        val angleDeg = (angleRad * 180f / Math.PI.toFloat())
+        
+        val temp = FloatArray(16)
+        android.opengl.Matrix.setIdentityM(temp, 0)
+        android.opengl.Matrix.rotateM(temp, 0, angleDeg, axisX / axisLen, axisY / axisLen, 0f)
+        
+        val result = FloatArray(16)
+        android.opengl.Matrix.multiplyMM(result, 0, temp, 0, matrix, 0)
+        System.arraycopy(result, 0, matrix, 0, 16)
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -125,6 +144,7 @@ fun Sphere3D(
     handCursorY: Float = 0.5f,
     isHandDetected: Boolean = false,
     isHandClenched: Boolean = false,
+    reductionCoefficient: Float = 0.75f,
     projectedNodes: ArrayList<AppRenderNode>? = null,
     onAppClick: (AppInfo) -> Unit,
     onAppLongClick: ((AppInfo) -> Unit)? = null
@@ -144,6 +164,11 @@ fun Sphere3D(
     
     // Base radius of the sphere adaptively sized to screen
     val baseRadius = (screenWidthPx.coerceAtMost(screenHeightPx) * 0.38f).coerceAtLeast(250f)
+
+    var clickedPackageName by remember { mutableStateOf<String?>(null) }
+    var gestureStartTime by remember { mutableStateOf(0L) }
+    var lastLongGestureEndTime by remember { mutableStateOf(0L) }
+    val scope = rememberCoroutineScope()
 
     // Rotation state & fast frame cache (completely non-compose states)
     val rotationState = remember { RotationState(radius = baseRadius) }
@@ -330,6 +355,9 @@ fun Sphere3D(
 
     // Touch velocities for physics fling inertia (regular floats, VSYNC-only changes)
     var yawVelocity = remember { floatArrayOf(0f, 0f) } // index 0 = yawVelocity, 1 = pitchVelocity
+    
+    // Accumulator to smoothly apply discrete 15Hz drag events over 60Hz physics frames
+    val dragAccumulator = remember { floatArrayOf(0f, 0f) }
 
     // Raw tilt values from sensor (regular array to prevent recomposition flood)
     val tiltValues = remember { FloatArray(2) }
@@ -367,6 +395,27 @@ fun Sphere3D(
                     rotationState.tiltYaw = 0f
                     rotationState.tiltPitch = 0f
                 } else {
+                    // Smoothly consume accumulated drag when interacting
+                    if (isUserInteracting) {
+                        val smoothFactor = 1.0f - kotlin.math.exp(-15f * deltaTime)
+                        val dx = dragAccumulator[0] * smoothFactor
+                        val dy = dragAccumulator[1] * smoothFactor
+                        
+                        if (kotlin.math.abs(dx) > 0.0001f || kotlin.math.abs(dy) > 0.0001f) {
+                            rotationState.yaw += dx
+                            rotationState.pitch += dy
+                            if (shapeType != ShapeType.FLAT_PLANE) {
+                                applyTrackballRotation(rotationState.trackballMatrix, -dx, dy)
+                            }
+                            dragAccumulator[0] -= dx
+                            dragAccumulator[1] -= dy
+                        }
+                    } else {
+                        // Slowly bleed out any remaining drag accumulator when not interacting
+                        dragAccumulator[0] = 0f
+                        dragAccumulator[1] = 0f
+                    }
+
                     // 1. Update physics if not interacting
                     if (!isUserInteracting) {
                         val yVel = yawVelocity[0]
@@ -374,6 +423,9 @@ fun Sphere3D(
                         if (kotlin.math.abs(yVel) > 0.0001f || kotlin.math.abs(pVel) > 0.0001f) {
                             rotationState.yaw += yVel * timeFactor
                             rotationState.pitch += pVel * timeFactor
+                            if (shapeType != ShapeType.FLAT_PLANE) {
+                                applyTrackballRotation(rotationState.trackballMatrix, -yVel * timeFactor, pVel * timeFactor)
+                            }
                             yawVelocity[0] = yVel * friction.pow(timeFactor)
                             yawVelocity[1] = pVel * friction.pow(timeFactor)
                         } else if (isAutoDriftEnabled) {
@@ -381,8 +433,7 @@ fun Sphere3D(
                                 rotationState.yaw += 0.02f * deltaTime   // Gentle slow horizontal float
                                 rotationState.pitch += 0.02f * deltaTime  // Gentle slow vertical float
                             } else {
-                                rotationState.yaw += driftSpeedY * deltaTime
-                                rotationState.pitch += driftSpeedX * deltaTime
+                                applyTrackballRotation(rotationState.trackballMatrix, -driftSpeedY * deltaTime, driftSpeedX * deltaTime)
                             }
                         }
                     }
@@ -402,14 +453,18 @@ fun Sphere3D(
                     }
                 }
 
+                if (shapeType != ShapeType.FLAT_PLANE) {
+                    val temp1 = FloatArray(16)
+                    android.opengl.Matrix.setIdentityM(temp1, 0)
+                    android.opengl.Matrix.rotateM(temp1, 0, (rotationState.tiltYaw * 180f / Math.PI).toFloat(), 0f, 1f, 0f)
+                    android.opengl.Matrix.rotateM(temp1, 0, (rotationState.tiltPitch * 180f / Math.PI).toFloat(), 1f, 0f, 0f)
+                    android.opengl.Matrix.multiplyMM(frameRotationData.finalMatrix, 0, temp1, 0, rotationState.trackballMatrix, 0)
+                }
+
                 // 3. Cache sines and cosines EXACTLY ONCE on the CPU (using fast float math!)
                 val totalPitch = rotationState.pitch + rotationState.tiltPitch
                 val totalYaw = rotationState.yaw + rotationState.tiltYaw
 
-                frameRotationData.cosP = kotlin.math.cos(totalPitch)
-                frameRotationData.sinP = kotlin.math.sin(totalPitch)
-                frameRotationData.cosY = kotlin.math.cos(totalYaw)
-                frameRotationData.sinY = kotlin.math.sin(totalYaw)
                 frameRotationData.radius = rotationState.radius
 
                 // 4. Trigger redraw by incrementing frameTicket
@@ -525,8 +580,13 @@ fun Sphere3D(
                             isUserInteracting = true
                             yawVelocity[0] = 0f
                             yawVelocity[1] = 0f
+                            gestureStartTime = android.os.SystemClock.uptimeMillis()
                         } else if (!anyPressed && isUserInteracting) {
                             isUserInteracting = false
+                            val duration = android.os.SystemClock.uptimeMillis() - gestureStartTime
+                            if (duration > 350L) {
+                                lastLongGestureEndTime = android.os.SystemClock.uptimeMillis()
+                            }
                         }
                         
                         // 2. Track swipe and pinch-to-zoom gestures
@@ -557,17 +617,20 @@ fun Sphere3D(
                             } else {
                                 val dragDist = kotlin.math.sqrt(delta.x * delta.x + delta.y * delta.y)
                                 totalDragDistance += dragDist
-                                if (totalDragDistance > 15f) { // ~5-8 dps threshold to filter out accidental clicks
+                                if (totalDragDistance > 50f) { // Increased threshold to prevent accidental click cancellation
                                     allowClicks = false
                                 }
                                 
                                 if (!isShapeLocked) {
-                                    val sensitivity = 0.0028f
-                                    val dYaw = -delta.x * sensitivity
-                                    val dPitch = delta.y * sensitivity
+                                    val baseSensitivity = 1.0f / rotationState.radius
+                                    val effectiveSensitivity = baseSensitivity
                                     
-                                    rotationState.yaw += dYaw
-                                    rotationState.pitch += dPitch
+                                    val dYaw = -delta.x * effectiveSensitivity
+                                    val dPitch = delta.y * effectiveSensitivity
+                                    
+                                    // Accumulate drag smoothly over physics frames instead of jumping instantly
+                                    dragAccumulator[0] += dYaw
+                                    dragAccumulator[1] += dPitch
                                     
                                     if (shapeType == ShapeType.FLAT_PLANE) {
                                         rotationState.yaw = rotationState.yaw.coerceIn(-1.5f, 1.5f)
@@ -616,9 +679,17 @@ fun Sphere3D(
                                 val dX = centroidCurrentX - centroidPreviousX
                                 val dY = centroidCurrentY - centroidPreviousY
                                 
-                                val sensitivity = 0.0028f
-                                rotationState.yaw += -dX * sensitivity
-                                rotationState.pitch += dY * sensitivity
+                                val baseSensitivity = 1.0f / rotationState.radius
+                                val effectiveSensitivity = baseSensitivity
+                                
+                                val dYaw = -dX * effectiveSensitivity
+                                val dPitch = dY * effectiveSensitivity
+                                rotationState.yaw += dYaw
+                                rotationState.pitch += dPitch
+                                
+                                if (shapeType != ShapeType.FLAT_PLANE) {
+                                    applyTrackballRotation(rotationState.trackballMatrix, -dYaw, dPitch)
+                                }
                             }
                             
                             if (shapeType == ShapeType.FLAT_PLANE) {
@@ -665,13 +736,38 @@ fun Sphere3D(
                                         val currentIconSize = iconSizePx * hitTarget.finalScale
                                         val maxTouchDist = currentIconSize / 2f + 12f * densityDp
                                         if (dist < maxTouchDist) {
-                                            onAppClick(hitTarget.appInfo)
+                                            if (isGestureEnabled) {
+                                                val now = android.os.SystemClock.uptimeMillis()
+                                                if ((now - lastLongGestureEndTime) < 2000L) {
+                                                    clickedPackageName = hitTarget.appInfo.packageName
+                                                    scope.launch {
+                                                        kotlinx.coroutines.delay(150)
+                                                        clickedPackageName = null
+                                                    }
+                                                    onAppClick(hitTarget.appInfo)
+                                                    lastLongGestureEndTime = 0L
+                                                } else {
+                                                    clickedPackageName = hitTarget.appInfo.packageName
+                                                    scope.launch {
+                                                        kotlinx.coroutines.delay(150)
+                                                        clickedPackageName = null
+                                                    }
+                                                }
+                                            } else {
+                                                // Normal touch, launch immediately
+                                                clickedPackageName = hitTarget.appInfo.packageName
+                                                scope.launch {
+                                                    kotlinx.coroutines.delay(150)
+                                                    clickedPackageName = null
+                                                }
+                                                onAppClick(hitTarget.appInfo)
+                                            }
                                         }
                                     }
                                 }
                             },
                             onLongPress = { tapOffset ->
-                                if (allowClicks && onAppLongClick != null) {
+                                if (allowClicks) {
                                     val canvasWidth = size.width
                                     val canvasHeight = size.height
                                     val tapX = tapOffset.x - canvasWidth / 2f
@@ -692,7 +788,19 @@ fun Sphere3D(
                                         val currentIconSize = iconSizePx * hitTarget.finalScale
                                         val maxTouchDist = currentIconSize / 2f + 12f * densityDp
                                         if (dist < maxTouchDist) {
-                                            onAppLongClick(hitTarget.appInfo)
+                                            if (isGestureEnabled) {
+                                                clickedPackageName = hitTarget.appInfo.packageName
+                                                scope.launch {
+                                                    kotlinx.coroutines.delay(150)
+                                                    clickedPackageName = null
+                                                }
+                                            } else {
+                                                if (onAppLongClick != null) {
+                                                    onAppLongClick(hitTarget.appInfo)
+                                                } else {
+                                                    onAppClick(hitTarget.appInfo)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -744,20 +852,16 @@ fun Sphere3D(
                 canvasGlowPaint.alpha = (0.24f * glowOpacity * audioAlphaMultiplier * 255).toInt().coerceIn(0, 255)
                 nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlowPaint)
                 
-                // 2. Trig cache
-                val cosP = frameRotationData.cosP
-                val sinP = frameRotationData.sinP
-                val cosY = frameRotationData.cosY
-                val sinY = frameRotationData.sinY
-                
-                // 3. Project 3D nodes
+                // 2. Project 3D nodes
                 val tempNodes = ArrayList<AppRenderNode>(sphereNodes.size)
                 sphereNodes.forEach { node ->
-                    val y1 = node.yBase * cosP - node.zBase * sinP
-                    val z1 = node.yBase * sinP + node.zBase * cosP
-                    
-                    val x2 = node.xBase * cosY + z1 * sinY
-                    val z2 = -node.xBase * sinY + z1 * cosY
+                    val x2: Float
+                    val y1: Float
+                    val z2: Float
+                    val m = frameRotationData.finalMatrix
+                    x2 = m[0] * node.xBase + m[4] * node.yBase + m[8] * node.zBase
+                    y1 = m[1] * node.xBase + m[5] * node.yBase + m[9] * node.zBase
+                    z2 = m[2] * node.xBase + m[6] * node.yBase + m[10] * node.zBase
                     
                     val cameraDist = 3.0f
                     val scale = cameraDist / (cameraDist + z2)
@@ -984,6 +1088,16 @@ fun Sphere3D(
                     // Animate x and y coordinates smoothly when they are rearranged!
                     val animX by animateFloatAsState(targetValue = targetX, label = "x")
                     val animY by animateFloatAsState(targetValue = targetY, label = "y")
+                    
+                    val isClicked = clickedPackageName == node.appInfo.packageName
+                    val clickScale by animateFloatAsState(
+                        targetValue = if (isClicked) 0.65f else 1.0f,
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+                        ),
+                        label = "clickScale"
+                    )
 
                     Box(
                         modifier = Modifier
@@ -992,10 +1106,6 @@ fun Sphere3D(
                                 val ticket = frameTicket
 
                                 // 2. Read sines/cosines from precalculated frameRotationData cache (0 double precision calls!)
-                                val cosP = frameRotationData.cosP
-                                val sinP = frameRotationData.sinP
-                                val cosY = frameRotationData.cosY
-                                val sinY = frameRotationData.sinY
                                 val rad = frameRotationData.radius
 
                                 var finalX = if (shapeType == ShapeType.FLAT_PLANE) animX else node.xBase
@@ -1014,13 +1124,20 @@ fun Sphere3D(
                                     finalZ = 0f
                                 }
 
-                                // 3. Rotate around X-axis (pitch) using cached values
-                                val y1 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalY else (node.yBase * cosP - node.zBase * sinP)
-                                val z1 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalZ else (node.yBase * sinP + node.zBase * cosP)
-
-                                // 4. Rotate around Y-axis (yaw)
-                                val x2 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalX else (node.xBase * cosY + z1 * sinY)
-                                val z2 = if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) finalZ else (-node.xBase * sinY + z1 * cosY) // depth
+                                val x2: Float
+                                val y1: Float
+                                val z2: Float
+                                
+                                if (shapeType == ShapeType.FLAT_PLANE || shapeType == ShapeType.SNAKE) {
+                                    x2 = finalX
+                                    y1 = finalY
+                                    z2 = finalZ
+                                } else {
+                                    val m = frameRotationData.finalMatrix
+                                    x2 = m[0] * node.xBase + m[4] * node.yBase + m[8] * node.zBase
+                                    y1 = m[1] * node.xBase + m[5] * node.yBase + m[9] * node.zBase
+                                    z2 = m[2] * node.xBase + m[6] * node.yBase + m[10] * node.zBase
+                                }
 
                                 // 5. Perspective calculation
                                 // Z ranges from -1 (closest) to +1 (furthest). We scale by radius when applying.
@@ -1074,8 +1191,8 @@ fun Sphere3D(
                                       0.15f + 0.85f * depthRatio // Standard fade out for back elements
                                   }
 
-                                  scaleX = finalScale
-                                  scaleY = finalScale
+                                  scaleX = finalScale * clickScale
+                                  scaleY = finalScale * clickScale
                                   translationX = xProj
                                   translationY = yProj
                                   alpha = calculatedAlpha

@@ -119,6 +119,26 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
             } catch (e: Exception) {
                 Log.e(TAG, "Error detecting hand landmarks in live stream", e)
                 bitmap.recycle() // Recycle immediately on failure to prevent memory leak
+                
+                // Self-heal: If MediaPipe task crashed (e.g. OpenGL context loss onPause), reset it
+                try {
+                    landmarker.close()
+                } catch (ce: Exception) {
+                    // Ignore close errors
+                }
+                handLandmarker = null
+                setupHandLandmarker()
+            }
+        }
+    }
+
+    /**
+     * Re-initializes the MediaPipe landmarker if it was closed (e.g. after returning from background).
+     */
+    fun reinitialize() {
+        synchronized(lock) {
+            if (handLandmarker == null) {
+                setupHandLandmarker()
             }
         }
     }
