@@ -38,6 +38,12 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
      */
     val gestureFlow: StateFlow<Gesture> = _gestureFlow.asStateFlow()
 
+    private val _handScaleFlow = MutableStateFlow(0.5f)
+    /**
+     * Emits the apparent scale (size) of the hand in the frame.
+     */
+    val handScaleFlow: StateFlow<Float> = _handScaleFlow.asStateFlow()
+
     // Sliding window history for wave gesture recognition
     private val history = mutableListOf<TimestampedPoint>()
     private val historyWindowMs = 450L
@@ -200,6 +206,7 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         // Pre-evaluate static clenched state (Pinch of Thumb & Index finger tips)
         // Uses hysteresis: different thresholds for engage vs. release to prevent flicker.
         val handScale = distance(wrist, middleMcp)
+        _handScaleFlow.value = handScale
         val pinchDist = distance(thumbTip, indexTip)
         
         val isClenched: Boolean

@@ -67,7 +67,9 @@ data class MainUiState(
     val focusedApp: AppInfo? = null,
     val reductionCoefficient: Float = 0.75f,
     val isEarthInsideEnabled: Boolean = false,
-    val isRealisticEarthEnabled: Boolean = false
+    val isRealisticEarthEnabled: Boolean = false,
+    val isBlackHoleEnabled: Boolean = false,
+    val isZoomEnabled: Boolean = false
 )
 
 data class SettingsState(
@@ -115,6 +117,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     private val isEarthInsideEnabledState = MutableStateFlow(prefs.getBoolean("earth_inside_enabled", false))
     private val isRealisticEarthEnabledState = MutableStateFlow(prefs.getBoolean("realistic_earth_enabled", false))
+    private val isBlackHoleEnabledState = MutableStateFlow(prefs.getBoolean("black_hole_enabled", false))
+    private val isZoomEnabledState = MutableStateFlow(prefs.getBoolean("zoom_enabled", false))
 
     private val settingsFlow = combine(
         styleState,
@@ -151,7 +155,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         hoverProgressState,
         focusedAppState,
         isEarthInsideEnabledState,
-        isRealisticEarthEnabledState
+        isRealisticEarthEnabledState,
+        isBlackHoleEnabledState,
+        isZoomEnabledState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -180,6 +186,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val focusedApp = array[23] as AppInfo?
         val isEarthInside = array[24] as Boolean
         val isRealisticEarth = array[25] as Boolean
+        val isBlackHole = array[26] as Boolean
+        val isZoomEnabled = array[27] as Boolean
 
         val visibleApps = apps.filter { it.packageName !in hiddenPackages }
         val filtered = if (query.isBlank()) {
@@ -218,7 +226,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             focusedApp = focusedApp,
             reductionCoefficient = prefs.getFloat("reduction_coefficient", 0.75f),
             isEarthInsideEnabled = isEarthInside,
-            isRealisticEarthEnabled = isRealisticEarth
+            isRealisticEarthEnabled = isRealisticEarth,
+            isBlackHoleEnabled = isBlackHole,
+            isZoomEnabled = isZoomEnabled
         )
     }.stateIn(
         viewModelScope,
@@ -526,17 +536,38 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         gestureControlEnabledState.value = true
         hiddenPackagesState.value = emptySet()
         isEarthInsideEnabledState.value = false
+        isBlackHoleEnabledState.value = false
         stopAudioRecording()
     }
 
     fun setEarthInsideEnabled(enabled: Boolean) {
         isEarthInsideEnabledState.value = enabled
         prefs.edit().putBoolean("earth_inside_enabled", enabled).apply()
+        if (enabled) {
+            setBlackHoleEnabled(false)
+        }
     }
 
     fun setRealisticEarthEnabled(enabled: Boolean) {
         isRealisticEarthEnabledState.value = enabled
         prefs.edit().putBoolean("realistic_earth_enabled", enabled).apply()
+        if (enabled) {
+            setBlackHoleEnabled(false)
+        }
+    }
+
+    fun setBlackHoleEnabled(enabled: Boolean) {
+        isBlackHoleEnabledState.value = enabled
+        prefs.edit().putBoolean("black_hole_enabled", enabled).apply()
+        if (enabled) {
+            setEarthInsideEnabled(false)
+            setRealisticEarthEnabled(false)
+        }
+    }
+
+    fun setZoomEnabled(enabled: Boolean) {
+        isZoomEnabledState.value = enabled
+        prefs.edit().putBoolean("zoom_enabled", enabled).apply()
     }
 
     fun setGestureControlEnabled(enabled: Boolean) {

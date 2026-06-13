@@ -147,14 +147,17 @@ fun Sphere3D(
     isGestureEnabled: Boolean = false,
     isEarthInsideEnabled: Boolean = false,
     isRealisticEarthEnabled: Boolean = false,
+    isBlackHoleEnabled: Boolean = false,
     handCursorX: Float = 0.5f,
     handCursorY: Float = 0.5f,
     isHandDetected: Boolean = false,
     isHandClenched: Boolean = false,
     handScale: Float = 0.5f,
     handSpeed: Float = 0f,
+    hoverProgress: Float = 0f,
     reductionCoefficient: Float = 0.75f,
-    projectedNodes: ArrayList<AppRenderNode>? = null,
+    isZoomEnabled: Boolean = false,
+    projectedNodes: MutableList<AppRenderNode>? = null,
     onAppClick: (AppInfo) -> Unit,
     onAppLongClick: ((AppInfo) -> Unit)? = null
 ) {
@@ -166,6 +169,7 @@ fun Sphere3D(
     val systemSecondary = MaterialTheme.colorScheme.secondary
 
     val earthBitmap = ImageBitmap.imageResource(id = R.drawable.earth_realistic)
+    val blackHoleBitmap = ImageBitmap.imageResource(id = R.drawable.black_hole)
 
     android.util.Log.d("Sphere3D", "=== Sphere3D recomposed ===")
 
@@ -244,8 +248,8 @@ fun Sphere3D(
     var initialPinchScale by remember { mutableStateOf(-1f) }
     var initialPinchRadius by remember { mutableStateOf(-1f) }
     
-    LaunchedEffect(isHandClenched, handScale) {
-        if (isHandClenched && isGestureEnabled) {
+    LaunchedEffect(isHandClenched, handScale, isZoomEnabled, isGestureEnabled) {
+        if (isHandClenched && isGestureEnabled && isZoomEnabled) {
             if (initialPinchScale < 0f) {
                 // Just clenched: record the initial state
                 initialPinchScale = handScale
@@ -256,8 +260,8 @@ fun Sphere3D(
                 val sensitivity = 1.6f
                 val multiplier = 1f - scaleDelta * sensitivity
                 val targetRadius = (initialPinchRadius * multiplier).coerceIn(120f, 1000f)
-                // Smooth the zoom to prevent jitter
-                rotationState.radius = rotationState.radius + 0.15f * (targetRadius - rotationState.radius)
+                // Apply the zoom directly (handScale is already relatively continuous)
+                rotationState.radius = targetRadius
             }
         } else {
             // Unclenched: reset
@@ -696,7 +700,7 @@ fun Sphere3D(
                             val dyPrev = p1.previousPosition.y - p2.previousPosition.y
                             val distPrevious = kotlin.math.sqrt(dxPrev * dxPrev + dyPrev * dyPrev)
                             
-                            if (distPrevious > 0.1f) {
+                            if (distPrevious > 0.1f && isZoomEnabled) {
                                 val zoomMultiplier = distCurrent / distPrevious
                                 rotationState.radius = (rotationState.radius * zoomMultiplier).coerceIn(120f, 1000f)
                             }
@@ -889,8 +893,25 @@ fun Sphere3D(
                 canvasGlowPaint.alpha = (0.24f * glowOpacity * audioAlphaMultiplier * 255).toInt().coerceIn(0, 255)
                 nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlowPaint)
                 
-                // 1.5 Earth rendering
-                if (isEarthInsideEnabled) {
+                // 1.5 Center Object rendering
+                if (isBlackHoleEnabled) {
+                    val bhRadius = currentRad * 0.7f
+                    // Slow rotation for black hole
+                    val bhYaw = (android.os.SystemClock.uptimeMillis() % 120000L) / 120000f * 360f
+                    nativeCanvas.save()
+                    nativeCanvas.rotate(bhYaw, centerCanvasX, centerCanvasY)
+                    
+                    val texW = blackHoleBitmap.width.toFloat()
+                    val texH = blackHoleBitmap.height.toFloat()
+                    val destRect = android.graphics.Rect(
+                        (centerCanvasX - bhRadius).toInt(),
+                        (centerCanvasY - bhRadius).toInt(),
+                        (centerCanvasX + bhRadius).toInt(),
+                        (centerCanvasY + bhRadius).toInt()
+                    )
+                    nativeCanvas.drawBitmap(blackHoleBitmap.asAndroidBitmap(), null, destRect, null)
+                    nativeCanvas.restore()
+                } else if (isEarthInsideEnabled) {
                     val earthRadius = currentRad * 0.45f
                     if (isRealisticEarthEnabled) {
                         val earthYaw = (android.os.SystemClock.uptimeMillis() % 60000L) / 60000f

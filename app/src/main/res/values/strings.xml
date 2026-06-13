@@ -68,4 +68,11 @@
     <string name="camera_permission_denied">Camera permission is required for Air Gesture Control</string>
     <string name="hand_detected">Tracking active</string>
     <string name="hand_searching">Place hand in front of camera</string>
+
+    <!-- Center Object Settings -->
+    <string name="center_object_title">Object Inside Sphere</string>
+    <string name="center_none">None</string>
+    <string name="center_earth">Wireframe Earth</string>
+    <string name="center_earth_real">Realistic Earth</string>
+    <string name="center_black_hole">Black Hole</string>
 </resources>

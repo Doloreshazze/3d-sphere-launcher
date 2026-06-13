@@ -111,6 +111,7 @@ fun MainScreen(
     val gestureDetector = remember { HandGestureDetector(context.applicationContext) }
     val landmarks by gestureDetector.landmarksFlow.collectAsStateWithLifecycle()
     val activeGesture by gestureDetector.gestureFlow.collectAsStateWithLifecycle()
+    val rawHandScale by gestureDetector.handScaleFlow.collectAsStateWithLifecycle(initialValue = 0.5f)
     val isHandClenched = activeGesture == Gesture.ACTIVATE
 
     // Background gesture camera engine — ImageAnalysis only, no visible preview
@@ -161,7 +162,7 @@ fun MainScreen(
             
             smoothCursorX = smoothCursorX + dynamicAlpha * (targetX - smoothCursorX)
             smoothCursorY = smoothCursorY + dynamicAlpha * (targetY - smoothCursorY)
-            viewModel.updateHandCursor(smoothCursorX, smoothCursorY, true)
+            viewModel.updateHandCursor(smoothCursorX, smoothCursorY, true, scale = rawHandScale)
         } else {
             smoothCursorX = 0.5f
             smoothCursorY = 0.5f
@@ -471,10 +472,18 @@ fun MainScreen(
                             isAudioReactiveEnabled = state.isAudioReactiveEnabled,
                             audioAmplitude = state.audioAmplitude,
                             isGestureEnabled = state.isGestureControlEnabled,
+                            isEarthInsideEnabled = state.isEarthInsideEnabled,
+                            isRealisticEarthEnabled = state.isRealisticEarthEnabled,
+                            isBlackHoleEnabled = state.isBlackHoleEnabled,
                             handCursorX = state.handCursorX,
                             handCursorY = state.handCursorY,
                             isHandDetected = state.isHandDetected,
                             isHandClenched = isHandClenched,
+                            handScale = state.handScale,
+                            handSpeed = state.handCursorSpeed,
+                            hoverProgress = state.hoverProgress,
+                            reductionCoefficient = state.reductionCoefficient,
+                            isZoomEnabled = state.isZoomEnabled,
                             projectedNodes = projectedNodesList,
                             onAppClick = { app ->
                                 try {
@@ -746,8 +755,10 @@ fun MainScreen(
 
         // 5. Settings Bottom Sheet Dialog
         if (showSettings) {
+            val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
                 onDismissRequest = { showSettings = false },
+                sheetState = sheetState,
                 containerColor = Color(0xC007050C), // Beautiful space-themed dark glassmorphism (75% opacity)
                 contentColor = Color.White,
                 scrimColor = Color.Transparent, // COMPLETELY remove the dark background scrim so the 3D Sphere is fully visible in real-time!
@@ -762,6 +773,27 @@ fun MainScreen(
                     )
                 }
             ) {
+                // Hide system navigation bar for the ModalBottomSheet dialog window
+                val bottomSheetView = LocalView.current
+                DisposableEffect(bottomSheetView) {
+                    val dialogWindow = (bottomSheetView.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+                    if (dialogWindow != null) {
+                        // Force immersive mode with older flags for Android 9 compatibility
+                        dialogWindow.decorView.systemUiVisibility = (
+                            android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+                        )
+                        
+                        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(dialogWindow, false)
+                        androidx.core.view.WindowCompat.getInsetsController(dialogWindow, bottomSheetView).apply {
+                            hide(androidx.core.view.WindowInsetsCompat.Type.navigationBars() or androidx.core.view.WindowInsetsCompat.Type.statusBars())
+                            systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                        }
+                    }
+                    onDispose {}
+                }
+
                 val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
                 ) { isGranted ->
@@ -810,6 +842,10 @@ fun MainScreen(
                             viewModel.setGestureControlEnabled(false)
                         }
                     },
+                    onZoomEnabledChanged = { viewModel.setZoomEnabled(it) },
+                    onEarthInsideChanged = { viewModel.setEarthInsideEnabled(it) },
+                    onRealisticEarthChanged = { viewModel.setRealisticEarthEnabled(it) },
+                    onBlackHoleChanged = { viewModel.setBlackHoleEnabled(it) },
                     onRefreshApps = {
                         viewModel.loadApps()
                         showSettings = false
@@ -1013,6 +1049,10 @@ fun SettingsSheetContent(
     onPulsingChanged: (Boolean) -> Unit,
     onAudioReactiveChanged: (Boolean) -> Unit,
     onGestureControlChanged: (Boolean) -> Unit,
+    onZoomEnabledChanged: (Boolean) -> Unit,
+    onEarthInsideChanged: (Boolean) -> Unit,
+    onRealisticEarthChanged: (Boolean) -> Unit,
+    onBlackHoleChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit,
     onShowOnboarding: () -> Unit,
@@ -1026,6 +1066,7 @@ fun SettingsSheetContent(
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(horizontal = 24.dp, vertical = 8.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         Text(
             text = stringResource(R.string.settings_title),
@@ -1077,6 +1118,72 @@ fun SettingsSheetContent(
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) Color.White else Color(0xB3FFFFFF)
+                    )
+                }
+            }
+        }
+
+        Text(
+            text = stringResource(R.string.center_object_title),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val centerOptions = listOf(
+                Triple(0, R.string.center_none, Color(0xFF808080)),
+                Triple(1, R.string.center_earth, Color(0xFF00F2FE)),
+                Triple(2, R.string.center_earth_real, Color(0xFF4FACFE)),
+                Triple(3, R.string.center_black_hole, Color(0xFFFF5500))
+            )
+            val currentSelected = when {
+                state.isBlackHoleEnabled -> 3
+                state.isRealisticEarthEnabled -> 2
+                state.isEarthInsideEnabled -> 1
+                else -> 0
+            }
+            centerOptions.forEach { (optionId, labelRes, colorAccent) ->
+                val isSelected = currentSelected == optionId
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(
+                            color = if (isSelected) colorAccent.copy(alpha = 0.2f) else Color(0x0DFFFFFF),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .border(
+                            width = 1.5.dp,
+                            color = if (isSelected) colorAccent else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            when (optionId) {
+                                0 -> {
+                                    onBlackHoleChanged(false)
+                                    onRealisticEarthChanged(false)
+                                    onEarthInsideChanged(false)
+                                }
+                                1 -> onEarthInsideChanged(true)
+                                2 -> onRealisticEarthChanged(true)
+                                3 -> onBlackHoleChanged(true)
+                            }
+                        }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(labelRes),
+                        fontSize = 10.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) Color.White else Color(0xB3FFFFFF),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -1237,6 +1344,40 @@ fun SettingsSheetContent(
             Switch(
                 checked = state.isGestureControlEnabled,
                 onCheckedChange = onGestureControlChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF00F2FE),
+                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                    uncheckedThumbColor = Color(0xFF808080),
+                    uncheckedTrackColor = Color(0x1Fffffff)
+                )
+            )
+        }
+
+        // --- ZOOM CONTROL ROW ---
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Управление зумом",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = "Масштабирование щипком и жестами",
+                    fontSize = 11.sp,
+                    color = Color(0x66FFFFFF)
+                )
+            }
+            Switch(
+                checked = state.isZoomEnabled,
+                onCheckedChange = onZoomEnabledChanged,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFF00F2FE),
                     checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
