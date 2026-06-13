@@ -123,6 +123,13 @@ fun MainScreen(
     val cursorLock = remember { FloatArray(3) } // [0]=isLocked, [1]=lockedX, [2]=lockedY
     var wasClenchedForLock by remember { mutableStateOf(false) }
     var releaseLockUntilTime by remember { mutableLongStateOf(0L) }
+    var resetZoomTrigger by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(activeGesture) {
+        if (activeGesture == Gesture.FIST_TO_OPEN_PALM && state.isZoomEnabled) {
+            resetZoomTrigger = System.currentTimeMillis()
+        }
+    }
 
     SideEffect {
         val lms = landmarks
@@ -502,6 +509,7 @@ fun MainScreen(
                             hoverProgress = state.hoverProgress,
                             reductionCoefficient = state.reductionCoefficient,
                             isZoomEnabled = state.isZoomEnabled,
+                            resetZoomTrigger = resetZoomTrigger,
                             projectedNodes = projectedNodesList,
                             onAppClick = { app ->
                                 try {
@@ -732,7 +740,7 @@ fun MainScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.RotateRight,
+                        imageVector = Icons.AutoMirrored.Filled.RotateRight,
                         contentDescription = stringResource(R.string.rotation_inertia),
                         tint = if (isInertia) Color.Black else Color(0xFF00F2FE),
                         modifier = Modifier.size(24.dp)

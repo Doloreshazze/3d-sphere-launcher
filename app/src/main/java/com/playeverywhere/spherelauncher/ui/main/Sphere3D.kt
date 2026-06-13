@@ -157,6 +157,7 @@ fun Sphere3D(
     hoverProgress: Float = 0f,
     reductionCoefficient: Float = 0.75f,
     isZoomEnabled: Boolean = false,
+    resetZoomTrigger: Long = 0L,
     projectedNodes: MutableList<AppRenderNode>? = null,
     onAppClick: (AppInfo) -> Unit,
     onAppLongClick: ((AppInfo) -> Unit)? = null
@@ -268,6 +269,12 @@ fun Sphere3D(
             // Unclenched: reset
             initialPinchScale = -1f
             initialPinchRadius = -1f
+        }
+    }
+
+    LaunchedEffect(resetZoomTrigger) {
+        if (resetZoomTrigger > 0L) {
+            rotationState.radius = baseRadius
         }
     }
 

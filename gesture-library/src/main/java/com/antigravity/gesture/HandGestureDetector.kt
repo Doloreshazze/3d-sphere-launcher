@@ -49,6 +49,7 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
     private val historyWindowMs = 450L
     private var lastGestureTimeMs = 0L
     private var lastHandDetectedTimeMs = 0L
+    private var lastFistTimeMs = 0L
 
     // Hysteresis state for pinch (ACTIVATE) gesture.
     // Once clenched, a larger distance is required to release — prevents flickering.
@@ -300,6 +301,27 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
 
         if (detectedWave != Gesture.NONE) {
             return detectedWave
+        }
+
+        // Evaluate Fist to Open Palm
+        val isFist = isFingerFolded(wrist, indexTip, indexMcp) &&
+                     isFingerFolded(wrist, middleTip, middleMcp) &&
+                     isFingerFolded(wrist, ringTip, ringMcp) &&
+                     isFingerFolded(wrist, pinkyTip, pinkyMcp)
+                     
+        val isOpenPalm = !isFingerFolded(wrist, indexTip, indexMcp) &&
+                         !isFingerFolded(wrist, middleTip, middleMcp) &&
+                         !isFingerFolded(wrist, ringTip, ringMcp) &&
+                         !isFingerFolded(wrist, pinkyTip, pinkyMcp)
+
+        if (isFist) {
+            lastFistTimeMs = now
+        }
+
+        if (isOpenPalm && (now - lastFistTimeMs) < 800L && (now - lastGestureTimeMs) >= COOLDOWN_MS) {
+            lastGestureTimeMs = now
+            lastFistTimeMs = 0L
+            return Gesture.FIST_TO_OPEN_PALM
         }
 
         // 2. If no wave gesture is active, check static "ACTIVATE" poses

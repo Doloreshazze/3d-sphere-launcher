@@ -6,5 +6,6 @@ enum class Gesture {
     LEFT,
     RIGHT,
     ACTIVATE,
+    FIST_TO_OPEN_PALM,
     NONE
 }
