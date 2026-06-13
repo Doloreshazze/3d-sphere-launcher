@@ -119,23 +119,53 @@ fun MainScreen(
         isEnabled = state.isGestureControlEnabled
     )
 
-    // Sync hand cursor with exponential smoothing – alpha 0.12 damps micro-tremors strongly
-    // while still following intentional movements responsively
-    val cursorDampingAlpha = 0.12f
-    LaunchedEffect(landmarks) {
+    val cursorLock = remember { FloatArray(3) } // [0]=isLocked, [1]=lockedX, [2]=lockedY
+
+    SideEffect {
         val lms = landmarks
         if (lms != null && lms.size > 8) {
             val thumbTip = lms[4]
             val indexTip = lms[8]
             val rawX = (thumbTip.x + indexTip.x) / 2f
             val rawY = (thumbTip.y + indexTip.y) / 2f
-            // Exponential low-pass filter: smooth = smooth + alpha * (raw - smooth)
-            smoothCursorX = smoothCursorX + cursorDampingAlpha * (rawX - smoothCursorX)
-            smoothCursorY = smoothCursorY + cursorDampingAlpha * (rawY - smoothCursorY)
+            
+            // Pinch lock logic: freeze cursor coordinates during a click to prevent misclicks
+            if (isHandClenched) {
+                if (cursorLock[0] == 0f) {
+                    // Just pinched -> engage lock
+                    cursorLock[0] = 1f
+                    cursorLock[1] = rawX
+                    cursorLock[2] = rawY
+                } else {
+                    // Already locked -> check if moved far enough to break the lock
+                    val lockDx = rawX - cursorLock[1]
+                    val lockDy = rawY - cursorLock[2]
+                    if (lockDx * lockDx + lockDy * lockDy > 0.0036f) { // ~0.06 relative distance (60-80 pixels)
+                        cursorLock[0] = 0f
+                    }
+                }
+            } else {
+                cursorLock[0] = 0f // Release lock when pinch opens
+            }
+
+            val targetX = if (cursorLock[0] == 1f) cursorLock[1] else rawX
+            val targetY = if (cursorLock[0] == 1f) cursorLock[2] else rawY
+            
+            // Calculate distance to determine speed
+            val dx = targetX - smoothCursorX
+            val dy = targetY - smoothCursorY
+            val dist = kotlin.math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+            
+            // Dynamic alpha: fast movement = high alpha (less smoothing), slow = low alpha (more smoothing)
+            val dynamicAlpha = (dist / 0.05f).coerceIn(0.05f, 0.5f)
+            
+            smoothCursorX = smoothCursorX + dynamicAlpha * (targetX - smoothCursorX)
+            smoothCursorY = smoothCursorY + dynamicAlpha * (targetY - smoothCursorY)
             viewModel.updateHandCursor(smoothCursorX, smoothCursorY, true)
         } else {
             smoothCursorX = 0.5f
             smoothCursorY = 0.5f
+            cursorLock[0] = 0f
             viewModel.updateHandCursor(0.5f, 0.5f, false)
         }
     }

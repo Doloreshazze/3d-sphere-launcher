@@ -39,6 +39,11 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import com.playeverywhere.spherelauncher.R
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -140,10 +145,14 @@ fun Sphere3D(
     isAudioReactiveEnabled: Boolean = false,
     audioAmplitude: Float = 0.0f,
     isGestureEnabled: Boolean = false,
+    isEarthInsideEnabled: Boolean = false,
+    isRealisticEarthEnabled: Boolean = false,
     handCursorX: Float = 0.5f,
     handCursorY: Float = 0.5f,
     isHandDetected: Boolean = false,
     isHandClenched: Boolean = false,
+    handScale: Float = 0.5f,
+    handSpeed: Float = 0f,
     reductionCoefficient: Float = 0.75f,
     projectedNodes: ArrayList<AppRenderNode>? = null,
     onAppClick: (AppInfo) -> Unit,
@@ -155,6 +164,8 @@ fun Sphere3D(
     
     val systemPrimary = MaterialTheme.colorScheme.primary
     val systemSecondary = MaterialTheme.colorScheme.secondary
+
+    val earthBitmap = ImageBitmap.imageResource(id = R.drawable.earth_realistic)
 
     android.util.Log.d("Sphere3D", "=== Sphere3D recomposed ===")
 
@@ -213,12 +224,47 @@ fun Sphere3D(
             this.style = android.graphics.Paint.Style.FILL
         }
     }
+    
+    val canvasEarthPaint = remember {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            this.style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 2.5f * densityDp
+            strokeCap = android.graphics.Paint.Cap.ROUND
+        }
+    }
 
     // Single Compose State ticket to synchronize VSYNC and Draw phases
     var frameTicket by remember { mutableStateOf(0) }
 
     // Protection against accidental clicks during panning/dragging
     var allowClicks by remember { mutableStateOf(true) }
+
+    // State for gesture zooming
+    var initialPinchScale by remember { mutableStateOf(-1f) }
+    var initialPinchRadius by remember { mutableStateOf(-1f) }
+    
+    LaunchedEffect(isHandClenched, handScale) {
+        if (isHandClenched && isGestureEnabled) {
+            if (initialPinchScale < 0f) {
+                // Just clenched: record the initial state
+                initialPinchScale = handScale
+                initialPinchRadius = rotationState.radius
+            } else if (initialPinchScale > 0.01f) {
+                // Actively dragging: zoom relative to initial pinch
+                val scaleDelta = handScale - initialPinchScale
+                val sensitivity = 1.6f
+                val multiplier = 1f - scaleDelta * sensitivity
+                val targetRadius = (initialPinchRadius * multiplier).coerceIn(120f, 1000f)
+                // Smooth the zoom to prevent jitter
+                rotationState.radius = rotationState.radius + 0.15f * (targetRadius - rotationState.radius)
+            }
+        } else {
+            // Unclenched: reset
+            initialPinchScale = -1f
+            initialPinchRadius = -1f
+        }
+    }
 
     val lastProjectedNodes = remember { ArrayList<AppRenderNode>() }
 
@@ -395,26 +441,9 @@ fun Sphere3D(
                     rotationState.tiltYaw = 0f
                     rotationState.tiltPitch = 0f
                 } else {
-                    // Smoothly consume accumulated drag when interacting
-                    if (isUserInteracting) {
-                        val smoothFactor = 1.0f - kotlin.math.exp(-15f * deltaTime)
-                        val dx = dragAccumulator[0] * smoothFactor
-                        val dy = dragAccumulator[1] * smoothFactor
-                        
-                        if (kotlin.math.abs(dx) > 0.0001f || kotlin.math.abs(dy) > 0.0001f) {
-                            rotationState.yaw += dx
-                            rotationState.pitch += dy
-                            if (shapeType != ShapeType.FLAT_PLANE) {
-                                applyTrackballRotation(rotationState.trackballMatrix, -dx, dy)
-                            }
-                            dragAccumulator[0] -= dx
-                            dragAccumulator[1] -= dy
-                        }
-                    } else {
-                        // Slowly bleed out any remaining drag accumulator when not interacting
-                        dragAccumulator[0] = 0f
-                        dragAccumulator[1] = 0f
-                    }
+                    // Clear accumulator when not in use
+                    dragAccumulator[0] = 0f
+                    dragAccumulator[1] = 0f
 
                     // 1. Update physics if not interacting
                     if (!isUserInteracting) {
@@ -628,9 +657,12 @@ fun Sphere3D(
                                     val dYaw = -delta.x * effectiveSensitivity
                                     val dPitch = delta.y * effectiveSensitivity
                                     
-                                    // Accumulate drag smoothly over physics frames instead of jumping instantly
-                                    dragAccumulator[0] += dYaw
-                                    dragAccumulator[1] += dPitch
+                                    // Apply drag instantly for 1:1 responsive mapping (no artificial animation lag)
+                                    rotationState.yaw += dYaw
+                                    rotationState.pitch += dPitch
+                                    if (shapeType != ShapeType.FLAT_PLANE) {
+                                        applyTrackballRotation(rotationState.trackballMatrix, -dYaw, dPitch)
+                                    }
                                     
                                     if (shapeType == ShapeType.FLAT_PLANE) {
                                         rotationState.yaw = rotationState.yaw.coerceIn(-1.5f, 1.5f)
@@ -716,6 +748,11 @@ fun Sphere3D(
                         detectTapGestures(
                             onTap = { tapOffset ->
                                 if (allowClicks) {
+                                    if (isGestureEnabled && handSpeed > 2.8f) {
+                                        // Ignore tap if the hand is moving too fast (avoids accidental clicks during swiping)
+                                        return@detectTapGestures
+                                    }
+                                    
                                     val canvasWidth = size.width
                                     val canvasHeight = size.height
                                     val tapX = tapOffset.x - canvasWidth / 2f
@@ -852,6 +889,114 @@ fun Sphere3D(
                 canvasGlowPaint.alpha = (0.24f * glowOpacity * audioAlphaMultiplier * 255).toInt().coerceIn(0, 255)
                 nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlowPaint)
                 
+                // 1.5 Earth rendering
+                if (isEarthInsideEnabled) {
+                    val earthRadius = currentRad * 0.45f
+                    if (isRealisticEarthEnabled) {
+                        val earthYaw = (android.os.SystemClock.uptimeMillis() % 60000L) / 60000f
+                        
+                        // Create a clipped circular region for the Earth
+                        nativeCanvas.save()
+                        val earthPath = android.graphics.Path()
+                        earthPath.addCircle(centerCanvasX, centerCanvasY, earthRadius, android.graphics.Path.Direction.CW)
+                        nativeCanvas.clipPath(earthPath)
+                        
+                        val texW = earthBitmap.width.toFloat()
+                        val texH = earthBitmap.height.toFloat()
+                        
+                        // Calculate how much we need to scale the image so its height covers the diameter of our sphere
+                        val scaleY = (earthRadius * 2f) / texH
+                        
+                        // Since it's an equirectangular map (2:1 aspect ratio), scaling X by the same amount 
+                        // is technically correct, but to simulate the spherical wrapping we might compress X a bit.
+                        // Let's use proportional scaling for now.
+                        val scaleX = scaleY
+                        
+                        val scaledW = texW * scaleX
+                        val scaledH = texH * scaleY
+                        
+                        // Map offset based on rotation
+                        val shiftX = (earthYaw * scaledW) % scaledW
+                        
+                        // Draw image 1
+                        val destRect1 = android.graphics.Rect(
+                            (centerCanvasX - scaledW / 2f - shiftX).toInt(),
+                            (centerCanvasY - earthRadius).toInt(),
+                            (centerCanvasX + scaledW / 2f - shiftX).toInt(),
+                            (centerCanvasY + earthRadius).toInt()
+                        )
+                        nativeCanvas.drawBitmap(earthBitmap.asAndroidBitmap(), null, destRect1, null)
+                        
+                        // Draw image 2 (wrap around)
+                        val destRect2 = android.graphics.Rect(
+                            (centerCanvasX + scaledW / 2f - shiftX).toInt(),
+                            (centerCanvasY - earthRadius).toInt(),
+                            (centerCanvasX + scaledW * 1.5f - shiftX).toInt(),
+                            (centerCanvasY + earthRadius).toInt()
+                        )
+                        nativeCanvas.drawBitmap(earthBitmap.asAndroidBitmap(), null, destRect2, null)
+                        
+                        // Add an inner shadow/vignette to simulate 3D volume
+                        val shadowColors = intArrayOf(
+                            0x00000000, // Transparent in center
+                            0x40000000, // Light shadow mid
+                            0xE0000000.toInt() // Dark shadow at edge
+                        )
+                        val shadowStops = floatArrayOf(0.0f, 0.6f, 1.0f)
+                        val shadowShader = android.graphics.RadialGradient(
+                            centerCanvasX, centerCanvasY, earthRadius,
+                            shadowColors, shadowStops, android.graphics.Shader.TileMode.CLAMP
+                        )
+                        val shadowPaint = android.graphics.Paint()
+                        shadowPaint.shader = shadowShader
+                        nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, earthRadius, shadowPaint)
+                        
+                        nativeCanvas.restore()
+                    } else {
+                        val earthMatrix = FloatArray(16)
+                        android.opengl.Matrix.setIdentityM(earthMatrix, 0)
+                        
+                        val earthYaw = (android.os.SystemClock.uptimeMillis() % 60000L) / 60000f * 360f
+                        // Apply device tilt so it reacts to gravity too
+                        android.opengl.Matrix.rotateM(earthMatrix, 0, (rotationState.tiltYaw * 180f / Math.PI).toFloat(), 0f, 1f, 0f)
+                        android.opengl.Matrix.rotateM(earthMatrix, 0, (rotationState.tiltPitch * 180f / Math.PI).toFloat(), 1f, 0f, 0f)
+                        // Continually rotate around Y axis
+                        android.opengl.Matrix.rotateM(earthMatrix, 0, earthYaw, 0f, 1f, 0f)
+
+                        val pts = EarthData.coastlines
+                        val numPts = pts.size / 3
+                        
+                        canvasEarthPaint.color = c1
+                        canvasEarthPaint.alpha = (180 * glowOpacity).toInt().coerceIn(0, 255)
+                        
+                        // We can reuse a preallocated array if we want, but since we are drawing dots 
+                        // we can just draw them in batches or all at once. FloatArray allocation is fast.
+                        val earthPoints2D = FloatArray(numPts * 2)
+                        var outIdx = 0
+                        
+                        for (i in 0 until numPts) {
+                            val ix = i * 3
+                            val xBase = pts[ix]
+                            val yBase = pts[ix + 1]
+                            val zBase = pts[ix + 2]
+                            
+                            val x2 = earthMatrix[0] * xBase + earthMatrix[4] * yBase + earthMatrix[8] * zBase
+                            val y1 = earthMatrix[1] * xBase + earthMatrix[5] * yBase + earthMatrix[9] * zBase
+                            val z2 = earthMatrix[2] * xBase + earthMatrix[6] * yBase + earthMatrix[10] * zBase
+                            
+                            // only draw points on the front hemisphere of the Earth
+                            if (z2 < 0.2f) { // slightly past center so we get some edge overlap
+                                val cameraDist = 3.0f
+                                val scale = cameraDist / (cameraDist + z2)
+                                earthPoints2D[outIdx++] = centerCanvasX + x2 * earthRadius * scale
+                                earthPoints2D[outIdx++] = centerCanvasY + y1 * earthRadius * scale
+                            }
+                        }
+                        // drawPoints is incredibly fast native call
+                        nativeCanvas.drawPoints(earthPoints2D, 0, outIdx, canvasEarthPaint)
+                    }
+                }
+
                 // 2. Project 3D nodes
                 val tempNodes = ArrayList<AppRenderNode>(sphereNodes.size)
                 sphereNodes.forEach { node ->

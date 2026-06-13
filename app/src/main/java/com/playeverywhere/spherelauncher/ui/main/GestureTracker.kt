@@ -30,10 +30,18 @@ fun GestureCameraLauncher(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(isEnabled) {
+        var isDisposed = false
         val cameraExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
         cameraProviderFuture.addListener({
+            if (isDisposed) {
+                try {
+                    cameraProviderFuture.get().unbindAll()
+                } catch (e: Exception) {}
+                return@addListener
+            }
+
             try {
                 val cameraProvider = cameraProviderFuture.get()
 
@@ -92,13 +100,16 @@ fun GestureCameraLauncher(
         }, ContextCompat.getMainExecutor(context))
 
         onDispose {
-            try {
-                cameraExecutor.shutdown()
-                ProcessCameraProvider.getInstance(context).get().unbindAll()
-                Log.d("GestureCameraLauncher", "CameraX unbound.")
-            } catch (e: Exception) {
-                // Ignore cleanup errors
-            }
+            isDisposed = true
+            cameraExecutor.shutdown()
+            cameraProviderFuture.addListener({
+                try {
+                    cameraProviderFuture.get().unbindAll()
+                    Log.d("GestureCameraLauncher", "CameraX unbound.")
+                } catch (e: Exception) {
+                    // Ignore cleanup errors
+                }
+            }, ContextCompat.getMainExecutor(context))
         }
     }
 }

@@ -61,9 +61,13 @@ data class MainUiState(
     val handCursorX: Float = 0.5f,
     val handCursorY: Float = 0.5f,
     val isHandDetected: Boolean = false,
+    val handScale: Float = 0.5f,
+    val handCursorSpeed: Float = 0f,
     val hoverProgress: Float = 0f,
     val focusedApp: AppInfo? = null,
-    val reductionCoefficient: Float = 0.75f
+    val reductionCoefficient: Float = 0.75f,
+    val isEarthInsideEnabled: Boolean = false,
+    val isRealisticEarthEnabled: Boolean = false
 )
 
 data class SettingsState(
@@ -104,8 +108,13 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val handCursorXState = MutableStateFlow(0.5f)
     private val handCursorYState = MutableStateFlow(0.5f)
     private val isHandDetectedState = MutableStateFlow(false)
+    private val handScaleState = MutableStateFlow(0.5f)
+    private val handCursorSpeedState = MutableStateFlow(0f)
     private val hoverProgressState = MutableStateFlow(0f)
     private val focusedAppState = MutableStateFlow<AppInfo?>(null)
+
+    private val isEarthInsideEnabledState = MutableStateFlow(prefs.getBoolean("earth_inside_enabled", false))
+    private val isRealisticEarthEnabledState = MutableStateFlow(prefs.getBoolean("realistic_earth_enabled", false))
 
     private val settingsFlow = combine(
         styleState,
@@ -137,8 +146,12 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         handCursorXState,
         handCursorYState,
         isHandDetectedState,
+        handScaleState,
+        handCursorSpeedState,
         hoverProgressState,
-        focusedAppState
+        focusedAppState,
+        isEarthInsideEnabledState,
+        isRealisticEarthEnabledState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -161,8 +174,12 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val handCursorX = array[17] as Float
         val handCursorY = array[18] as Float
         val isHandDetected = array[19] as Boolean
-        val hoverProgress = array[20] as Float
-        val focusedApp = array[21] as AppInfo?
+        val handScale = array[20] as Float
+        val handSpeed = array[21] as Float
+        val hoverProgress = array[22] as Float
+        val focusedApp = array[23] as AppInfo?
+        val isEarthInside = array[24] as Boolean
+        val isRealisticEarth = array[25] as Boolean
 
         val visibleApps = apps.filter { it.packageName !in hiddenPackages }
         val filtered = if (query.isBlank()) {
@@ -195,8 +212,13 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             handCursorX = handCursorX,
             handCursorY = handCursorY,
             isHandDetected = isHandDetected,
+            handScale = handScale,
+            handCursorSpeed = handSpeed,
             hoverProgress = hoverProgress,
-            focusedApp = focusedApp
+            focusedApp = focusedApp,
+            reductionCoefficient = prefs.getFloat("reduction_coefficient", 0.75f),
+            isEarthInsideEnabled = isEarthInside,
+            isRealisticEarthEnabled = isRealisticEarth
         )
     }.stateIn(
         viewModelScope,
@@ -346,6 +368,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                     kotlinx.coroutines.delay(100L)
                 }
                 return@launch // Success!
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                stopVisualizerInternal()
+                throw e
             } catch (e: Exception) {
                 android.util.Log.w("SphereViewModel", "Visualizer(0) failed, falling back to AudioRecord: ${e.message}")
                 stopVisualizerInternal()
@@ -408,6 +433,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             } catch (e: SecurityException) {
                 e.printStackTrace()
                 isAudioReactiveEnabledState.value = false
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -498,7 +525,18 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         audioAmplitudeState.value = 0.0f
         gestureControlEnabledState.value = true
         hiddenPackagesState.value = emptySet()
+        isEarthInsideEnabledState.value = false
         stopAudioRecording()
+    }
+
+    fun setEarthInsideEnabled(enabled: Boolean) {
+        isEarthInsideEnabledState.value = enabled
+        prefs.edit().putBoolean("earth_inside_enabled", enabled).apply()
+    }
+
+    fun setRealisticEarthEnabled(enabled: Boolean) {
+        isRealisticEarthEnabledState.value = enabled
+        prefs.edit().putBoolean("realistic_earth_enabled", enabled).apply()
     }
 
     fun setGestureControlEnabled(enabled: Boolean) {
@@ -506,10 +544,12 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit().putBoolean("gesture_control_enabled", enabled).apply()
     }
 
-    fun updateHandCursor(x: Float, y: Float, isDetected: Boolean) {
+    fun updateHandCursor(x: Float, y: Float, isDetected: Boolean, scale: Float = 0.5f, speed: Float = 0f) {
         handCursorXState.value = x
         handCursorYState.value = y
         isHandDetectedState.value = isDetected
+        handScaleState.value = scale
+        handCursorSpeedState.value = speed
     }
 
     fun updateHoverProgress(progress: Float) {
