@@ -121,6 +121,8 @@ fun MainScreen(
     )
 
     val cursorLock = remember { FloatArray(3) } // [0]=isLocked, [1]=lockedX, [2]=lockedY
+    var wasClenchedForLock by remember { mutableStateOf(false) }
+    var releaseLockUntilTime by remember { mutableLongStateOf(0L) }
 
     SideEffect {
         val lms = landmarks
@@ -145,8 +147,24 @@ fun MainScreen(
                         cursorLock[0] = 0f
                     }
                 }
+                wasClenchedForLock = true
+                releaseLockUntilTime = 0L // reset cooldown if clenched again quickly
             } else {
-                cursorLock[0] = 0f // Release lock when pinch opens
+                if (wasClenchedForLock) {
+                    // Just released
+                    wasClenchedForLock = false
+                    if (cursorLock[0] == 1f) {
+                        // Still locked when released -> engage 0.5s cooldown
+                        releaseLockUntilTime = System.currentTimeMillis() + 500L
+                    }
+                }
+                
+                if (System.currentTimeMillis() > releaseLockUntilTime) {
+                    cursorLock[0] = 0f // Cooldown over or never started, release lock
+                } else {
+                    // Force lock during the 0.5s cooldown (keep cursorLock[1] and [2] as they were)
+                    cursorLock[0] = 1f
+                }
             }
 
             val targetX = if (cursorLock[0] == 1f) cursorLock[1] else rawX
@@ -292,7 +310,7 @@ fun MainScreen(
         )
 
         // Draw the semi-transparent hand overlay matching user movements
-        if (state.isGestureControlEnabled) {
+        if (state.isGestureControlEnabled && state.isHandOverlayEnabled) {
             SemiTransparentHandOverlay(
                 landmarks = landmarks,
                 modifier = Modifier.fillMaxSize()
@@ -843,6 +861,7 @@ fun MainScreen(
                         }
                     },
                     onZoomEnabledChanged = { viewModel.setZoomEnabled(it) },
+                    onHandOverlayChanged = { viewModel.setHandOverlayEnabled(it) },
                     onEarthInsideChanged = { viewModel.setEarthInsideEnabled(it) },
                     onRealisticEarthChanged = { viewModel.setRealisticEarthEnabled(it) },
                     onBlackHoleChanged = { viewModel.setBlackHoleEnabled(it) },
@@ -966,16 +985,17 @@ fun MainScreen(
             // Hand cursor
             if (state.isHandDetected) {
                 val cursorColor = if (isHandClenched) Color(0xFFCC00FF) else Color(0xFF00F2FE)
-                Box(
-                    modifier = Modifier
-                        .offset(
-                            x = (state.handCursorX * screenWidthDp).dp - 24.dp,
-                            y = (state.handCursorY * screenHeightDp).dp - 24.dp
-                        )
-                        .size(48.dp)
-                        .background(Color.Transparent, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
+                androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .offset(
+                                x = maxWidth * state.handCursorX - 24.dp,
+                                y = maxHeight * state.handCursorY - 24.dp
+                            )
+                            .size(48.dp)
+                            .background(Color.Transparent, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
                     // Soft outer radial halo glow
                     Box(
                         modifier = Modifier
@@ -1010,6 +1030,7 @@ fun MainScreen(
                                 style = Stroke(width = 3.dp.toPx())
                             )
                         }
+                    }
                     }
                 }
             }
@@ -1050,6 +1071,7 @@ fun SettingsSheetContent(
     onAudioReactiveChanged: (Boolean) -> Unit,
     onGestureControlChanged: (Boolean) -> Unit,
     onZoomEnabledChanged: (Boolean) -> Unit,
+    onHandOverlayChanged: (Boolean) -> Unit,
     onEarthInsideChanged: (Boolean) -> Unit,
     onRealisticEarthChanged: (Boolean) -> Unit,
     onBlackHoleChanged: (Boolean) -> Unit,
@@ -1378,6 +1400,37 @@ fun SettingsSheetContent(
             Switch(
                 checked = state.isZoomEnabled,
                 onCheckedChange = onZoomEnabledChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF00F2FE),
+                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                    uncheckedThumbColor = Color(0xFF808080),
+                    uncheckedTrackColor = Color(0x1Fffffff)
+                )
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Отображать ладонь",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = "Показывать полупрозрачную ладонь",
+                    fontSize = 11.sp,
+                    color = Color(0x66FFFFFF)
+                )
+            }
+            Switch(
+                checked = state.isHandOverlayEnabled,
+                onCheckedChange = onHandOverlayChanged,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFF00F2FE),
                     checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),

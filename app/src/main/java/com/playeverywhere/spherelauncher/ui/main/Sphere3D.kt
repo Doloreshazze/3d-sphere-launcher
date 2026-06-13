@@ -169,6 +169,7 @@ fun Sphere3D(
     val systemSecondary = MaterialTheme.colorScheme.secondary
 
     val earthBitmap = ImageBitmap.imageResource(id = R.drawable.earth_realistic)
+    val earthCloudsBitmap = ImageBitmap.imageResource(id = R.drawable.earth_clouds)
     val blackHoleBitmap = ImageBitmap.imageResource(id = R.drawable.black_hole)
 
     android.util.Log.d("Sphere3D", "=== Sphere3D recomposed ===")
@@ -916,6 +917,22 @@ fun Sphere3D(
                     if (isRealisticEarthEnabled) {
                         val earthYaw = (android.os.SystemClock.uptimeMillis() % 60000L) / 60000f
                         
+                        // Draw Atmosphere (Outer Glow)
+                        val atmoRadius = earthRadius * 1.05f
+                        val atmoColors = intArrayOf(
+                            0xAA88CCFF.toInt(), // inner light blue
+                            0x4488CCFF.toInt(), // mid transparent blue
+                            0x0088CCFF.toInt()  // outer transparent
+                        )
+                        val atmoStops = floatArrayOf(0.85f, 0.95f, 1.0f)
+                        val atmoShader = android.graphics.RadialGradient(
+                            centerCanvasX, centerCanvasY, atmoRadius,
+                            atmoColors, atmoStops, android.graphics.Shader.TileMode.CLAMP
+                        )
+                        val atmoPaint = android.graphics.Paint()
+                        atmoPaint.shader = atmoShader
+                        nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, atmoRadius, atmoPaint)
+
                         // Create a clipped circular region for the Earth
                         nativeCanvas.save()
                         val earthPath = android.graphics.Path()
@@ -957,13 +974,37 @@ fun Sphere3D(
                         )
                         nativeCanvas.drawBitmap(earthBitmap.asAndroidBitmap(), null, destRect2, null)
                         
-                        // Add an inner shadow/vignette to simulate 3D volume
+                        // Draw clouds with slight speed offset and screen blend mode
+                        val cloudsPaint = android.graphics.Paint().apply {
+                            alpha = 200 // Slightly transparent
+                            xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SCREEN)
+                        }
+                        val cloudYaw = (android.os.SystemClock.uptimeMillis() % 45000L) / 45000f // slightly faster rotation for clouds
+                        val cloudShiftX = (cloudYaw * scaledW) % scaledW
+                        
+                        val destRectCloud1 = android.graphics.Rect(
+                            (centerCanvasX - scaledW / 2f - cloudShiftX).toInt(),
+                            (centerCanvasY - earthRadius).toInt(),
+                            (centerCanvasX + scaledW / 2f - cloudShiftX).toInt(),
+                            (centerCanvasY + earthRadius).toInt()
+                        )
+                        nativeCanvas.drawBitmap(earthCloudsBitmap.asAndroidBitmap(), null, destRectCloud1, cloudsPaint)
+                        
+                        val destRectCloud2 = android.graphics.Rect(
+                            (centerCanvasX + scaledW / 2f - cloudShiftX).toInt(),
+                            (centerCanvasY - earthRadius).toInt(),
+                            (centerCanvasX + scaledW * 1.5f - cloudShiftX).toInt(),
+                            (centerCanvasY + earthRadius).toInt()
+                        )
+                        nativeCanvas.drawBitmap(earthCloudsBitmap.asAndroidBitmap(), null, destRectCloud2, cloudsPaint)
+                        
+                        // Add an inner shadow/vignette to simulate 3D volume AND atmospheric scattering
                         val shadowColors = intArrayOf(
                             0x00000000, // Transparent in center
-                            0x40000000, // Light shadow mid
-                            0xE0000000.toInt() // Dark shadow at edge
+                            0x4488CCFF.toInt(), // Light blue atmospheric tint
+                            0xEE001133.toInt() // Dark blue-black space shadow at edge
                         )
-                        val shadowStops = floatArrayOf(0.0f, 0.6f, 1.0f)
+                        val shadowStops = floatArrayOf(0.0f, 0.7f, 1.0f)
                         val shadowShader = android.graphics.RadialGradient(
                             centerCanvasX, centerCanvasY, earthRadius,
                             shadowColors, shadowStops, android.graphics.Shader.TileMode.CLAMP

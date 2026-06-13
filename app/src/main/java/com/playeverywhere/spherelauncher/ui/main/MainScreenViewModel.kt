@@ -69,7 +69,8 @@ data class MainUiState(
     val isEarthInsideEnabled: Boolean = false,
     val isRealisticEarthEnabled: Boolean = false,
     val isBlackHoleEnabled: Boolean = false,
-    val isZoomEnabled: Boolean = false
+    val isZoomEnabled: Boolean = false,
+    val isHandOverlayEnabled: Boolean = true
 )
 
 data class SettingsState(
@@ -119,6 +120,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isRealisticEarthEnabledState = MutableStateFlow(prefs.getBoolean("realistic_earth_enabled", false))
     private val isBlackHoleEnabledState = MutableStateFlow(prefs.getBoolean("black_hole_enabled", false))
     private val isZoomEnabledState = MutableStateFlow(prefs.getBoolean("zoom_enabled", false))
+    private val isHandOverlayEnabledState = MutableStateFlow(prefs.getBoolean("hand_overlay_enabled", true))
 
     private val settingsFlow = combine(
         styleState,
@@ -157,7 +159,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isEarthInsideEnabledState,
         isRealisticEarthEnabledState,
         isBlackHoleEnabledState,
-        isZoomEnabledState
+        isZoomEnabledState,
+        isHandOverlayEnabledState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -188,6 +191,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val isRealisticEarth = array[25] as Boolean
         val isBlackHole = array[26] as Boolean
         val isZoomEnabled = array[27] as Boolean
+        val isHandOverlayEnabled = array[28] as Boolean
 
         val visibleApps = apps.filter { it.packageName !in hiddenPackages }
         val filtered = if (query.isBlank()) {
@@ -228,7 +232,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isEarthInsideEnabled = isEarthInside,
             isRealisticEarthEnabled = isRealisticEarth,
             isBlackHoleEnabled = isBlackHole,
-            isZoomEnabled = isZoomEnabled
+            isZoomEnabled = isZoomEnabled,
+            isHandOverlayEnabled = isHandOverlayEnabled
         )
     }.stateIn(
         viewModelScope,
@@ -568,6 +573,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     fun setZoomEnabled(enabled: Boolean) {
         isZoomEnabledState.value = enabled
         prefs.edit().putBoolean("zoom_enabled", enabled).apply()
+    }
+
+    fun setHandOverlayEnabled(enabled: Boolean) {
+        isHandOverlayEnabledState.value = enabled
+        prefs.edit().putBoolean("hand_overlay_enabled", enabled).apply()
     }
 
     fun setGestureControlEnabled(enabled: Boolean) {
