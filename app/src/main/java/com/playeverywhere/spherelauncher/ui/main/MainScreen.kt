@@ -123,6 +123,7 @@ fun MainScreen(
     val cursorLock = remember { FloatArray(3) } // [0]=isLocked, [1]=lockedX, [2]=lockedY
     var wasClenchedForLock by remember { mutableStateOf(false) }
     var releaseLockUntilTime by remember { mutableLongStateOf(0L) }
+    var activationLockUntilTime by remember { mutableLongStateOf(0L) }
     var resetZoomTrigger by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(activeGesture) {
@@ -139,37 +140,47 @@ fun MainScreen(
             val rawX = (thumbTip.x + indexTip.x) / 2f
             val rawY = (thumbTip.y + indexTip.y) / 2f
             
-            // Pinch lock logic: freeze cursor coordinates during a click to prevent misclicks
+            // Pinch lock logic: freeze cursor coordinates during clicks and releases to prevent misclicks and jitter
             if (isHandClenched) {
-                if (cursorLock[0] == 0f) {
-                    // Just pinched -> engage lock
+                if (!wasClenchedForLock) {
+                    // Just pinched -> engage activation lock for 0.5s
+                    wasClenchedForLock = true
                     cursorLock[0] = 1f
                     cursorLock[1] = rawX
                     cursorLock[2] = rawY
+                    activationLockUntilTime = System.currentTimeMillis() + 500L
+                    releaseLockUntilTime = 0L // reset release cooldown if clenched again quickly
                 } else {
-                    // Already locked -> check if moved far enough to break the lock
-                    val lockDx = rawX - cursorLock[1]
-                    val lockDy = rawY - cursorLock[2]
-                    if (lockDx * lockDx + lockDy * lockDy > 0.0036f) { // ~0.06 relative distance (60-80 pixels)
-                        cursorLock[0] = 0f
+                    if (System.currentTimeMillis() > activationLockUntilTime) {
+                        // Activation filter passed, check if moved far enough to break the lock
+                        if (cursorLock[0] == 1f) {
+                            val lockDx = rawX - cursorLock[1]
+                            val lockDy = rawY - cursorLock[2]
+                            if (lockDx * lockDx + lockDy * lockDy > 0.0036f) { // ~0.06 relative distance (60-80 pixels)
+                                cursorLock[0] = 0f
+                            }
+                        }
+                    } else {
+                        // Still within 0.5s after clench -> strictly locked
+                        cursorLock[0] = 1f
                     }
                 }
-                wasClenchedForLock = true
-                releaseLockUntilTime = 0L // reset cooldown if clenched again quickly
             } else {
                 if (wasClenchedForLock) {
-                    // Just released
+                    // Just released -> engage release lock for 0.5s
                     wasClenchedForLock = false
-                    if (cursorLock[0] == 1f) {
-                        // Still locked when released -> engage 0.5s cooldown
-                        releaseLockUntilTime = System.currentTimeMillis() + 500L
-                    }
+                    activationLockUntilTime = 0L
+                    releaseLockUntilTime = System.currentTimeMillis() + 500L
+                    // Freeze at the current hand position upon release
+                    cursorLock[0] = 1f
+                    cursorLock[1] = rawX
+                    cursorLock[2] = rawY
                 }
                 
                 if (System.currentTimeMillis() > releaseLockUntilTime) {
                     cursorLock[0] = 0f // Cooldown over or never started, release lock
                 } else {
-                    // Force lock during the 0.5s cooldown (keep cursorLock[1] and [2] as they were)
+                    // Force lock during the 0.5s cooldown
                     cursorLock[0] = 1f
                 }
             }
