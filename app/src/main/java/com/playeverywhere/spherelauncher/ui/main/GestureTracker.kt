@@ -43,6 +43,9 @@ fun GestureCameraLauncher(
             }
 
             try {
+                // Reinitialize detector if it was closed
+                gestureDetector.reinitialize()
+                
                 val cameraProvider = cameraProviderFuture.get()
 
                 // Front camera
@@ -102,6 +105,7 @@ fun GestureCameraLauncher(
         onDispose {
             isDisposed = true
             cameraExecutor.shutdown()
+            gestureDetector.close() // <--- Clear state and free resources
             cameraProviderFuture.addListener({
                 try {
                     cameraProviderFuture.get().unbindAll()

@@ -347,6 +347,13 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         synchronized(lock) {
             handLandmarker?.close()
             handLandmarker = null
+            _landmarksFlow.value = null
+            _gestureFlow.value = Gesture.NONE
+            _handScaleFlow.value = 0.5f
+            isPinchActive = false
+            synchronized(history) {
+                history.clear()
+            }
         }
     }
 }
