@@ -2075,67 +2075,65 @@ fun AppSphereItem(
                                 )
                             }
                         }
-                }
+                    }
             )
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxSize()
         ) {
-            if (shapeType != ShapeType.SNAKE) {
-                Image(
-                    bitmap = app.iconBitmap,
-                    contentDescription = app.label,
-                    modifier = Modifier
-                        .size(iconSize.dp)
-                        .then(
-                            if (shapeType != ShapeType.SOLID_SPHERE && shapeType != ShapeType.POLYHEDRON && shapeType != ShapeType.FLAT_PLANE && shapeType != ShapeType.SNAKE) {
-                                Modifier
-                                    .clip(CircleShape)
-                                    .border(0.8.dp, Color.White.copy(alpha = 0.25f), CircleShape)
-                                    .drawWithContent {
-                                        drawContent()
-                                        val x = xProvider()
-                                        val y = yProvider()
-                                        val w = size.width
-                                        val h = size.height
-                                        val radius = w.coerceAtMost(h) * 0.75f
-                                        
-                                        val centerX = w * (0.35f - x * 0.15f)
-                                        val centerY = h * (0.35f - y * 0.15f)
-                                        
-                                        val colors = intArrayOf(
-                                            0x73FFFFFF, // Color.White.copy(alpha = 0.45f).toArgb()
-                                            0x14FFFFFF, // Color.White.copy(alpha = 0.08f).toArgb()
-                                            0x00FFFFFF, // Color.Transparent.toArgb()
-                                            0x6B000000  // Color.Black.copy(alpha = 0.42f).toArgb()
-                                        )
-                                        val stops = floatArrayOf(0.0f, 0.35f, 0.75f, 1.0f)
-                                        
-                                        val shader = android.graphics.RadialGradient(
-                                            centerX,
-                                            centerY,
-                                            radius,
-                                            colors,
-                                            stops,
-                                            android.graphics.Shader.TileMode.CLAMP
-                                        )
-                                        glossPaint.shader = shader
-                                        
-                                        drawContext.canvas.nativeCanvas.drawCircle(
-                                            w / 2f,
-                                            h / 2f,
-                                            w / 2f,
-                                            glossPaint
-                                        )
-                                    }
-                            } else {
-                                Modifier
-                            }
-                        ),
-                    contentScale = ContentScale.Crop
-                )
-            }
+            Image(
+                bitmap = app.iconBitmap,
+                contentDescription = app.label,
+                modifier = Modifier
+                    .size(iconSize.dp)
+                    .then(
+                        if (shapeType != ShapeType.SOLID_SPHERE && shapeType != ShapeType.POLYHEDRON && shapeType != ShapeType.FLAT_PLANE && shapeType != ShapeType.SNAKE) {
+                            Modifier
+                                .clip(CircleShape)
+                                .border(0.8.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                                .drawWithContent {
+                                    drawContent()
+                                    val x = xProvider()
+                                    val y = yProvider()
+                                    val w = size.width
+                                    val h = size.height
+                                    val radius = w.coerceAtMost(h) * 0.75f
+                                    
+                                    val centerX = w * (0.35f - x * 0.15f)
+                                    val centerY = h * (0.35f - y * 0.15f)
+                                    
+                                    val colors = intArrayOf(
+                                        0x73FFFFFF, // Color.White.copy(alpha = 0.45f).toArgb()
+                                        0x14FFFFFF, // Color.White.copy(alpha = 0.08f).toArgb()
+                                        0x00FFFFFF, // Color.Transparent.toArgb()
+                                        0x6B000000  // Color.Black.copy(alpha = 0.42f).toArgb()
+                                    )
+                                    val stops = floatArrayOf(0.0f, 0.35f, 0.75f, 1.0f)
+                                    
+                                    val shader = android.graphics.RadialGradient(
+                                        centerX,
+                                        centerY,
+                                        radius,
+                                        colors,
+                                        stops,
+                                        android.graphics.Shader.TileMode.CLAMP
+                                    )
+                                    glossPaint.shader = shader
+                                    
+                                    drawContext.canvas.nativeCanvas.drawCircle(
+                                        w / 2f,
+                                        h / 2f,
+                                        w / 2f,
+                                        glossPaint
+                                    )
+                                }
+                        } else {
+                            Modifier
+                        }
+                    ),
+                contentScale = ContentScale.Crop
+            )
         }
     }
 }
