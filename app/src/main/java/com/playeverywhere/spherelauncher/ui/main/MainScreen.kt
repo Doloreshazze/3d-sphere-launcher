@@ -641,7 +641,7 @@ fun MainScreen(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.accessibility_back),
+                        contentDescription = "Back",
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
@@ -1978,17 +1978,14 @@ fun OnboardingTour(
     modifier: Modifier = Modifier
 ) {
     androidx.activity.compose.BackHandler {
-        // Intercept back button to prevent accidental dismissal
+        onComplete()
     }
-    
-    var currentSlide by remember { mutableStateOf(0) }
-    val totalSlides = 4
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.85f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}, // Intercept clicks to background
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}, // Intercept background clicks
         contentAlignment = Alignment.Center
     ) {
         // Main Glassmorphic Dialog Card
@@ -2020,301 +2017,57 @@ fun OnboardingTour(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Interactive Animated Visual for each slide
-                Box(
-                    modifier = Modifier
-                        .size(120.dp)
-                        .background(Color(0x1F000000), CircleShape)
-                        .border(1.dp, Color(0x12FFFFFF), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    when (currentSlide) {
-                        0 -> {
-                            // Slide 0: Permission Disclosure Shield with dynamic green pulse
-                            val infiniteTransition = rememberInfiniteTransition(label = "shield")
-                            val pulseScale by infiniteTransition.animateFloat(
-                                initialValue = 0.85f,
-                                targetValue = 1.15f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(1200, easing = FastOutSlowInEasing),
-                                    repeatMode = RepeatMode.Reverse
-                                ),
-                                label = "pulse"
-                            )
-                            androidx.compose.foundation.Canvas(modifier = Modifier.size(80.dp)) {
-                                val cX = size.width / 2f
-                                val cY = size.height / 2f
-                                val width = size.width
-                                val height = size.height
-                                
-                                // Glowing background pulse
-                                drawCircle(
-                                    color = Color(0xFF00FF88).copy(alpha = 0.15f * (2f - pulseScale)),
-                                    radius = (width / 2f) * pulseScale
-                                )
-                                
-                                // Shield path drawing
-                                val shieldPath = androidx.compose.ui.graphics.Path().apply {
-                                    moveTo(cX, cY - 24.dp.toPx())
-                                    quadraticTo(cX + 18.dp.toPx(), cY - 24.dp.toPx(), cX + 20.dp.toPx(), cY - 16.dp.toPx())
-                                    lineTo(cX + 20.dp.toPx(), cY + 4.dp.toPx())
-                                    quadraticTo(cX + 20.dp.toPx(), cY + 18.dp.toPx(), cX, cY + 24.dp.toPx())
-                                    quadraticTo(cX - 20.dp.toPx(), cY + 18.dp.toPx(), cX - 20.dp.toPx(), cY + 4.dp.toPx())
-                                    lineTo(cX - 20.dp.toPx(), cY - 16.dp.toPx())
-                                    quadraticTo(cX - 18.dp.toPx(), cY - 24.dp.toPx(), cX, cY - 24.dp.toPx())
-                                    close()
-                                }
-                                
-                                drawPath(
-                                    path = shieldPath,
-                                    color = Color(0xFF00FF88).copy(alpha = 0.2f)
-                                )
-                                
-                                drawPath(
-                                    path = shieldPath,
-                                    color = Color(0xFF00FF88),
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
-                                )
-                                
-                                // Inner keyhole
-                                drawCircle(
-                                    color = Color(0xFF00FF88),
-                                    radius = 4.dp.toPx(),
-                                    center = androidx.compose.ui.geometry.Offset(cX, cY - 2.dp.toPx())
-                                )
-                                drawRect(
-                                    color = Color(0xFF00FF88),
-                                    topLeft = androidx.compose.ui.geometry.Offset(cX - 2.dp.toPx(), cY + 2.dp.toPx()),
-                                    size = androidx.compose.ui.geometry.Size(4.dp.toPx(), 8.dp.toPx())
-                                )
-                            }
-                        }
-                        1 -> {
-                            // Slide 1: Glowing 3D Wireframe Sphere
-                            val infiniteTransition = rememberInfiniteTransition(label = "sphere")
-                            val rotAngle by infiniteTransition.animateFloat(
-                                initialValue = 0f,
-                                targetValue = 360f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(4000, easing = LinearEasing),
-                                    repeatMode = RepeatMode.Restart
-                                ),
-                                label = "rot"
-                            )
-                            androidx.compose.foundation.Canvas(modifier = Modifier.size(80.dp)) {
-                                val cX = size.width / 2f
-                                val cY = size.height / 2f
-                                val rad = size.width / 2f
-                                val strokeW = 1.5.dp.toPx()
-                                
-                                drawCircle(
-                                    color = Color(0xFF00F2FE).copy(alpha = 0.3f),
-                                    radius = rad,
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
-                                )
-                                drawCircle(
-                                    color = Color(0xFF00F2FE).copy(alpha = 0.15f),
-                                    radius = rad * 0.6f,
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
-                                )
-                                
-                                // Rotating ellipse lines to simulate 3D rotation
-                                val ellipseW = rad * kotlin.math.abs(kotlin.math.cos(Math.toRadians(rotAngle.toDouble()))).toFloat()
-                                drawOval(
-                                    color = Color(0xFF00F2FE).copy(alpha = 0.4f),
-                                    topLeft = androidx.compose.ui.geometry.Offset(cX - ellipseW, 0f),
-                                    size = androidx.compose.ui.geometry.Size(ellipseW * 2f, size.height),
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
-                                )
-                                val ellipseH = rad * kotlin.math.abs(kotlin.math.sin(Math.toRadians(rotAngle.toDouble()))).toFloat()
-                                drawOval(
-                                    color = Color(0xFF00F2FE).copy(alpha = 0.4f),
-                                    topLeft = androidx.compose.ui.geometry.Offset(0f, cY - ellipseH),
-                                    size = androidx.compose.ui.geometry.Size(size.width, ellipseH * 2f),
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW)
-                                )
-                            }
-                        }
-                        2 -> {
-                            // Slide 2: Symmetrical buttons panel mock
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .background(Color(0xFF00F2FE).copy(alpha = 0.2f), CircleShape)
-                                        .border(2.dp, Color(0xFF00F2FE), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF00F2FE), modifier = Modifier.size(20.dp))
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .background(Color(0xFFFF55BB).copy(alpha = 0.2f), CircleShape)
-                                        .border(2.dp, Color(0xFFFF55BB), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    androidx.compose.foundation.Canvas(modifier = Modifier.size(20.dp)) {
-                                        val tintColor = Color(0xFFFF55BB)
-                                        val strokeWidth = 1.5.dp.toPx()
-                                        drawRect(
-                                            color = tintColor,
-                                            topLeft = androidx.compose.ui.geometry.Offset(size.width / 2f - 3.dp.toPx(), 2.dp.toPx()),
-                                            size = androidx.compose.ui.geometry.Size(6.dp.toPx(), 2.dp.toPx())
-                                        )
-                                        drawRoundRect(
-                                            color = tintColor,
-                                            topLeft = androidx.compose.ui.geometry.Offset(1.dp.toPx(), 4.dp.toPx()),
-                                            size = androidx.compose.ui.geometry.Size(18.dp.toPx(), 13.dp.toPx()),
-                                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx()),
-                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-                                        )
-                                        drawCircle(
-                                            color = tintColor,
-                                            radius = 3f.dp.toPx(),
-                                            center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f + 1.dp.toPx()),
-                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        3 -> {
-                            // Slide 3: Pulsing audio wave visualizer
-                            val infiniteTransition = rememberInfiniteTransition(label = "audio")
-                            val anim1 by infiniteTransition.animateFloat(initialValue = 0.2f, targetValue = 0.9f, animationSpec = infiniteRepeatable(tween(550, easing = LinearEasing), RepeatMode.Reverse), label = "a1")
-                            val anim2 by infiniteTransition.animateFloat(initialValue = 0.4f, targetValue = 1.0f, animationSpec = infiniteRepeatable(tween(400, easing = LinearEasing), RepeatMode.Reverse), label = "a2")
-                            val anim3 by infiniteTransition.animateFloat(initialValue = 0.1f, targetValue = 0.8f, animationSpec = infiniteRepeatable(tween(650, easing = LinearEasing), RepeatMode.Reverse), label = "a3")
-                            val anim4 by infiniteTransition.animateFloat(initialValue = 0.3f, targetValue = 0.95f, animationSpec = infiniteRepeatable(tween(480, easing = LinearEasing), RepeatMode.Reverse), label = "a4")
-                            
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.height(60.dp)
-                            ) {
-                                val heights = listOf(anim1, anim2, anim3, anim4, anim1)
-                                val colors = listOf(Color(0xFF00F2FE), Color(0xFF4FACFE), Color(0xFFFF55BB), Color(0xFFFF2A68), Color(0xFF00FF88))
-                                heights.forEachIndexed { i, scale ->
-                                    Box(
-                                        modifier = Modifier
-                                            .width(5.dp)
-                                            .fillMaxHeight(scale)
-                                            .background(colors[i % colors.size], RoundedCornerShape(2.5.dp))
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                // Icon
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = Color(0xFF00F2FE),
+                    modifier = Modifier.size(48.dp)
+                )
                 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Title
-                val titles = listOf(
-                    R.string.ob_title_permission,
-                    R.string.ob_title_sphere,
-                    R.string.ob_title_access,
-                    R.string.ob_title_music
-                )
                 Text(
-                    text = stringResource(titles[currentSlide]),
+                    text = "Инструкция пользователя",
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Description
-                val descriptions = listOf(
-                    R.string.ob_desc_permission,
-                    R.string.ob_desc_sphere,
-                    R.string.ob_desc_access,
-                    R.string.ob_desc_music
-                )
                 Text(
-                    text = stringResource(descriptions[currentSlide]),
+                    text = "• Управление камерой: свайпы по экрану.\n• Жесты (если включены): сжатие ладони в кулак работает как тап.\n• Масштабирование: зажмите экран двумя пальцами (щипок).\n• Змейка: свайпы для изменения направления (жесты камеры отключены).\n• Перемещение сферы: используйте гироскоп устройства.",
                     color = Color(0xFFCCCCCC),
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    textAlign = TextAlign.Center,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Start,
                     modifier = Modifier
-                        .heightIn(min = 80.dp)
+                        .heightIn(max = 250.dp)
                         .verticalScroll(rememberScrollState())
                 )
                 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
                 
-                // Pager Indicators
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(bottom = 20.dp)
-                ) {
-                    repeat(totalSlides) { i ->
-                        val isActive = i == currentSlide
-                        Box(
-                            modifier = Modifier
-                                .height(6.dp)
-                                .width(if (isActive) 18.dp else 6.dp)
-                                .background(
-                                    color = if (isActive) Color(0xFF00F2FE) else Color(0x33FFFFFF),
-                                    shape = RoundedCornerShape(3.dp)
-                                )
-                        )
-                    }
-                }
-                
-                // Bottom control row
-                Row(
+                // Close button
+                Button(
+                    onClick = onComplete,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00F2FE),
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
-                    if (currentSlide < totalSlides - 1) {
-                        Text(
-                            text = stringResource(R.string.ob_btn_skip),
-                            color = Color(0x80FFFFFF),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier
-                                .clickable { onComplete() }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.width(70.dp))
-                    }
-                    
-                    Button(
-                        onClick = {
-                            if (currentSlide < totalSlides - 1) {
-                                currentSlide++
-                            } else {
-                                onComplete()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF00F2FE),
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
-                    ) {
-                        Text(
-                            text = if (currentSlide == 0) {
-                                stringResource(R.string.ob_btn_agree)
-                            } else if (currentSlide == totalSlides - 1) {
-                                stringResource(R.string.ob_btn_start)
-                            } else {
-                                stringResource(R.string.ob_btn_next)
-                            },
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Text(
+                        text = "Закрыть",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
