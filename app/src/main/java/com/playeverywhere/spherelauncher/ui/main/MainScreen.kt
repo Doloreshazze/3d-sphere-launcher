@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -216,8 +217,8 @@ fun MainScreen(
     var touchDownY by remember { mutableStateOf(0f) }
     var hasMovedSignificantly by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state.handCursorX, state.handCursorY, isHandClenched, state.isHandDetected, state.isGestureControlEnabled) {
-        if (!state.isGestureControlEnabled) {
+    LaunchedEffect(state.handCursorX, state.handCursorY, isHandClenched, state.isHandDetected, state.isGestureControlEnabled, state.isFirstLaunch) {
+        if (!state.isGestureControlEnabled || state.isFirstLaunch) {
             if (wasClenched) {
                 val eventTime = SystemClock.uptimeMillis()
                 val x = state.handCursorX * view.width
@@ -615,6 +616,34 @@ fun MainScreen(
                         contentDescription = stringResource(R.string.exit_to_system_launcher),
                         tint = Color.Black,
                         modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
+
+            // Bottom-Left Back Button (shown when not in SPHERE mode)
+            if (state.shapeType != ShapeType.SPHERE) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(24.dp)
+                        .size(56.dp)
+                        .background(
+                            color = Color.Black.copy(alpha = 0.4f),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 1.5.dp,
+                            color = Color.White.copy(alpha = 0.3f),
+                            shape = CircleShape
+                        )
+                        .clickable { viewModel.setShapeType(ShapeType.SPHERE) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.accessibility_back),
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }
@@ -1948,6 +1977,10 @@ fun OnboardingTour(
     onComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    androidx.activity.compose.BackHandler {
+        // Intercept back button to prevent accidental dismissal
+    }
+    
     var currentSlide by remember { mutableStateOf(0) }
     val totalSlides = 4
 
@@ -1955,7 +1988,7 @@ fun OnboardingTour(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.85f))
-            .clickable(enabled = false) {}, // Intercept clicks to background
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}, // Intercept clicks to background
         contentAlignment = Alignment.Center
     ) {
         // Main Glassmorphic Dialog Card

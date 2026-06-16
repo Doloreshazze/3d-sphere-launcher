@@ -783,6 +783,10 @@ fun Sphere3D(
                                     restartSnakeGame()
                                     return@detectTapGestures
                                 }
+                                if (shapeType == ShapeType.SNAKE && !isGameOver) {
+                                    isPaused = !isPaused
+                                    return@detectTapGestures
+                                }
                                 if (allowClicks) {
                                     if (isGestureEnabled && handSpeed > 2.8f) {
                                         // Ignore tap if the hand is moving too fast (avoids accidental clicks during swiping)
@@ -1504,7 +1508,11 @@ fun Sphere3D(
                                                 onTileTap(appIndex)
                                             }
                                         } else if (shapeType == ShapeType.SNAKE) {
-                                            // Do nothing in Snake mode to prevent accidental launching during play
+                                            if (!isGameOver) {
+                                                isPaused = !isPaused
+                                            } else {
+                                                restartSnakeGame()
+                                            }
                                         } else {
                                             onAppClick(node.appInfo)
                                         }
@@ -1890,6 +1898,7 @@ fun AppSphereItem(
     segmentIndex: Int = -1
 ) {
     val density = LocalDensity.current.density
+    val configuration = LocalConfiguration.current
     
     val shadowPaint = remember {
         android.graphics.Paint().apply {
@@ -1908,8 +1917,13 @@ fun AppSphereItem(
     
     // Dynamically calculate tile, icon and text sizing based on the number of apps
     // to ensure perfectly proportioned layout with absolutely 0 overlaps!
-    val tileSize = remember(appCount, shapeType) {
-        if (shapeType == ShapeType.SNAKE) 22f
+    val tileSize = remember(appCount, shapeType, density, configuration) {
+        if (shapeType == ShapeType.SNAKE) {
+            val screenWidthPx = configuration.screenWidthDp * density
+            val screenHeightPx = configuration.screenHeightDp * density
+            val baseRadius = (kotlin.math.min(screenWidthPx, screenHeightPx) * 0.38f).coerceAtLeast(250f)
+            (baseRadius * 0.16f) / density
+        }
         else (400f / kotlin.math.sqrt(appCount.toFloat())).coerceIn(45f, 80f)
     }
     val iconSize = remember(tileSize, shapeType) {
@@ -2068,58 +2082,60 @@ fun AppSphereItem(
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxSize()
         ) {
-            Image(
-                bitmap = app.iconBitmap,
-                contentDescription = app.label,
-                modifier = Modifier
-                    .size(iconSize.dp)
-                    .then(
-                        if (shapeType != ShapeType.SOLID_SPHERE && shapeType != ShapeType.POLYHEDRON && shapeType != ShapeType.FLAT_PLANE && shapeType != ShapeType.SNAKE) {
-                            Modifier
-                                .clip(CircleShape)
-                                .border(0.8.dp, Color.White.copy(alpha = 0.25f), CircleShape)
-                                .drawWithContent {
-                                    drawContent()
-                                    val x = xProvider()
-                                    val y = yProvider()
-                                    val w = size.width
-                                    val h = size.height
-                                    val radius = w.coerceAtMost(h) * 0.75f
-                                    
-                                    val centerX = w * (0.35f - x * 0.15f)
-                                    val centerY = h * (0.35f - y * 0.15f)
-                                    
-                                    val colors = intArrayOf(
-                                        0x73FFFFFF, // Color.White.copy(alpha = 0.45f).toArgb()
-                                        0x14FFFFFF, // Color.White.copy(alpha = 0.08f).toArgb()
-                                        0x00FFFFFF, // Color.Transparent.toArgb()
-                                        0x6B000000  // Color.Black.copy(alpha = 0.42f).toArgb()
-                                    )
-                                    val stops = floatArrayOf(0.0f, 0.35f, 0.75f, 1.0f)
-                                    
-                                    val shader = android.graphics.RadialGradient(
-                                        centerX,
-                                        centerY,
-                                        radius,
-                                        colors,
-                                        stops,
-                                        android.graphics.Shader.TileMode.CLAMP
-                                    )
-                                    glossPaint.shader = shader
-                                    
-                                    drawContext.canvas.nativeCanvas.drawCircle(
-                                        w / 2f,
-                                        h / 2f,
-                                        w / 2f,
-                                        glossPaint
-                                    )
-                                }
-                        } else {
-                            Modifier
-                        }
-                    ),
-                contentScale = ContentScale.Fit
-            )
+            if (shapeType != ShapeType.SNAKE) {
+                Image(
+                    bitmap = app.iconBitmap,
+                    contentDescription = app.label,
+                    modifier = Modifier
+                        .size(iconSize.dp)
+                        .then(
+                            if (shapeType != ShapeType.SOLID_SPHERE && shapeType != ShapeType.POLYHEDRON && shapeType != ShapeType.FLAT_PLANE && shapeType != ShapeType.SNAKE) {
+                                Modifier
+                                    .clip(CircleShape)
+                                    .border(0.8.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                                    .drawWithContent {
+                                        drawContent()
+                                        val x = xProvider()
+                                        val y = yProvider()
+                                        val w = size.width
+                                        val h = size.height
+                                        val radius = w.coerceAtMost(h) * 0.75f
+                                        
+                                        val centerX = w * (0.35f - x * 0.15f)
+                                        val centerY = h * (0.35f - y * 0.15f)
+                                        
+                                        val colors = intArrayOf(
+                                            0x73FFFFFF, // Color.White.copy(alpha = 0.45f).toArgb()
+                                            0x14FFFFFF, // Color.White.copy(alpha = 0.08f).toArgb()
+                                            0x00FFFFFF, // Color.Transparent.toArgb()
+                                            0x6B000000  // Color.Black.copy(alpha = 0.42f).toArgb()
+                                        )
+                                        val stops = floatArrayOf(0.0f, 0.35f, 0.75f, 1.0f)
+                                        
+                                        val shader = android.graphics.RadialGradient(
+                                            centerX,
+                                            centerY,
+                                            radius,
+                                            colors,
+                                            stops,
+                                            android.graphics.Shader.TileMode.CLAMP
+                                        )
+                                        glossPaint.shader = shader
+                                        
+                                        drawContext.canvas.nativeCanvas.drawCircle(
+                                            w / 2f,
+                                            h / 2f,
+                                            w / 2f,
+                                            glossPaint
+                                        )
+                                    }
+                            } else {
+                                Modifier
+                            }
+                        ),
+                    contentScale = ContentScale.Crop
+                )
+            }
         }
     }
 }
