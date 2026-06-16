@@ -1977,8 +1977,15 @@ fun OnboardingTour(
     onComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    androidx.activity.compose.BackHandler {
-        onComplete()
+    var canClose by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(500)
+        canClose = true
+    }
+
+    androidx.activity.compose.BackHandler(enabled = canClose) {
+        if (canClose) onComplete()
     }
 
     Box(
@@ -2054,7 +2061,7 @@ fun OnboardingTour(
                 
                 // Close button
                 Button(
-                    onClick = onComplete,
+                    onClick = { if (canClose) onComplete() },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF00F2FE),
                         contentColor = Color.Black
