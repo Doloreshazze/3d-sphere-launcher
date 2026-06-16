@@ -343,16 +343,22 @@ fun Sphere3D(
     val snakeGridSize = 12
     val snakeBody = remember { androidx.compose.runtime.mutableStateListOf(Pair(5, 5), Pair(5, 6), Pair(5, 7)) } // Head is at index 0
     var snakeDirection by remember { mutableStateOf(Pair(0, -1)) } // Start moving UP
+    var lastProcessedDirection by remember { mutableStateOf(Pair(0, -1)) }
     var foodPos by remember { mutableStateOf(Pair(8, 4)) }
     var isGameOver by remember { mutableStateOf(false) }
     var score by remember { mutableStateOf(0) }
-    var highScore by remember { mutableStateOf(0) }
     
+    val prefs = remember { context.getSharedPreferences("sphere_launcher_prefs", android.content.Context.MODE_PRIVATE) }
+    var highScore by remember { mutableStateOf(prefs.getInt("snake_high_score", 0)) }
+    
+    var isPaused by remember { mutableStateOf(true) }
+
     val restartSnakeGame = remember(apps) {
         {
             snakeBody.clear()
             snakeBody.addAll(listOf(Pair(5, 5), Pair(5, 6), Pair(5, 7)))
             snakeDirection = Pair(0, -1)
+            lastProcessedDirection = Pair(0, -1)
             var newFood = Pair(
                 (0 until snakeGridSize).random(),
                 (0 until snakeGridSize).random()
@@ -366,19 +372,24 @@ fun Sphere3D(
             foodPos = newFood
             isGameOver = false
             score = 0
+            isPaused = false
         }
     }
 
     LaunchedEffect(shapeType) {
         if (shapeType == ShapeType.SNAKE) {
-            restartSnakeGame()
+            // Auto-pause when entering the game so the user can get ready
+            if (!isGameOver) {
+                isPaused = true
+            }
         }
     }
 
-    LaunchedEffect(shapeType, isGameOver) {
-        if (shapeType == ShapeType.SNAKE && !isGameOver) {
+    LaunchedEffect(shapeType, isGameOver, isPaused) {
+        if (shapeType == ShapeType.SNAKE && !isGameOver && !isPaused) {
             while (true) {
-                delay(300L) // Tick rate: 300ms
+                delay(600L) // Tick rate: 600ms (slower)
+                lastProcessedDirection = snakeDirection
                 val head = snakeBody.firstOrNull() ?: Pair(5, 5)
                 val nextHead = Pair(
                     (head.first + snakeDirection.first + snakeGridSize) % snakeGridSize,
@@ -387,9 +398,6 @@ fun Sphere3D(
                 
                 if (snakeBody.contains(nextHead)) {
                     isGameOver = true
-                    if (score > highScore) {
-                        highScore = score
-                    }
                     break
                 }
                 
@@ -397,6 +405,10 @@ fun Sphere3D(
                 
                 if (nextHead == foodPos) {
                     score++
+                    if (score > highScore) {
+                        highScore = score
+                        prefs.edit().putInt("snake_high_score", highScore).apply()
+                    }
                     var newFood = Pair((0 until snakeGridSize).random(), (0 until snakeGridSize).random())
                     while (snakeBody.contains(newFood)) {
                         newFood = Pair((0 until snakeGridSize).random(), (0 until snakeGridSize).random())
@@ -422,6 +434,7 @@ fun Sphere3D(
 
     // Track user touch state to pause auto-drift
     var isUserInteracting by remember { mutableStateOf(false) }
+    var lastInteractionTime by remember { mutableLongStateOf(0L) }
 
     val currentCursorX = rememberUpdatedState(handCursorX)
     val currentCursorY = rememberUpdatedState(handCursorY)
@@ -470,11 +483,14 @@ fun Sphere3D(
                             yawVelocity[0] = yVel * friction.pow(timeFactor)
                             yawVelocity[1] = pVel * friction.pow(timeFactor)
                         } else if (isAutoDriftEnabled) {
-                            if (shapeType == ShapeType.FLAT_PLANE) {
-                                rotationState.yaw += 0.02f * deltaTime   // Gentle slow horizontal float
-                                rotationState.pitch += 0.02f * deltaTime  // Gentle slow vertical float
-                            } else {
-                                applyTrackballRotation(rotationState.trackballMatrix, -driftSpeedY * deltaTime, driftSpeedX * deltaTime)
+                            val timeSinceInteraction = android.os.SystemClock.uptimeMillis() - lastInteractionTime
+                            if (timeSinceInteraction > 1000L) {
+                                if (shapeType == ShapeType.FLAT_PLANE) {
+                                    rotationState.yaw += 0.02f * deltaTime   // Gentle slow horizontal float
+                                    rotationState.pitch += 0.02f * deltaTime  // Gentle slow vertical float
+                                } else {
+                                    applyTrackballRotation(rotationState.trackballMatrix, -driftSpeedY * deltaTime, driftSpeedX * deltaTime)
+                                }
                             }
                         }
                     }
@@ -605,7 +621,7 @@ fun Sphere3D(
             // High-performance single pointerInput block running in PointerEventPass.Initial
             // Intercepts swipe and pinch gestures before clickable children consume them,
             // while allowing click/tap events to pass down when there is no movement!
-            .pointerInput(isShapeLocked, isInertiaEnabled, shapeType) {
+            .pointerInput(isShapeLocked, isInertiaEnabled, shapeType, isZoomEnabled) {
                 awaitPointerEventScope {
                     var totalDragDistance = 0f
                     while (true) {
@@ -624,9 +640,13 @@ fun Sphere3D(
                             gestureStartTime = android.os.SystemClock.uptimeMillis()
                         } else if (!anyPressed && isUserInteracting) {
                             isUserInteracting = false
+                            lastInteractionTime = android.os.SystemClock.uptimeMillis()
                             val duration = android.os.SystemClock.uptimeMillis() - gestureStartTime
                             if (duration > 350L) {
                                 lastLongGestureEndTime = android.os.SystemClock.uptimeMillis()
+                            }
+                            if (shapeType == ShapeType.SNAKE && totalDragDistance < 15f && duration < 400L && !isGameOver) {
+                                isPaused = !isPaused
                             }
                         }
                         
@@ -636,28 +656,28 @@ fun Sphere3D(
                             // One-finger swipe rotation
                             val change = changes[0]
                             val delta = change.position - change.previousPosition
+                            val dragDist = kotlin.math.sqrt(delta.x * delta.x + delta.y * delta.y)
+                            totalDragDistance += dragDist
                             
                             if (shapeType == ShapeType.SNAKE) {
                                 val dx = delta.x
                                 val dy = delta.y
                                 if (kotlin.math.abs(dx) > 8f || kotlin.math.abs(dy) > 8f) {
                                     if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
-                                        if (dx > 0f && snakeDirection.first != -1) {
+                                        if (dx > 0f && lastProcessedDirection.first != -1) {
                                             snakeDirection = Pair(1, 0)
-                                        } else if (dx < 0f && snakeDirection.first != 1) {
+                                        } else if (dx < 0f && lastProcessedDirection.first != 1) {
                                             snakeDirection = Pair(-1, 0)
                                         }
                                     } else {
-                                        if (dy > 0f && snakeDirection.second != -1) {
-                                            snakeDirection = Pair(0, 1)
-                                        } else if (dy < 0f && snakeDirection.second != 1) {
-                                            snakeDirection = Pair(0, -1)
+                                        if (dy > 0f && lastProcessedDirection.second != -1) {
+                                            snakeDirection = Pair(0, 1) // DOWN
+                                        } else if (dy < 0f && lastProcessedDirection.second != 1) {
+                                            snakeDirection = Pair(0, -1) // UP
                                         }
                                     }
                                 }
                             } else {
-                                val dragDist = kotlin.math.sqrt(delta.x * delta.x + delta.y * delta.y)
-                                totalDragDistance += dragDist
                                 if (totalDragDistance > 50f) { // Increased threshold to prevent accidental click cancellation
                                     allowClicks = false
                                 }
@@ -759,6 +779,10 @@ fun Sphere3D(
                     .pointerInput(apps) {
                         detectTapGestures(
                             onTap = { tapOffset ->
+                                if (shapeType == ShapeType.SNAKE && isGameOver) {
+                                    restartSnakeGame()
+                                    return@detectTapGestures
+                                }
                                 if (allowClicks) {
                                     if (isGestureEnabled && handSpeed > 2.8f) {
                                         // Ignore tap if the hand is moving too fast (avoids accidental clicks during swiping)
@@ -906,9 +930,15 @@ fun Sphere3D(
                     val bhRadius = currentRad * 0.7f
                     // Slow rotation for black hole
                     val bhYaw = (android.os.SystemClock.uptimeMillis() % 120000L) / 120000f * 360f
+                    
+                    val saveCount = nativeCanvas.saveLayer(
+                        centerCanvasX - bhRadius, centerCanvasY - bhRadius,
+                        centerCanvasX + bhRadius, centerCanvasY + bhRadius,
+                        null
+                    )
+                    
                     nativeCanvas.save()
                     nativeCanvas.rotate(bhYaw, centerCanvasX, centerCanvasY)
-                    
                     val texW = blackHoleBitmap.width.toFloat()
                     val texH = blackHoleBitmap.height.toFloat()
                     val destRect = android.graphics.Rect(
@@ -919,6 +949,24 @@ fun Sphere3D(
                     )
                     nativeCanvas.drawBitmap(blackHoleBitmap.asAndroidBitmap(), null, destRect, null)
                     nativeCanvas.restore()
+
+                    // Apply soft circular mask
+                    val maskPaint = android.graphics.Paint().apply {
+                        isAntiAlias = true
+                        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
+                        shader = android.graphics.RadialGradient(
+                            centerCanvasX, centerCanvasY, bhRadius,
+                            intArrayOf(0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0x00FFFFFF),
+                            floatArrayOf(0.0f, 0.6f, 1.0f),
+                            android.graphics.Shader.TileMode.CLAMP
+                        )
+                    }
+                    nativeCanvas.drawRect(
+                        centerCanvasX - bhRadius, centerCanvasY - bhRadius,
+                        centerCanvasX + bhRadius, centerCanvasY + bhRadius,
+                        maskPaint
+                    )
+                    nativeCanvas.restoreToCount(saveCount)
                 } else if (isEarthInsideEnabled) {
                     val earthRadius = currentRad * 0.45f
                     if (isRealisticEarthEnabled) {
@@ -1236,16 +1284,35 @@ fun Sphere3D(
                 )
             }
 
+            // Determine the number of items to draw
+            val drawIndices = if (shapeType == ShapeType.SNAKE) {
+                (0..snakeBody.size).toList()
+            } else {
+                apps.indices.toList()
+            }
+
             // Draw each app node inside a static, non-recomposing layout!
-            sphereNodes.forEach { node ->
+            drawIndices.forEach { drawIndex ->
+                val node = if (shapeType == ShapeType.SNAKE) {
+                    sphereNodes[drawIndex % sphereNodes.size]
+                } else {
+                    sphereNodes[drawIndex]
+                }
+                
+                val itemKey = if (shapeType == ShapeType.SNAKE) {
+                    "snake_item_$drawIndex"
+                } else {
+                    node.appInfo.packageName
+                }
+
                 // Use Compose key() to ensure layout preservation and absolute rendering stability
-                key(node.appInfo.packageName) {
+                key(itemKey) {
                     val positionRef = remember { PositionRef() }
                     val depthRatioProvider = { positionRef.depthRatio }
 
                     // Calculate current grid position in boardPositions list for Flat Plane mode
-                    val appIndex = remember(apps) { apps.indexOf(node.appInfo) }
-                    val boardIndex = if (shapeType == ShapeType.FLAT_PLANE && appIndex != -1) {
+                    val appIndex = drawIndex
+                    val boardIndex = if (shapeType == ShapeType.FLAT_PLANE) {
                         boardPositions.indexOf(appIndex)
                     } else {
                         -1
@@ -1259,26 +1326,22 @@ fun Sphere3D(
                     var cellX = 0
                     var cellY = 0
                     
-                    if (isSnakeMode && appIndex != -1) {
-                        val foodIndex = snakeBody.size % apps.size
-                        if (appIndex == foodIndex) {
+                    if (isSnakeMode) {
+                        if (drawIndex == snakeBody.size) {
                             isFood = true
                             cellX = foodPos.first
                             cellY = foodPos.second
                         } else {
-                            val matchingSegmentIndex = (0 until snakeBody.size).firstOrNull { it % apps.size == appIndex }
-                            if (matchingSegmentIndex != null) {
-                                isSnakeSegment = true
-                                segmentIndex = matchingSegmentIndex
-                                val cell = snakeBody[matchingSegmentIndex]
-                                cellX = cell.first
-                                cellY = cell.second
-                            }
+                            isSnakeSegment = true
+                            segmentIndex = drawIndex
+                            val cell = snakeBody[drawIndex]
+                            cellX = cell.first
+                            cellY = cell.second
                         }
                     }
                     
                     val spacing = 0.42f
-                    val snakeSpacing = 0.28f
+                    val snakeSpacing = 0.18f
                     val targetX = if (shapeType == ShapeType.FLAT_PLANE && boardIndex != -1) {
                         val col = boardIndex % columns
                         (col - (columns - 1) / 2f) * spacing
@@ -1291,17 +1354,25 @@ fun Sphere3D(
                     
                     val targetY = if (shapeType == ShapeType.FLAT_PLANE && boardIndex != -1) {
                         val row = boardIndex / columns
-                        ((rows - 1) / 2f - row) * spacing
+                        (row - (rows - 1) / 2f) * spacing
                     } else if (shapeType == ShapeType.SNAKE) {
                         val row = cellY
-                        ((snakeGridSize - 1) / 2f - row) * snakeSpacing
+                        (row - (snakeGridSize - 1) / 2f) * snakeSpacing
                     } else {
                         node.yBase
                     }
                     
                     // Animate x and y coordinates smoothly when they are rearranged!
-                    val animX by animateFloatAsState(targetValue = targetX, label = "x")
-                    val animY by animateFloatAsState(targetValue = targetY, label = "y")
+                    val animX by animateFloatAsState(
+                        targetValue = targetX,
+                        animationSpec = if (shapeType == ShapeType.SNAKE) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(durationMillis = 800, easing = androidx.compose.animation.core.LinearEasing),
+                        label = "animX"
+                    )
+                    val animY by animateFloatAsState(
+                        targetValue = targetY,
+                        animationSpec = if (shapeType == ShapeType.SNAKE) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(durationMillis = 800, easing = androidx.compose.animation.core.LinearEasing),
+                        label = "animY"
+                    )
                     
                     val isClicked = clickedPackageName == node.appInfo.packageName
                     val clickScale by animateFloatAsState(
@@ -1489,86 +1560,7 @@ fun Sphere3D(
                     )
                 }
 
-                if (!isGameOver) {
-                    // Cyber D-Pad buttons layout
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    ) {
-                        // Up Button
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(Color(0x3300FF88), CircleShape)
-                                .border(1.5.dp, Color(0xFF00FF88), CircleShape)
-                                .clickable {
-                                    if (snakeDirection.second != 1) {
-                                        snakeDirection = Pair(0, -1)
-                                    }
-                                }
-                        ) {
-                            Text("▲", color = Color(0xFF00FF88), fontSize = 18.sp)
-                        }
-                        
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Left Button
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .background(Color(0x3300FF88), CircleShape)
-                                    .border(1.5.dp, Color(0xFF00FF88), CircleShape)
-                                    .clickable {
-                                        if (snakeDirection.first != 1) {
-                                            snakeDirection = Pair(-1, 0)
-                                        }
-                                    }
-                            ) {
-                                Text("◀", color = Color(0xFF00FF88), fontSize = 18.sp)
-                            }
-                            
-                            // Center gap spacer
-                            Spacer(modifier = Modifier.size(40.dp))
-                            
-                            // Right Button
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .background(Color(0x3300FF88), CircleShape)
-                                    .border(1.5.dp, Color(0xFF00FF88), CircleShape)
-                                    .clickable {
-                                        if (snakeDirection.first != -1) {
-                                            snakeDirection = Pair(1, 0)
-                                        }
-                                    }
-                            ) {
-                                Text("▶", color = Color(0xFF00FF88), fontSize = 18.sp)
-                            }
-                        }
-                        
-                        // Down Button
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(Color(0x3300FF88), CircleShape)
-                                .border(1.5.dp, Color(0xFF00FF88), CircleShape)
-                                .clickable {
-                                    if (snakeDirection.second != -1) {
-                                        snakeDirection = Pair(0, 1)
-                                    }
-                                }
-                        ) {
-                            Text("▼", color = Color(0xFF00FF88), fontSize = 18.sp)
-                        }
-                    }
-                } else {
+                if (isGameOver) {
                     // Game Over Screen Overlay
                     Box(
                         modifier = Modifier
@@ -1610,6 +1602,17 @@ fun Sphere3D(
                             }
                         }
                     }
+                }
+            }
+            
+            if (shapeType == ShapeType.SNAKE && isGameOver) {
+                Box(modifier = Modifier.fillMaxSize().background(Color(0x66000000)), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Text("GAME OVER\nTap to Restart", color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 32.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                }
+            }
+            if (shapeType == ShapeType.SNAKE && isPaused && !isGameOver) {
+                Box(modifier = Modifier.fillMaxSize().background(Color(0x44000000)), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Text("PAUSED", color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 32.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             }
         }
@@ -1823,7 +1826,7 @@ fun PlaneBoardCore(
                 val offsetY = -(pitchProvider() + tiltPitchProvider()) * scrollSpeed * rad
                 
                 val isSnake = (rows == 12 && columns == 12)
-                val spacing = if (isSnake) 0.28f else 0.42f
+                val spacing = if (isSnake) 0.18f else 0.42f
                 val boardWidth = columns * spacing * rad
                 val boardHeight = rows * spacing * rad
                 
@@ -1906,7 +1909,7 @@ fun AppSphereItem(
     // Dynamically calculate tile, icon and text sizing based on the number of apps
     // to ensure perfectly proportioned layout with absolutely 0 overlaps!
     val tileSize = remember(appCount, shapeType) {
-        if (shapeType == ShapeType.SNAKE) 28f
+        if (shapeType == ShapeType.SNAKE) 22f
         else (400f / kotlin.math.sqrt(appCount.toFloat())).coerceIn(45f, 80f)
     }
     val iconSize = remember(tileSize, shapeType) {

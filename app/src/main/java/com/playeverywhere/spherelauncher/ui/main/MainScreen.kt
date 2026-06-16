@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -117,7 +118,7 @@ fun MainScreen(
     // Background gesture camera engine — ImageAnalysis only, no visible preview
     GestureCameraLauncher(
         gestureDetector = gestureDetector,
-        isEnabled = state.isGestureControlEnabled
+        isEnabled = state.isGestureControlEnabled && state.shapeType != ShapeType.SNAKE
     )
 
     val cursorLock = remember { FloatArray(3) } // [0]=isLocked, [1]=lockedX, [2]=lockedY
@@ -343,12 +344,13 @@ fun MainScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 1. Holographic Floating Search Bar & Toggle Switch Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            androidx.compose.animation.AnimatedVisibility(visible = state.shapeType != ShapeType.SNAKE) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                 // Search Bar taking up remaining horizontal space
                 Box(
                     modifier = Modifier
@@ -428,6 +430,7 @@ fun MainScreen(
                     isStandardView = state.isStandardView,
                     onToggle = { viewModel.setStandardView(it) }
                 )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -507,13 +510,13 @@ fun MainScreen(
                             isPulsingEnabled = state.isPulsingEnabled,
                             isAudioReactiveEnabled = state.isAudioReactiveEnabled,
                             audioAmplitude = state.audioAmplitude,
-                            isGestureEnabled = state.isGestureControlEnabled,
+                            isGestureEnabled = state.isGestureControlEnabled && state.shapeType != ShapeType.SNAKE,
                             isEarthInsideEnabled = state.isEarthInsideEnabled,
                             isRealisticEarthEnabled = state.isRealisticEarthEnabled,
                             isBlackHoleEnabled = state.isBlackHoleEnabled,
                             handCursorX = state.handCursorX,
                             handCursorY = state.handCursorY,
-                            isHandDetected = state.isHandDetected,
+                            isHandDetected = state.isHandDetected && state.shapeType != ShapeType.SNAKE,
                             isHandClenched = isHandClenched,
                             handScale = state.handScale,
                             handSpeed = state.handCursorSpeed,
@@ -625,9 +628,10 @@ fun MainScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Camera Quick Launch Button
-                Box(
-                    modifier = Modifier
-                        .size(54.dp)
+                androidx.compose.animation.AnimatedVisibility(visible = state.shapeType != ShapeType.SNAKE) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
                         .background(
                             brush = Brush.linearGradient(
                                 colors = listOf(
@@ -687,6 +691,7 @@ fun MainScreen(
                             center = androidx.compose.ui.geometry.Offset(size.width - 5.dp.toPx(), 8.dp.toPx())
                         )
                     }
+                    }
                 }
 
                 // Settings Button
@@ -721,13 +726,15 @@ fun MainScreen(
             }
 
             // 6. Floating Cyber Action Stack (Bottom-Left)
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            androidx.compose.animation.AnimatedVisibility(
+                visible = state.shapeType != ShapeType.SNAKE,
+                modifier = Modifier.align(Alignment.BottomStart)
             ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                 // Inertia Toggle Button
                 val isInertia = state.isInertiaEnabled
                 Box(
@@ -787,8 +794,50 @@ fun MainScreen(
                         modifier = Modifier.size(24.dp)
                     )
                 }
+                }
             }
-        }
+            }
+
+            // 7. Floating Back Button (Bottom-Left) for exiting Snake/other modes
+            androidx.compose.animation.AnimatedVisibility(
+                visible = state.shapeType != ShapeType.SPHERE,
+                modifier = Modifier.align(Alignment.BottomStart)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFFFF5252),
+                                        Color(0xFFFF1744)
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                            .border(
+                                width = 2.dp,
+                                color = Color.White.copy(alpha = 0.6f),
+                                shape = CircleShape
+                            )
+                            .clip(CircleShape)
+                            .clickable { viewModel.setShapeType(ShapeType.SPHERE) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+            }
 
         // 5. Settings Bottom Sheet Dialog
         if (showSettings) {
@@ -1211,9 +1260,21 @@ fun SettingsSheetContent(
                                     onRealisticEarthChanged(false)
                                     onEarthInsideChanged(false)
                                 }
-                                1 -> onEarthInsideChanged(true)
-                                2 -> onRealisticEarthChanged(true)
-                                3 -> onBlackHoleChanged(true)
+                                1 -> {
+                                    onBlackHoleChanged(false)
+                                    onRealisticEarthChanged(false)
+                                    onEarthInsideChanged(true)
+                                }
+                                2 -> {
+                                    onBlackHoleChanged(false)
+                                    onEarthInsideChanged(true)
+                                    onRealisticEarthChanged(true)
+                                }
+                                3 -> {
+                                    onEarthInsideChanged(false)
+                                    onRealisticEarthChanged(false)
+                                    onBlackHoleChanged(true)
+                                }
                             }
                         }
                         .padding(vertical = 12.dp),
