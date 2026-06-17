@@ -139,8 +139,9 @@ fun MainScreen(
         if (lms != null && lms.size > 8) {
             val thumbTip = lms[4]
             val indexTip = lms[8]
-            val rawX = (thumbTip.x + indexTip.x) / 2f
-            val rawY = (thumbTip.y + indexTip.y) / 2f
+            // Track cursor position primarily from the thumb, as the index finger shifts more during a pinch
+            val rawX = thumbTip.x
+            val rawY = thumbTip.y
             
             // Pinch lock logic: freeze cursor coordinates during clicks and releases to prevent misclicks and jitter
             if (isHandClenched) {
