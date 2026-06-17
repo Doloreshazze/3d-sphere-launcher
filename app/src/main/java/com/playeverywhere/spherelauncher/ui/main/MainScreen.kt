@@ -58,6 +58,7 @@ import com.antigravity.gesture.Gesture
 import androidx.compose.ui.platform.LocalView
 import android.view.MotionEvent
 import android.os.SystemClock
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +78,7 @@ fun MainScreen(
     // Smoothed (damped) cursor position – prevents micro-tremors from jittering the sphere
     var smoothCursorX by remember { mutableStateOf(0.5f) }
     var smoothCursorY by remember { mutableStateOf(0.5f) }
+    var smoothHandScale by remember { mutableStateOf(0.5f) }
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -114,7 +116,8 @@ fun MainScreen(
     val landmarks by gestureDetector.landmarksFlow.collectAsStateWithLifecycle()
     val activeGesture by gestureDetector.gestureFlow.collectAsStateWithLifecycle()
     val rawHandScale by gestureDetector.handScaleFlow.collectAsStateWithLifecycle(initialValue = 0.5f)
-    val isHandClenched = activeGesture == Gesture.ACTIVATE
+    val isHandClenched = activeGesture == Gesture.ACTIVATE || activeGesture == Gesture.FIST
+    var ignoreUntilOpen by remember { mutableStateOf(false) }
 
     // Background gesture camera engine — ImageAnalysis only, no visible preview
     GestureCameraLauncher(
@@ -122,74 +125,43 @@ fun MainScreen(
         isEnabled = state.isGestureControlEnabled && state.shapeType != ShapeType.SNAKE
     )
 
-    val cursorLock = remember { FloatArray(3) } // [0]=isLocked, [1]=lockedX, [2]=lockedY
-    var wasClenchedForLock by remember { mutableStateOf(false) }
-    var releaseLockUntilTime by remember { mutableLongStateOf(0L) }
-    var activationLockUntilTime by remember { mutableLongStateOf(0L) }
+    var cursorOffsetX by remember { mutableStateOf(0f) }
+    var cursorOffsetY by remember { mutableStateOf(0f) }
+    var wasClenchedForOffset by remember { mutableStateOf(false) }
     var resetZoomTrigger by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(activeGesture) {
+        if (activeGesture == Gesture.FIST) {
+            android.widget.Toast.makeText(context, "КУЛАК ОБНАРУЖЕН!", android.widget.Toast.LENGTH_SHORT).show()
+        }
         if (activeGesture == Gesture.FIST_TO_OPEN_PALM && state.isZoomEnabled) {
             resetZoomTrigger = System.currentTimeMillis()
+        }
+        if (activeGesture == Gesture.NONE || activeGesture == Gesture.FIST_TO_OPEN_PALM) {
+            ignoreUntilOpen = false
         }
     }
 
     SideEffect {
         val lms = landmarks
         if (lms != null && lms.size > 8) {
+            val wrist = lms[0]
             val thumbTip = lms[4]
-            val indexTip = lms[8]
             // Track cursor position primarily from the thumb, as the index finger shifts more during a pinch
-            val rawX = thumbTip.x
-            val rawY = thumbTip.y
             
-            // Pinch lock logic: freeze cursor coordinates during clicks and releases to prevent misclicks and jitter
+            // Wrist offset logic: keep cursor perfectly stable when fingers curl
             if (isHandClenched) {
-                if (!wasClenchedForLock) {
-                    // Just pinched -> engage activation lock for 0.5s
-                    wasClenchedForLock = true
-                    cursorLock[0] = 1f
-                    cursorLock[1] = rawX
-                    cursorLock[2] = rawY
-                    activationLockUntilTime = System.currentTimeMillis() + 500L
-                    releaseLockUntilTime = 0L // reset release cooldown if clenched again quickly
-                } else {
-                    if (System.currentTimeMillis() > activationLockUntilTime) {
-                        // Activation filter passed, check if moved far enough to break the lock
-                        if (cursorLock[0] == 1f) {
-                            val lockDx = rawX - cursorLock[1]
-                            val lockDy = rawY - cursorLock[2]
-                            if (lockDx * lockDx + lockDy * lockDy > 0.0036f) { // ~0.06 relative distance (60-80 pixels)
-                                cursorLock[0] = 0f
-                            }
-                        }
-                    } else {
-                        // Still within 0.5s after clench -> strictly locked
-                        cursorLock[0] = 1f
-                    }
+                if (!wasClenchedForOffset) {
+                    wasClenchedForOffset = true
+                    cursorOffsetX = thumbTip.x - wrist.x
+                    cursorOffsetY = thumbTip.y - wrist.y
                 }
             } else {
-                if (wasClenchedForLock) {
-                    // Just released -> engage release lock for 0.5s
-                    wasClenchedForLock = false
-                    activationLockUntilTime = 0L
-                    releaseLockUntilTime = System.currentTimeMillis() + 500L
-                    // Freeze at the current hand position upon release
-                    cursorLock[0] = 1f
-                    cursorLock[1] = rawX
-                    cursorLock[2] = rawY
-                }
-                
-                if (System.currentTimeMillis() > releaseLockUntilTime) {
-                    cursorLock[0] = 0f // Cooldown over or never started, release lock
-                } else {
-                    // Force lock during the 0.5s cooldown
-                    cursorLock[0] = 1f
-                }
+                wasClenchedForOffset = false
             }
-
-            val targetX = if (cursorLock[0] == 1f) cursorLock[1] else rawX
-            val targetY = if (cursorLock[0] == 1f) cursorLock[2] else rawY
+            
+            val targetX = if (isHandClenched) wrist.x + cursorOffsetX else thumbTip.x
+            val targetY = if (isHandClenched) wrist.y + cursorOffsetY else thumbTip.y
             
             // Calculate distance to determine speed
             val dx = targetX - smoothCursorX
@@ -201,11 +173,18 @@ fun MainScreen(
             
             smoothCursorX = smoothCursorX + dynamicAlpha * (targetX - smoothCursorX)
             smoothCursorY = smoothCursorY + dynamicAlpha * (targetY - smoothCursorY)
-            viewModel.updateHandCursor(smoothCursorX, smoothCursorY, true, scale = rawHandScale)
+            
+            // Dynamic alpha for scale: large scale changes happen fast, small changes are heavily smoothed
+            val dScale = kotlin.math.abs(rawHandScale - smoothHandScale)
+            val scaleAlpha = (dScale / 0.05f).coerceIn(0.05f, 0.3f)
+            smoothHandScale = smoothHandScale + scaleAlpha * (rawHandScale - smoothHandScale)
+            
+            viewModel.updateHandCursor(smoothCursorX, smoothCursorY, true, scale = smoothHandScale)
         } else {
             smoothCursorX = 0.5f
             smoothCursorY = 0.5f
-            cursorLock[0] = 0f
+            smoothHandScale = 0.5f
+            wasClenchedForOffset = false
             viewModel.updateHandCursor(0.5f, 0.5f, false)
         }
     }
@@ -217,8 +196,10 @@ fun MainScreen(
     var touchDownX by remember { mutableStateOf(0f) }
     var touchDownY by remember { mutableStateOf(0f) }
     var hasMovedSignificantly by remember { mutableStateOf(false) }
+    var pinchedApp by remember { mutableStateOf<AppInfo?>(null) }
+    var startGesture by remember { mutableStateOf(Gesture.NONE) }
 
-    LaunchedEffect(state.handCursorX, state.handCursorY, isHandClenched, state.isHandDetected, state.isGestureControlEnabled, state.isFirstLaunch) {
+    LaunchedEffect(state.handCursorX, state.handCursorY, isHandClenched, state.isHandDetected, state.isGestureControlEnabled, state.isFirstLaunch, activeGesture) {
         if (!state.isGestureControlEnabled || state.isFirstLaunch) {
             if (wasClenched) {
                 val eventTime = SystemClock.uptimeMillis()
@@ -250,6 +231,8 @@ fun MainScreen(
         val y = state.handCursorY * view.height
         val now = SystemClock.uptimeMillis()
 
+        if (ignoreUntilOpen) return@LaunchedEffect
+
         if (isHandClenched) {
             if (!wasClenched) {
                 // Active mode gesture start (pinch fingers together) -> dispatch ACTION_DOWN
@@ -257,6 +240,26 @@ fun MainScreen(
                 touchDownX = x
                 touchDownY = y
                 hasMovedSignificantly = false
+                startGesture = activeGesture
+                
+                // Find and lock onto the app under the cursor AT THE MOMENT OF PINCH
+                val centerX = view.width / 2f
+                val centerY = view.height / 2f
+                var closest: AppInfo? = null
+                var minDistSq = Float.MAX_VALUE
+                for (node in projectedNodesList) {
+                    if (node.depthRatio > 0.2f) {
+                        val appX = centerX + node.xProj
+                        val appY = centerY + node.yProj
+                        val dSq = (appX - x) * (appX - x) + (appY - y) * (appY - y)
+                        if (dSq < minDistSq && dSq < 30000f) {
+                            minDistSq = dSq
+                            closest = node.appInfo
+                        }
+                    }
+                }
+                pinchedApp = closest
+                
                 val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_DOWN, x, y, 0)
                 view.dispatchTouchEvent(event)
                 event.recycle()
@@ -265,13 +268,42 @@ fun MainScreen(
                 // Active mode gesture drag
                 val dx = x - touchDownX
                 val dy = y - touchDownY
-                // Require ~35 pixels of movement to transition from "tap" to "drag"
-                if (!hasMovedSignificantly && (dx * dx + dy * dy) > 1200f) {
+                // Require ~70 pixels of movement to transition from "tap" to "drag"
+                if (!hasMovedSignificantly && (dx * dx + dy * dy) > 5000f) {
                     hasMovedSignificantly = true
                 }
                 
-                // Only send MOVE events if we broke the slop threshold
-                if (hasMovedSignificantly) {
+                // Pinch-to-Fist launch logic
+                if (activeGesture == Gesture.FIST && startGesture == Gesture.ACTIVATE) {
+                    if (pinchedApp != null) {
+                        // Launch the EXACT app that was under the cursor when the pinch started!
+                        try {
+                            val launchIntent = context.packageManager.getLaunchIntentForPackage(pinchedApp!!.packageName)
+                            if (launchIntent != null) {
+                                launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(launchIntent)
+                            } else {
+                                android.widget.Toast.makeText(context, context.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        // Fallback
+                        val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_UP, touchDownX, touchDownY, 0)
+                        view.dispatchTouchEvent(event)
+                        event.recycle()
+                    }
+                    
+                    // Send ACTION_CANCEL to clear the Sphere3D long-press state just in case
+                    val cancelEvent = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_CANCEL, touchDownX, touchDownY, 0)
+                    view.dispatchTouchEvent(cancelEvent)
+                    cancelEvent.recycle()
+                    
+                    wasClenched = false
+                    ignoreUntilOpen = true
+                } else if (hasMovedSignificantly) {
+                    // Only send MOVE events if we broke the slop threshold
                     val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_MOVE, x, y, 0)
                     view.dispatchTouchEvent(event)
                     event.recycle()
@@ -279,12 +311,15 @@ fun MainScreen(
             }
         } else {
             if (wasClenched) {
-                // Active mode gesture end (release fingers) -> dispatch ACTION_UP
-                // If they just pinched and released without moving much, force UP at the exact DOWN coordinates.
-                // This prevents the fingers opening motion from shifting the cursor and ruining the click.
+                // Active mode gesture end (release fingers)
                 val finalX = if (hasMovedSignificantly) x else touchDownX
                 val finalY = if (hasMovedSignificantly) y else touchDownY
-                val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_UP, finalX, finalY, 0)
+                
+                // If they moved, it's a drag release -> ACTION_UP.
+                // If they didn't move but didn't make a fist -> ACTION_CANCEL to abort the tap.
+                val eventAction = if (hasMovedSignificantly) MotionEvent.ACTION_UP else MotionEvent.ACTION_CANCEL
+                
+                val event = MotionEvent.obtain(touchDownTime, now, eventAction, finalX, finalY, 0)
                 view.dispatchTouchEvent(event)
                 event.recycle()
                 wasClenched = false

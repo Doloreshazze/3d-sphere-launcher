@@ -55,6 +55,7 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
     // Once clenched, a larger distance is required to release — prevents flickering.
     @Volatile private var isPinchActive = false
     private var lastPinchValidTimeMs = 0L
+    private var lastActivateTimeMs = 0L
     private val pinchReleaseDebounceMs = 400L // Increased to 400ms to tolerate faster swipes
 
     companion object {
@@ -67,8 +68,8 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         // Pinch hysteresis thresholds (as fraction of hand scale = wrist→middleMcp distance)
         // Pinch ENGAGES when dist < PINCH_ENGAGE_RATIO  (fingers close together)
         // Pinch RELEASES when dist > PINCH_RELEASE_RATIO (fingers clearly apart)
-        private const val PINCH_ENGAGE_RATIO  = 0.28f
-        private const val PINCH_RELEASE_RATIO = 0.40f
+        private const val PINCH_ENGAGE_RATIO  = 0.35f
+        private const val PINCH_RELEASE_RATIO = 0.50f
     }
 
     private data class TimestampedPoint(val x: Float, val y: Float, val timestampMs: Long, val isClenched: Boolean)
@@ -304,10 +305,9 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         }
 
         // Evaluate Fist to Open Palm
-        val isFist = isFingerFolded(wrist, indexTip, indexMcp) &&
-                     isFingerFolded(wrist, middleTip, middleMcp) &&
-                     isFingerFolded(wrist, ringTip, ringMcp) &&
-                     isFingerFolded(wrist, pinkyTip, pinkyMcp)
+        val isFist = isFingerFolded(wrist, middleTip, middleMcp) &&
+                     isFingerFolded(wrist, ringTip, ringMcp)
+                     
                      
         val isOpenPalm = !isFingerFolded(wrist, indexTip, indexMcp) &&
                          !isFingerFolded(wrist, middleTip, middleMcp) &&
@@ -324,8 +324,16 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
             return Gesture.FIST_TO_OPEN_PALM
         }
 
-        // 2. If no wave gesture is active, check static "ACTIVATE" poses
+        // 2. If no wave gesture is active, check static poses
+        if (isFist) {
+            return Gesture.FIST
+        }
         if (isClenched) {
+            lastActivateTimeMs = now
+            return Gesture.ACTIVATE
+        }
+        if (now - lastActivateTimeMs < 400L) {
+            // Grace period: if clenched was just lost, maintain ACTIVATE briefly to allow smooth transition to FIST
             return Gesture.ACTIVATE
         }
 

@@ -1522,6 +1522,8 @@ fun Sphere3D(
                                     if (allowClicks && depthRatioProvider() > 0.35f) {
                                         if (shapeType == ShapeType.FLAT_PLANE) {
                                             onAppClick(node.appInfo)
+                                        } else if (shapeType != ShapeType.SNAKE) {
+                                            onAppClick(node.appInfo)
                                         }
                                     }
                                 }
