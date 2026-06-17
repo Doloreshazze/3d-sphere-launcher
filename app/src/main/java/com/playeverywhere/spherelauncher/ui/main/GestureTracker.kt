@@ -12,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.antigravity.gesture.HandGestureDetector
 
 /**
@@ -29,10 +31,19 @@ fun GestureCameraLauncher(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    DisposableEffect(isEnabled) {
+    DisposableEffect(isEnabled, lifecycleOwner) {
         var isDisposed = false
         val cameraExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                gestureDetector.close()
+            } else if (event == Lifecycle.Event.ON_RESUME) {
+                gestureDetector.reinitialize()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
 
         cameraProviderFuture.addListener({
             if (isDisposed) {
@@ -104,6 +115,7 @@ fun GestureCameraLauncher(
 
         onDispose {
             isDisposed = true
+            lifecycleOwner.lifecycle.removeObserver(observer)
             cameraExecutor.shutdown()
             gestureDetector.close() // <--- Clear state and free resources
             cameraProviderFuture.addListener({
