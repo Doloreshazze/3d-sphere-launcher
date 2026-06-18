@@ -58,6 +58,8 @@ import com.antigravity.gesture.Gesture
 import androidx.compose.ui.platform.LocalView
 import android.view.MotionEvent
 import android.os.SystemClock
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,21 +149,24 @@ fun MainScreen(
         if (lms != null && lms.size > 8) {
             val wrist = lms[0]
             val thumbTip = lms[4]
-            // Track cursor position primarily from the thumb, as the index finger shifts more during a pinch
+            val indexTip = lms[8]
+            
+            val pointerX = (thumbTip.x + indexTip.x) / 2f
+            val pointerY = (thumbTip.y + indexTip.y) / 2f
             
             // Wrist offset logic: keep cursor perfectly stable when fingers curl
             if (isHandClenched) {
                 if (!wasClenchedForOffset) {
                     wasClenchedForOffset = true
-                    cursorOffsetX = thumbTip.x - wrist.x
-                    cursorOffsetY = thumbTip.y - wrist.y
+                    cursorOffsetX = pointerX - wrist.x
+                    cursorOffsetY = pointerY - wrist.y
                 }
             } else {
                 wasClenchedForOffset = false
             }
             
-            val targetX = if (isHandClenched) wrist.x + cursorOffsetX else thumbTip.x
-            val targetY = if (isHandClenched) wrist.y + cursorOffsetY else thumbTip.y
+            val targetX = if (isHandClenched) wrist.x + cursorOffsetX else pointerX
+            val targetY = if (isHandClenched) wrist.y + cursorOffsetY else pointerY
             
             // Calculate distance to determine speed
             val dx = targetX - smoothCursorX
@@ -197,7 +202,56 @@ fun MainScreen(
     var touchDownY by remember { mutableStateOf(0f) }
     var hasMovedSignificantly by remember { mutableStateOf(false) }
     var pinchedApp by remember { mutableStateOf<AppInfo?>(null) }
+    var hoveredApp by remember { mutableStateOf<AppInfo?>(null) }
+    val hoverHistory = remember { java.util.LinkedList<Pair<Long, AppInfo?>>() }
     var startGesture by remember { mutableStateOf(Gesture.NONE) }
+    
+    var launchAnimationProgress by remember { mutableFloatStateOf(0f) }
+    var isLaunchTriggered by remember { mutableStateOf(false) }
+    var sphereBounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+
+    LaunchedEffect(isHandClenched, pinchedApp, hasMovedSignificantly) {
+        if (isHandClenched && pinchedApp != null && !hasMovedSignificantly) {
+            val startTime = android.os.SystemClock.uptimeMillis()
+            while (true) {
+                val now = androidx.compose.runtime.withFrameMillis { it }
+                val holdTime = now - startTime
+                if (holdTime > 1000L) {
+                    launchAnimationProgress = ((holdTime - 1000L) / 4000f).coerceIn(0f, 1f)
+                    if (launchAnimationProgress >= 1f && !isLaunchTriggered) {
+                        isLaunchTriggered = true
+                        try {
+                            val launchIntent = context.packageManager.getLaunchIntentForPackage(pinchedApp!!.packageName)
+                            if (launchIntent != null) {
+                                launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(launchIntent)
+                                viewModel.onAppLaunched(pinchedApp!!.packageName)
+                            } else {
+                                android.widget.Toast.makeText(context, context.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        
+                        val cancelEvent = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_CANCEL, touchDownX, touchDownY, 0)
+                        view.dispatchTouchEvent(cancelEvent)
+                        cancelEvent.recycle()
+                        
+                        wasClenched = false
+                        pinchedApp = null
+                        ignoreUntilOpen = true
+                        launchAnimationProgress = 0f
+                        break
+                    }
+                } else {
+                    launchAnimationProgress = 0f
+                }
+            }
+        } else {
+            launchAnimationProgress = 0f
+            isLaunchTriggered = false
+        }
+    }
 
     LaunchedEffect(state.handCursorX, state.handCursorY, isHandClenched, state.isHandDetected, state.isGestureControlEnabled, state.isFirstLaunch, activeGesture) {
         if (!state.isGestureControlEnabled || state.isFirstLaunch) {
@@ -209,6 +263,7 @@ fun MainScreen(
                 view.dispatchTouchEvent(event)
                 event.recycle()
                 wasClenched = false
+                pinchedApp = null
             }
             return@LaunchedEffect
         }
@@ -223,6 +278,7 @@ fun MainScreen(
                 view.dispatchTouchEvent(event)
                 event.recycle()
                 wasClenched = false
+                pinchedApp = null
             }
             return@LaunchedEffect
         }
@@ -242,23 +298,19 @@ fun MainScreen(
                 hasMovedSignificantly = false
                 startGesture = activeGesture
                 
-                // Find and lock onto the app under the cursor AT THE MOMENT OF PINCH
-                val centerX = view.width / 2f
-                val centerY = view.height / 2f
-                var closest: AppInfo? = null
-                var minDistSq = Float.MAX_VALUE
-                for (node in projectedNodesList) {
-                    if (node.depthRatio > 0.2f) {
-                        val appX = centerX + node.xProj
-                        val appY = centerY + node.yProj
-                        val dSq = (appX - x) * (appX - x) + (appY - y) * (appY - y)
-                        if (dSq < minDistSq && dSq < 30000f) {
-                            minDistSq = dSq
-                            closest = node.appInfo
-                        }
+                // Use a "time machine" to get the app from ~400ms ago to bypass the jump caused by fingers curling
+                val targetTime = now - 400L
+                var bestApp: AppInfo? = null
+                var minDiff = Long.MAX_VALUE
+                for (entry in hoverHistory) {
+                    val diff = kotlin.math.abs(entry.first - targetTime)
+                    if (diff < minDiff) {
+                        minDiff = diff
+                        bestApp = entry.second
                     }
                 }
-                pinchedApp = closest
+                pinchedApp = bestApp ?: hoveredApp
+                hoverHistory.clear()
                 
                 val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_DOWN, x, y, 0)
                 view.dispatchTouchEvent(event)
@@ -268,41 +320,16 @@ fun MainScreen(
                 // Active mode gesture drag
                 val dx = x - touchDownX
                 val dy = y - touchDownY
-                // Require ~70 pixels of movement to transition from "tap" to "drag"
-                if (!hasMovedSignificantly && (dx * dx + dy * dy) > 5000f) {
+                
+                // Require more movement if it's very soon after touch down (to allow FIST to complete without shifting)
+                val timeSinceDown = now - touchDownTime
+                val slop = if (timeSinceDown < 400L) 18000f else 5000f
+                
+                if (!hasMovedSignificantly && (dx * dx + dy * dy) > slop) {
                     hasMovedSignificantly = true
                 }
                 
-                // Pinch-to-Fist launch logic
-                if (activeGesture == Gesture.FIST && startGesture == Gesture.ACTIVATE) {
-                    if (pinchedApp != null) {
-                        // Launch the EXACT app that was under the cursor when the pinch started!
-                        try {
-                            val launchIntent = context.packageManager.getLaunchIntentForPackage(pinchedApp!!.packageName)
-                            if (launchIntent != null) {
-                                launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(launchIntent)
-                            } else {
-                                android.widget.Toast.makeText(context, context.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        // Fallback
-                        val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_UP, touchDownX, touchDownY, 0)
-                        view.dispatchTouchEvent(event)
-                        event.recycle()
-                    }
-                    
-                    // Send ACTION_CANCEL to clear the Sphere3D long-press state just in case
-                    val cancelEvent = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_CANCEL, touchDownX, touchDownY, 0)
-                    view.dispatchTouchEvent(cancelEvent)
-                    cancelEvent.recycle()
-                    
-                    wasClenched = false
-                    ignoreUntilOpen = true
-                } else if (hasMovedSignificantly) {
+                if (hasMovedSignificantly && !isLaunchTriggered) {
                     // Only send MOVE events if we broke the slop threshold
                     val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_MOVE, x, y, 0)
                     view.dispatchTouchEvent(event)
@@ -323,7 +350,31 @@ fun MainScreen(
                 view.dispatchTouchEvent(event)
                 event.recycle()
                 wasClenched = false
+                pinchedApp = null
             }
+            
+            // Continuously track the app under the cursor while the hand is OPEN
+            val centerX = if (sphereBounds != androidx.compose.ui.geometry.Rect.Zero) sphereBounds.center.x else view.width / 2f
+            val centerY = if (sphereBounds != androidx.compose.ui.geometry.Rect.Zero) sphereBounds.center.y else view.height / 2f
+            var closest: AppInfo? = null
+            var minDistSq = Float.MAX_VALUE
+            for (node in projectedNodesList) {
+                if (node.depthRatio > 0.2f) {
+                    val appX = centerX + node.xProj
+                    val appY = centerY + node.yProj
+                    val dSq = (appX - x) * (appX - x) + (appY - y) * (appY - y)
+                    if (dSq < minDistSq && dSq < 30000f) {
+                        minDistSq = dSq
+                        closest = node.appInfo
+                    }
+                }
+            }
+            
+            hoverHistory.addLast(Pair(now, closest))
+            while (hoverHistory.isNotEmpty() && now - hoverHistory.first().first > 500L) {
+                hoverHistory.removeFirst()
+            }
+            hoveredApp = closest
         }
     }
 
@@ -476,7 +527,10 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .onGloballyPositioned { coords ->
+                        sphereBounds = coords.boundsInRoot()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 if (state.isLoading) {
@@ -523,6 +577,7 @@ fun MainScreen(
                                     if (launchIntent != null) {
                                         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         context.startActivity(launchIntent)
+                                        viewModel.onAppLaunched(app.packageName)
                                     } else {
                                         Toast.makeText(context, context.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                     }
@@ -562,12 +617,15 @@ fun MainScreen(
                             isZoomEnabled = state.isZoomEnabled,
                             resetZoomTrigger = resetZoomTrigger,
                             projectedNodes = projectedNodesList,
+                            pinchedApp = pinchedApp,
+                            launchAnimationProgress = launchAnimationProgress,
                             onAppClick = { app ->
                                 try {
                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
                                     if (launchIntent != null) {
                                         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         context.startActivity(launchIntent)
+                                        viewModel.onAppLaunched(app.packageName)
                                     } else {
                                         Toast.makeText(context, context.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                     }
@@ -978,6 +1036,7 @@ fun MainScreen(
                             viewModel.setAudioReactiveEnabled(false)
                         }
                     },
+                    onRunningAppsOnlyChanged = { viewModel.toggleRunningAppsFilter() },
                     onGestureControlChanged = { enabled ->
                         if (enabled) {
                             if (androidx.core.content.ContextCompat.checkSelfPermission(
@@ -1208,6 +1267,7 @@ fun SettingsSheetContent(
     onEarthInsideChanged: (Boolean) -> Unit,
     onRealisticEarthChanged: (Boolean) -> Unit,
     onBlackHoleChanged: (Boolean) -> Unit,
+    onRunningAppsOnlyChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit,
     onShowOnboarding: () -> Unit,
@@ -1576,6 +1636,39 @@ fun SettingsSheetContent(
             Switch(
                 checked = state.isHandOverlayEnabled,
                 onCheckedChange = onHandOverlayChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF00F2FE),
+                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                    uncheckedThumbColor = Color(0xFF808080),
+                    uncheckedTrackColor = Color(0x1Fffffff)
+                )
+            )
+        }
+        
+        // --- RUNNING APPS ONLY ROW ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.running_apps_only),
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = stringResource(R.string.running_apps_only_desc),
+                    color = Color(0x66FFFFFF),
+                    fontSize = 14.sp
+                )
+            }
+            Switch(
+                checked = state.showRunningAppsOnly,
+                onCheckedChange = onRunningAppsOnlyChanged,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFF00F2FE),
                     checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),

@@ -75,4 +75,6 @@
     <string name="center_earth">Wireframe Earth</string>
     <string name="center_earth_real">Realistic Earth</string>
     <string name="center_black_hole">Black Hole</string>
+    <string name="running_apps_only">Running Apps Only</string>
+    <string name="running_apps_only_desc">Only show apps launched during this session</string>
 </resources>

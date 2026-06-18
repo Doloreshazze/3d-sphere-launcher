@@ -61,4 +61,6 @@
     <string name="color_red">Красный</string>
     <string name="color_gold">Золотой</string>
     <string name="exit_to_system_launcher">Системный лаунчер</string>
+    <string name="running_apps_only">Только запущенные</string>
+    <string name="running_apps_only_desc">Показывать только приложения, открытые в этой сессии</string>
 </resources>

@@ -70,7 +70,8 @@ data class MainUiState(
     val isRealisticEarthEnabled: Boolean = false,
     val isBlackHoleEnabled: Boolean = false,
     val isZoomEnabled: Boolean = false,
-    val isHandOverlayEnabled: Boolean = true
+    val isHandOverlayEnabled: Boolean = true,
+    val showRunningAppsOnly: Boolean = false
 )
 
 data class SettingsState(
@@ -121,6 +122,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isBlackHoleEnabledState = MutableStateFlow(prefs.getBoolean("black_hole_enabled", false))
     private val isZoomEnabledState = MutableStateFlow(prefs.getBoolean("zoom_enabled", false))
     private val isHandOverlayEnabledState = MutableStateFlow(prefs.getBoolean("hand_overlay_enabled", true))
+    private val showRunningAppsOnlyState = MutableStateFlow(prefs.getBoolean("running_apps_only", false))
+    private val launchedPackagesState = MutableStateFlow<Set<String>>(
+        prefs.getStringSet("launched_packages", emptySet()) ?: emptySet()
+    )
 
     private val settingsFlow = combine(
         styleState,
@@ -160,7 +165,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isRealisticEarthEnabledState,
         isBlackHoleEnabledState,
         isZoomEnabledState,
-        isHandOverlayEnabledState
+        isHandOverlayEnabledState,
+        showRunningAppsOnlyState,
+        launchedPackagesState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -192,8 +199,14 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val isBlackHole = array[26] as Boolean
         val isZoomEnabled = array[27] as Boolean
         val isHandOverlayEnabled = array[28] as Boolean
+        val showRunningAppsOnly = array[29] as Boolean
+        @Suppress("UNCHECKED_CAST")
+        val launchedPackages = array[30] as Set<String>
 
-        val visibleApps = apps.filter { it.packageName !in hiddenPackages }
+        val visibleApps = apps.filter { 
+            it.packageName !in hiddenPackages && 
+            (!showRunningAppsOnly || it.packageName in launchedPackages)
+        }
         val filtered = if (query.isBlank()) {
             visibleApps
         } else {
@@ -233,7 +246,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isRealisticEarthEnabled = isRealisticEarth,
             isBlackHoleEnabled = isBlackHole,
             isZoomEnabled = isZoomEnabled,
-            isHandOverlayEnabled = isHandOverlayEnabled
+            isHandOverlayEnabled = isHandOverlayEnabled,
+            showRunningAppsOnly = showRunningAppsOnly
         )
     }.stateIn(
         viewModelScope,
@@ -262,16 +276,29 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private var loadAppsJob: kotlinx.coroutines.Job? = null
+
     fun loadApps() {
-        viewModelScope.launch {
-            loadingState.value = true
+        if (loadAppsJob?.isActive == true) return
+        
+        loadAppsJob = viewModelScope.launch {
+            if (appsState.value.isEmpty()) {
+                val cachedApps = appLoader.loadCachedApps()
+                if (cachedApps != null && cachedApps.isNotEmpty()) {
+                    appsState.value = cachedApps
+                } else {
+                    loadingState.value = true
+                }
+            }
             errorState.value = null
             try {
                 val loadedApps = appLoader.loadInstalledApps()
                 appsState.value = loadedApps
             } catch (e: Exception) {
                 e.printStackTrace()
-                errorState.value = "Failed to load apps: ${e.message}"
+                if (appsState.value.isEmpty()) {
+                    errorState.value = "Failed to load apps: ${e.message}"
+                }
             } finally {
                 loadingState.value = false
             }
@@ -568,6 +595,19 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             setEarthInsideEnabled(false)
             setRealisticEarthEnabled(false)
         }
+    }
+
+    fun toggleRunningAppsFilter() {
+        val newState = !showRunningAppsOnlyState.value
+        showRunningAppsOnlyState.value = newState
+        prefs.edit().putBoolean("running_apps_only", newState).apply()
+    }
+
+    fun onAppLaunched(packageName: String) {
+        val current = launchedPackagesState.value.toMutableSet()
+        current.add(packageName)
+        launchedPackagesState.value = current
+        prefs.edit().putStringSet("launched_packages", current).apply()
     }
 
     fun setZoomEnabled(enabled: Boolean) {

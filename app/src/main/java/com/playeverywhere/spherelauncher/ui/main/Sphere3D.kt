@@ -58,6 +58,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.pow
 
 // SphereNode holds the base coordinates on the unit sphere
@@ -159,12 +161,15 @@ fun Sphere3D(
     isZoomEnabled: Boolean = false,
     resetZoomTrigger: Long = 0L,
     projectedNodes: MutableList<AppRenderNode>? = null,
+    pinchedApp: AppInfo? = null,
+    launchAnimationProgress: Float = 0f,
     onAppClick: (AppInfo) -> Unit,
     onAppLongClick: ((AppInfo) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
+    val view = androidx.compose.ui.platform.LocalView.current
     
     val systemPrimary = MaterialTheme.colorScheme.primary
     val systemSecondary = MaterialTheme.colorScheme.secondary
@@ -172,6 +177,9 @@ fun Sphere3D(
     val earthBitmap = ImageBitmap.imageResource(id = R.drawable.earth_realistic)
     val earthCloudsBitmap = ImageBitmap.imageResource(id = R.drawable.earth_clouds)
     val blackHoleBitmap = ImageBitmap.imageResource(id = R.drawable.black_hole)
+
+    var sphereCenterScreenX by remember { mutableFloatStateOf(0f) }
+    var sphereCenterScreenY by remember { mutableFloatStateOf(0f) }
 
     android.util.Log.d("Sphere3D", "=== Sphere3D recomposed ===")
 
@@ -436,8 +444,47 @@ fun Sphere3D(
     var isUserInteracting by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
 
+    // Distribute apps uniformly based on selected 3D Shape
+    val sphereNodes = remember(apps, shapeType) {
+        val count = apps.size
+        if (count == 0) return@remember emptyList<SphereNode>()
+        if (count == 1) return@remember listOf(SphereNode(apps[0], 0f, 0f, -1f))
+
+        if (shapeType == ShapeType.FLAT_PLANE) {
+            // Distribute in a spacious flat 4-column puzzle board grid
+            val columns = 4
+            val spacing = 0.42f
+            val numCols = columns.toFloat()
+            val numRows = kotlin.math.ceil((count + 1).toFloat() / columns).coerceAtLeast(1f)
+            
+            apps.mapIndexed { index, app ->
+                val col = index % columns
+                val row = index / columns
+                
+                // Center the entire sheet grid perfectly around (0,0)
+                val x = (col - (numCols - 1) / 2f) * spacing
+                val y = ((numRows - 1) / 2f - row) * spacing
+                val z = 0f
+                
+                SphereNode(app, x, y, z)
+            }
+        } else {
+            // All our shapes (Sphere, Polyhedron, Solid Sphere) distribute points perfectly uniformly 
+            // across the entire sphere bounds to maximize visual balance and eliminate overlaps!
+            val goldenAngle = Math.PI * (3.0 - sqrt(5.0))
+            apps.mapIndexed { index, app ->
+                val y = 1.0f - (index.toFloat() / (count - 1)) * 2.0f
+                val radiusAtY = sqrt((1.0f - y * y).coerceAtLeast(0f))
+                val theta = (index * goldenAngle).toFloat()
+                val x = cos(theta.toDouble()).toFloat() * radiusAtY
+                val z = sin(theta.toDouble()).toFloat() * radiusAtY
+                SphereNode(app, x, y, z)
+            }
+        }
+    }
     val currentCursorX = rememberUpdatedState(handCursorX)
     val currentCursorY = rememberUpdatedState(handCursorY)
+    val currentPinchedApp = rememberUpdatedState(pinchedApp)
 
     // Unified VSYNC-based loop for physics, auto-drift, and tilt updates (recomposes 0 times!)
     LaunchedEffect(isUserInteracting, isAutoDriftEnabled, isTiltEnabled, shapeType, isShapeLocked) {
@@ -492,6 +539,57 @@ fun Sphere3D(
                                     applyTrackballRotation(rotationState.trackballMatrix, -driftSpeedY * deltaTime, driftSpeedX * deltaTime)
                                 }
                             }
+                        }
+                    } else if (currentPinchedApp.value != null && shapeType != ShapeType.FLAT_PLANE && !isShapeLocked) {
+                        // Smoothly snap the pinchedApp to the cursor using P-controller
+                        val targetApp = currentPinchedApp.value
+                        val node = sphereNodes.find { it.appInfo.packageName == targetApp?.packageName }
+                        if (node != null) {
+                            val m = rotationState.trackballMatrix
+                            val temp1 = FloatArray(16)
+                            android.opengl.Matrix.setIdentityM(temp1, 0)
+                            android.opengl.Matrix.rotateM(temp1, 0, (rotationState.tiltYaw * 180f / Math.PI).toFloat(), 0f, 1f, 0f)
+                            android.opengl.Matrix.rotateM(temp1, 0, (rotationState.tiltPitch * 180f / Math.PI).toFloat(), 1f, 0f, 0f)
+                            
+                            val finalM = FloatArray(16)
+                            android.opengl.Matrix.multiplyMM(finalM, 0, temp1, 0, m, 0)
+                            
+                            val x2 = finalM[0] * node.xBase + finalM[4] * node.yBase + finalM[8] * node.zBase
+                            val y1 = finalM[1] * node.xBase + finalM[5] * node.yBase + finalM[9] * node.zBase
+                            val z2 = finalM[2] * node.xBase + finalM[6] * node.yBase + finalM[10] * node.zBase
+                            
+                            val cameraDist = 3.0f
+                            val scale = cameraDist / (cameraDist + z2)
+                            
+                            val xProj = x2 * rotationState.radius * scale
+                            val yProj = y1 * rotationState.radius * scale
+                            
+                            val absoluteCursorX = currentCursorX.value * view.width.toFloat()
+                            val absoluteCursorY = currentCursorY.value * view.height.toFloat()
+                            
+                            var targetX = absoluteCursorX - if (sphereCenterScreenX > 0f) sphereCenterScreenX else (view.width / 2f)
+                            var targetY = absoluteCursorY - if (sphereCenterScreenY > 0f) sphereCenterScreenY else (view.height / 2f)
+                            
+                            // Clamp target to ensure the app can actually physically reach it.
+                            // The maximum projection radius is approx 1.06 * radius. 
+                            // We cap it at 0.95 * radius to keep the target safely on the front hemisphere.
+                            val targetDist = kotlin.math.sqrt(targetX * targetX + targetY * targetY)
+                            val maxDist = rotationState.radius * 0.95f
+                            if (targetDist > maxDist) {
+                                targetX = (targetX / targetDist) * maxDist
+                                targetY = (targetY / targetDist) * maxDist
+                            }
+                            
+                            val diffX = targetX - xProj
+                            val diffY = targetY - yProj
+                            
+                            val sensitivity = 1.0f / rotationState.radius
+                            val pGain = (12.0f * deltaTime).coerceAtMost(0.25f) // Cap gain to prevent overshoot
+                            
+                            val dYaw = -diffX * sensitivity * pGain
+                            val dPitch = diffY * sensitivity * pGain
+                            
+                            applyTrackballRotation(rotationState.trackballMatrix, -dYaw, dPitch)
                         }
                     }
                     
@@ -575,49 +673,16 @@ fun Sphere3D(
         }
     }
 
-    // Distribute apps uniformly based on selected 3D Shape
-    val sphereNodes = remember(apps, shapeType) {
-        val count = apps.size
-        if (count == 0) return@remember emptyList<SphereNode>()
-        if (count == 1) return@remember listOf(SphereNode(apps[0], 0f, 0f, -1f))
-
-        if (shapeType == ShapeType.FLAT_PLANE) {
-            // Distribute in a spacious flat 4-column puzzle board grid
-            val columns = 4
-            val spacing = 0.42f
-            val numCols = columns.toFloat()
-            val numRows = kotlin.math.ceil((count + 1).toFloat() / columns).coerceAtLeast(1f)
-            
-            apps.mapIndexed { index, app ->
-                val col = index % columns
-                val row = index / columns
-                
-                // Center the entire sheet grid perfectly around (0,0)
-                val x = (col - (numCols - 1) / 2f) * spacing
-                val y = ((numRows - 1) / 2f - row) * spacing
-                val z = 0f
-                
-                SphereNode(app, x, y, z)
-            }
-        } else {
-            // All our shapes (Sphere, Polyhedron, Solid Sphere) distribute points perfectly uniformly 
-            // across the entire sphere bounds to maximize visual balance and eliminate overlaps!
-            val goldenAngle = Math.PI * (3.0 - sqrt(5.0))
-            apps.mapIndexed { index, app ->
-                val y = 1.0f - (index.toFloat() / (count - 1)) * 2.0f
-                val radiusAtY = sqrt((1.0f - y * y).coerceAtLeast(0f))
-                val theta = (index * goldenAngle).toFloat()
-                val x = cos(theta.toDouble()).toFloat() * radiusAtY
-                val z = sin(theta.toDouble()).toFloat() * radiusAtY
-                SphereNode(app, x, y, z)
-            }
-        }
-    }
 
     // Box where the 3D Sphere is rendered
     Box(
         modifier = modifier
             .fillMaxSize()
+            .onGloballyPositioned { coords ->
+                val center = coords.localToRoot(androidx.compose.ui.geometry.Offset(coords.size.width / 2f, coords.size.height / 2f))
+                sphereCenterScreenX = center.x
+                sphereCenterScreenY = center.y
+            }
             // High-performance single pointerInput block running in PointerEventPass.Initial
             // Intercepts swipe and pinch gestures before clickable children consume them,
             // while allowing click/tap events to pass down when there is no movement!
@@ -926,11 +991,16 @@ fun Sphere3D(
                 )
                 canvasGlowPaint.shader = shaderHolo
                 val audioAlphaMultiplier = if (isAudioReactiveEnabled) 1.0f + audioAmplitude * 2.0f else 1.0f
-                canvasGlowPaint.alpha = (0.24f * glowOpacity * audioAlphaMultiplier * 255).toInt().coerceIn(0, 255)
+                canvasGlowPaint.alpha = (0.24f * glowOpacity * audioAlphaMultiplier * 255 * (1f - launchAnimationProgress)).toInt().coerceIn(0, 255)
                 nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, sizePx, canvasGlowPaint)
                 
                 // 1.5 Center Object rendering
-                if (isBlackHoleEnabled) {
+                val bgPaint = android.graphics.Paint().apply {
+                    alpha = (255 * (1f - launchAnimationProgress)).toInt().coerceIn(0, 255)
+                    isAntiAlias = true
+                    isFilterBitmap = true
+                }
+                if (isBlackHoleEnabled && launchAnimationProgress < 1f) {
                     val bhRadius = currentRad * 0.7f
                     // Slow rotation for black hole
                     val bhYaw = (android.os.SystemClock.uptimeMillis() % 120000L) / 120000f * 360f
@@ -951,7 +1021,7 @@ fun Sphere3D(
                         (centerCanvasX + bhRadius).toInt(),
                         (centerCanvasY + bhRadius).toInt()
                     )
-                    nativeCanvas.drawBitmap(blackHoleBitmap.asAndroidBitmap(), null, destRect, null)
+                    nativeCanvas.drawBitmap(blackHoleBitmap.asAndroidBitmap(), null, destRect, bgPaint)
                     nativeCanvas.restore()
 
                     // Apply soft circular mask
@@ -990,6 +1060,7 @@ fun Sphere3D(
                         )
                         val atmoPaint = android.graphics.Paint()
                         atmoPaint.shader = atmoShader
+                        atmoPaint.alpha = (255 * (1f - launchAnimationProgress)).toInt().coerceIn(0, 255)
                         nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, atmoRadius, atmoPaint)
 
                         // Create a clipped circular region for the Earth
@@ -1022,7 +1093,7 @@ fun Sphere3D(
                             (centerCanvasX + scaledW / 2f - shiftX).toInt(),
                             (centerCanvasY + earthRadius).toInt()
                         )
-                        nativeCanvas.drawBitmap(earthBitmap.asAndroidBitmap(), null, destRect1, null)
+                        nativeCanvas.drawBitmap(earthBitmap.asAndroidBitmap(), null, destRect1, bgPaint)
                         
                         // Draw image 2 (wrap around)
                         val destRect2 = android.graphics.Rect(
@@ -1031,11 +1102,11 @@ fun Sphere3D(
                             (centerCanvasX + scaledW * 1.5f - shiftX).toInt(),
                             (centerCanvasY + earthRadius).toInt()
                         )
-                        nativeCanvas.drawBitmap(earthBitmap.asAndroidBitmap(), null, destRect2, null)
+                        nativeCanvas.drawBitmap(earthBitmap.asAndroidBitmap(), null, destRect2, bgPaint)
                         
                         // Draw clouds with slight speed offset and screen blend mode
                         val cloudsPaint = android.graphics.Paint().apply {
-                            alpha = 200 // Slightly transparent
+                            alpha = (200 * (1f - launchAnimationProgress)).toInt().coerceIn(0, 255)
                             xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SCREEN)
                         }
                         val cloudYaw = (android.os.SystemClock.uptimeMillis() % 45000L) / 45000f // slightly faster rotation for clouds
@@ -1070,10 +1141,11 @@ fun Sphere3D(
                         )
                         val shadowPaint = android.graphics.Paint()
                         shadowPaint.shader = shadowShader
+                        shadowPaint.alpha = (255 * (1f - launchAnimationProgress)).toInt().coerceIn(0, 255)
                         nativeCanvas.drawCircle(centerCanvasX, centerCanvasY, earthRadius, shadowPaint)
                         
                         nativeCanvas.restore()
-                    } else {
+                    } else if (launchAnimationProgress < 1f) {
                         val earthMatrix = FloatArray(16)
                         android.opengl.Matrix.setIdentityM(earthMatrix, 0)
                         
@@ -1088,7 +1160,7 @@ fun Sphere3D(
                         val numPts = pts.size / 3
                         
                         canvasEarthPaint.color = c1
-                        canvasEarthPaint.alpha = (180 * glowOpacity).toInt().coerceIn(0, 255)
+                        canvasEarthPaint.alpha = (180 * glowOpacity * (1f - launchAnimationProgress)).toInt().coerceIn(0, 255)
                         
                         // We can reuse a preallocated array if we want, but since we are drawing dots 
                         // we can just draw them in batches or all at once. FloatArray allocation is fast.
@@ -1133,16 +1205,28 @@ fun Sphere3D(
                     val scale = cameraDist / (cameraDist + z2)
                     
                     val zoomFactor = currentRad / baseRadius
-                    val finalScale = scale * zoomFactor
+                    var finalScale = scale * zoomFactor
+                    
+                    if (node.appInfo.packageName == pinchedApp?.packageName && launchAnimationProgress > 0f) {
+                        // Exponential zoom in towards the camera
+                        val animScale = 1f + 35f * launchAnimationProgress.pow(3)
+                        finalScale *= animScale
+                    }
                     
                     val xProj = x2 * currentRad * scale
                     val yProj = y1 * currentRad * scale
                     
                     val depthRatio = (1.0f - z2) / 2.0f
                     
-                    val calculatedAlpha = if (z2 > 0f) 0f
+                    var calculatedAlpha = if (z2 > 0f) 0f
                     else if (z2 > -0.2f) (-z2 / 0.2f) * 0.95f
                     else 1.0f
+                    
+                    if (launchAnimationProgress > 0f) {
+                        if (node.appInfo.packageName != pinchedApp?.packageName) {
+                            calculatedAlpha *= (1f - launchAnimationProgress)
+                        }
+                    }
                     
                     tempNodes.add(
                         AppRenderNode(
