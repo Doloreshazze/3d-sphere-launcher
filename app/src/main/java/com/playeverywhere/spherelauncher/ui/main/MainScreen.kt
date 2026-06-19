@@ -81,6 +81,7 @@ fun MainScreen(
     var smoothCursorX by remember { mutableStateOf(0.5f) }
     var smoothCursorY by remember { mutableStateOf(0.5f) }
     var smoothHandScale by remember { mutableStateOf(0.5f) }
+    var smoothAppleSize by remember { mutableFloatStateOf(0f) }
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -118,6 +119,7 @@ fun MainScreen(
     val landmarks by gestureDetector.landmarksFlow.collectAsStateWithLifecycle()
     val activeGesture by gestureDetector.gestureFlow.collectAsStateWithLifecycle()
     val rawHandScale by gestureDetector.handScaleFlow.collectAsStateWithLifecycle(initialValue = 0.5f)
+    val rawAppleSize by gestureDetector.appleSizeFlow.collectAsStateWithLifecycle(initialValue = 0f)
     val isHandClenched = activeGesture == Gesture.ACTIVATE || activeGesture == Gesture.FIST
     var ignoreUntilOpen by remember { mutableStateOf(false) }
 
@@ -184,11 +186,16 @@ fun MainScreen(
             val scaleAlpha = (dScale / 0.05f).coerceIn(0.05f, 0.3f)
             smoothHandScale = smoothHandScale + scaleAlpha * (rawHandScale - smoothHandScale)
             
-            viewModel.updateHandCursor(smoothCursorX, smoothCursorY, true, scale = smoothHandScale)
+            val dApple = kotlin.math.abs(rawAppleSize - smoothAppleSize)
+            val appleAlpha = (dApple / 0.05f).coerceIn(0.05f, 0.3f)
+            smoothAppleSize = smoothAppleSize + appleAlpha * (rawAppleSize - smoothAppleSize)
+            
+            viewModel.updateHandCursor(smoothCursorX, smoothCursorY, true, scale = smoothHandScale, appleSize = smoothAppleSize)
         } else {
             smoothCursorX = 0.5f
             smoothCursorY = 0.5f
             smoothHandScale = 0.5f
+            smoothAppleSize = 0f
             wasClenchedForOffset = false
             viewModel.updateHandCursor(0.5f, 0.5f, false)
         }
@@ -617,6 +624,10 @@ fun MainScreen(
                             reductionCoefficient = state.reductionCoefficient,
                             isZoomEnabled = state.isZoomEnabled,
                             resetZoomTrigger = resetZoomTrigger,
+                            activeGesture = activeGesture,
+                            isSwipeToRotateEnabled = state.isSwipeToRotateEnabled,
+                            isAppleZoomEnabled = state.isAppleZoomEnabled,
+                            appleSize = state.appleSize,
                             projectedNodes = projectedNodesList,
                             pinchedApp = pinchedApp,
                             launchAnimationProgress = launchAnimationProgress,
@@ -1022,6 +1033,8 @@ fun MainScreen(
                     onGlowOpacityChanged = { viewModel.setGlowOpacity(it) },
                     onGlowBrightnessChanged = { viewModel.setGlowBrightness(it) },
                     onPulsingChanged = { viewModel.setPulsingEnabled(it) },
+                    onSwipeToRotateChanged = { viewModel.setSwipeToRotateEnabled(it) },
+                    onAppleZoomChanged = { viewModel.setAppleZoomEnabled(it) },
                     onAudioReactiveChanged = { enabled ->
                         if (enabled) {
                             if (androidx.core.content.ContextCompat.checkSelfPermission(
@@ -1263,6 +1276,8 @@ fun SettingsSheetContent(
     onPulsingChanged: (Boolean) -> Unit,
     onAudioReactiveChanged: (Boolean) -> Unit,
     onGestureControlChanged: (Boolean) -> Unit,
+    onSwipeToRotateChanged: (Boolean) -> Unit,
+    onAppleZoomChanged: (Boolean) -> Unit,
     onZoomEnabledChanged: (Boolean) -> Unit,
     onHandOverlayChanged: (Boolean) -> Unit,
     onEarthInsideChanged: (Boolean) -> Unit,
@@ -1579,6 +1594,58 @@ fun SettingsSheetContent(
                     uncheckedTrackColor = Color(0x1Fffffff)
                 )
             )
+        }
+
+        if (state.isGestureControlEnabled) {
+            // --- SWIPE TO ROTATE ROW ---
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Вращение взмахом",
+                    fontSize = 13.sp,
+                    color = Color.White
+                )
+                Switch(
+                    checked = state.isSwipeToRotateEnabled,
+                    onCheckedChange = onSwipeToRotateChanged,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF00F2FE),
+                        checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                        uncheckedThumbColor = Color(0xFF808080),
+                        uncheckedTrackColor = Color(0x1Fffffff)
+                    )
+                )
+            }
+
+            // --- APPLE ZOOM ROW ---
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 4.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Зум Яблоком",
+                    fontSize = 13.sp,
+                    color = Color.White
+                )
+                Switch(
+                    checked = state.isAppleZoomEnabled,
+                    onCheckedChange = onAppleZoomChanged,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF00F2FE),
+                        checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                        uncheckedThumbColor = Color(0xFF808080),
+                        uncheckedTrackColor = Color(0x1Fffffff)
+                    )
+                )
+            }
         }
 
         // --- ZOOM CONTROL ROW ---

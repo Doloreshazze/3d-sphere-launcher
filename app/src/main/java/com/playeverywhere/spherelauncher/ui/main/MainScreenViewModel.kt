@@ -62,6 +62,9 @@ data class MainUiState(
     val handCursorY: Float = 0.5f,
     val isHandDetected: Boolean = false,
     val handScale: Float = 0.5f,
+    val appleSize: Float = 0f,
+    val isSwipeToRotateEnabled: Boolean = true,
+    val isAppleZoomEnabled: Boolean = false,
     val handCursorSpeed: Float = 0f,
     val hoverProgress: Float = 0f,
     val focusedApp: AppInfo? = null,
@@ -113,6 +116,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val handCursorYState = MutableStateFlow(0.5f)
     private val isHandDetectedState = MutableStateFlow(false)
     private val handScaleState = MutableStateFlow(0.5f)
+    private val appleSizeState = MutableStateFlow(0f)
+    private val isSwipeToRotateEnabledState = MutableStateFlow(prefs.getBoolean("swipe_to_rotate_enabled", true))
+    private val isAppleZoomEnabledState = MutableStateFlow(prefs.getBoolean("apple_zoom_enabled", false))
     private val handCursorSpeedState = MutableStateFlow(0f)
     private val hoverProgressState = MutableStateFlow(0f)
     private val focusedAppState = MutableStateFlow<AppInfo?>(null)
@@ -158,6 +164,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         handCursorYState,
         isHandDetectedState,
         handScaleState,
+        appleSizeState,
+        isSwipeToRotateEnabledState,
+        isAppleZoomEnabledState,
         handCursorSpeedState,
         hoverProgressState,
         focusedAppState,
@@ -191,17 +200,20 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val handCursorY = array[18] as Float
         val isHandDetected = array[19] as Boolean
         val handScale = array[20] as Float
-        val handSpeed = array[21] as Float
-        val hoverProgress = array[22] as Float
-        val focusedApp = array[23] as AppInfo?
-        val isEarthInside = array[24] as Boolean
-        val isRealisticEarth = array[25] as Boolean
-        val isBlackHole = array[26] as Boolean
-        val isZoomEnabled = array[27] as Boolean
-        val isHandOverlayEnabled = array[28] as Boolean
-        val showRunningAppsOnly = array[29] as Boolean
+        val appleSize = array[21] as Float
+        val isSwipeToRotateEnabled = array[22] as Boolean
+        val isAppleZoomEnabled = array[23] as Boolean
+        val handSpeed = array[24] as Float
+        val hoverProgress = array[25] as Float
+        val focusedApp = array[26] as AppInfo?
+        val isEarthInside = array[27] as Boolean
+        val isRealisticEarth = array[28] as Boolean
+        val isBlackHole = array[29] as Boolean
+        val isZoomEnabled = array[30] as Boolean
+        val isHandOverlayEnabled = array[31] as Boolean
+        val showRunningAppsOnly = array[32] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val launchedPackages = array[30] as Set<String>
+        val launchedPackages = array[33] as Set<String>
 
         val visibleApps = apps.filter { 
             it.packageName !in hiddenPackages && 
@@ -238,6 +250,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             handCursorY = handCursorY,
             isHandDetected = isHandDetected,
             handScale = handScale,
+            appleSize = appleSize,
+            isSwipeToRotateEnabled = isSwipeToRotateEnabled,
+            isAppleZoomEnabled = isAppleZoomEnabled,
             handCursorSpeed = handSpeed,
             hoverProgress = hoverProgress,
             focusedApp = focusedApp,
@@ -625,12 +640,23 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit().putBoolean("gesture_control_enabled", enabled).apply()
     }
 
-    fun updateHandCursor(x: Float, y: Float, isDetected: Boolean, scale: Float = 0.5f, speed: Float = 0f) {
+    fun setSwipeToRotateEnabled(enabled: Boolean) {
+        isSwipeToRotateEnabledState.value = enabled
+        prefs.edit().putBoolean("swipe_to_rotate_enabled", enabled).apply()
+    }
+
+    fun setAppleZoomEnabled(enabled: Boolean) {
+        isAppleZoomEnabledState.value = enabled
+        prefs.edit().putBoolean("apple_zoom_enabled", enabled).apply()
+    }
+
+    fun updateHandCursor(x: Float, y: Float, isDetected: Boolean, scale: Float = 0.5f, speed: Float = 0f, appleSize: Float = 0f) {
         handCursorXState.value = x
         handCursorYState.value = y
         isHandDetectedState.value = isDetected
         handScaleState.value = scale
         handCursorSpeedState.value = speed
+        appleSizeState.value = appleSize
     }
 
     fun updateHoverProgress(progress: Float) {

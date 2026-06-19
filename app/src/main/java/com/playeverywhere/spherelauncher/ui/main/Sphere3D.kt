@@ -160,6 +160,10 @@ fun Sphere3D(
     reductionCoefficient: Float = 0.75f,
     isZoomEnabled: Boolean = false,
     resetZoomTrigger: Long = 0L,
+    activeGesture: com.antigravity.gesture.Gesture = com.antigravity.gesture.Gesture.NONE,
+    isSwipeToRotateEnabled: Boolean = true,
+    isAppleZoomEnabled: Boolean = false,
+    appleSize: Float = 0f,
     projectedNodes: MutableList<AppRenderNode>? = null,
     pinchedApp: AppInfo? = null,
     launchAnimationProgress: Float = 0f,
@@ -285,6 +289,8 @@ fun Sphere3D(
             rotationState.radius = baseRadius
         }
     }
+
+
 
     val lastProjectedNodes = remember { ArrayList<AppRenderNode>() }
 
@@ -434,6 +440,32 @@ fun Sphere3D(
     // Touch velocities for physics fling inertia (regular floats, VSYNC-only changes)
     var yawVelocity = remember { floatArrayOf(0f, 0f) } // index 0 = yawVelocity, 1 = pitchVelocity
     
+    var previousAppleSize by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(appleSize, isAppleZoomEnabled) {
+        if (isAppleZoomEnabled && previousAppleSize > 0.05f && appleSize > 0.05f) {
+            val delta = appleSize - previousAppleSize
+            // apply zoom: delta is small (e.g. 0.01 - 0.1), map it to multiplier
+            val multiplier = 1f + (delta * 6f) 
+            rotationState.radius = (rotationState.radius * multiplier).coerceIn(120f, 1000f)
+        }
+        previousAppleSize = appleSize
+    }
+
+    LaunchedEffect(activeGesture) {
+        if (activeGesture != com.antigravity.gesture.Gesture.NONE && isSwipeToRotateEnabled) {
+            // To rotate exactly 120 degrees (2.0944 radians) with friction = 0.982:
+            // Sum = V_0 / (1 - friction) => 2.0944 = V_0 / 0.018 => V_0 = 0.0377f
+            val impulse = 0.0377f 
+            when (activeGesture) {
+                com.antigravity.gesture.Gesture.LEFT -> yawVelocity[0] = -impulse
+                com.antigravity.gesture.Gesture.RIGHT -> yawVelocity[0] = impulse
+                com.antigravity.gesture.Gesture.UP -> yawVelocity[1] = -impulse
+                com.antigravity.gesture.Gesture.DOWN -> yawVelocity[1] = impulse
+                else -> {}
+            }
+        }
+    }
+
     // Accumulator to smoothly apply discrete 15Hz drag events over 60Hz physics frames
     val dragAccumulator = remember { floatArrayOf(0f, 0f) }
 

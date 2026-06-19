@@ -44,6 +44,12 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
      */
     val handScaleFlow: StateFlow<Float> = _handScaleFlow.asStateFlow()
 
+    private val _appleSizeFlow = MutableStateFlow(0f)
+    /**
+     * Emits the 'apple size' representation of the hand: average distance from palm center to fingertips.
+     */
+    val appleSizeFlow: StateFlow<Float> = _appleSizeFlow.asStateFlow()
+
     // Sliding window history for wave gesture recognition
     private val history = mutableListOf<TimestampedPoint>()
     private val historyWindowMs = 450L
@@ -61,9 +67,9 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
     companion object {
         private const val TAG = "HandGestureDetector"
         private const val MODEL_FILE = "hand_landmarker.task"
-        private const val COOLDOWN_MS = 650L
-        private const val DISPLACEMENT_THRESHOLD = 0.08f
-        private const val SPEED_THRESHOLD = 0.25f // normalized units per second
+        private const val COOLDOWN_MS = 350L
+        private const val DISPLACEMENT_THRESHOLD = 0.05f
+        private const val SPEED_THRESHOLD = 0.15f // normalized units per second
 
         // Pinch hysteresis thresholds (as fraction of hand scale = wrist→middleMcp distance)
         // Pinch ENGAGES when dist < PINCH_ENGAGE_RATIO  (fingers close together)
@@ -239,6 +245,17 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         val palmCenterX = (wrist.x + indexMcp.x + pinkyMcp.x) / 3f
         val palmCenterY = (wrist.y + indexMcp.y + pinkyMcp.y) / 3f
 
+        // Calculate "Apple Size" (average distance from palm center to finger tips)
+        val palmCenterZ = (wrist.z + indexMcp.z + pinkyMcp.z) / 3f
+        val palmCenter = HandLandmarkData(palmCenterX, palmCenterY, palmCenterZ, 0)
+        val thumbDist = distance(thumbTip, palmCenter)
+        val indexDist = distance(indexTip, palmCenter)
+        val middleDist = distance(middleTip, palmCenter)
+        val ringDist = distance(ringTip, palmCenter)
+        val pinkyDist = distance(pinkyTip, palmCenter)
+        val appleSize = (thumbDist + indexDist + middleDist + ringDist + pinkyDist) / 5f
+        _appleSizeFlow.value = appleSize
+
         var detectedWave = Gesture.NONE
 
         synchronized(history) {
@@ -251,12 +268,12 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
 
             // Evaluate wave gesture if cooldown is active and history contains enough samples (at least 3 frames)
             if (now - lastGestureTimeMs >= COOLDOWN_MS && history.size >= 3) {
-                // To perform a swipe, the hand must currently be clenched (ACTIVATE)
-                // and have been clenched for at least 50% of the movement duration
-                val isClenchedSwipe = history.last().isClenched &&
-                        history.count { it.isClenched } >= (history.size * 0.5f).coerceAtLeast(2f)
+                // To perform a swipe, the hand must be an OPEN PALM
+                // (i.e. not clenched for most of the duration)
+                val isPalmSwipe = !history.last().isClenched &&
+                        history.count { !it.isClenched } >= (history.size * 0.5f).coerceAtLeast(2f)
 
-                if (isClenchedSwipe) {
+                if (isPalmSwipe) {
                     val start = history.first()
                     val end = history.last()
                     val durationSec = (end.timestampMs - start.timestampMs) / 1000f
@@ -275,7 +292,7 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
                             pathLength += sqrt((p2.x - p1.x).pow(2) + (p2.y - p1.y).pow(2))
                         }
                         val displacement = sqrt(dx.pow(2) + dy.pow(2))
-                        val isStraight = displacement > 0.60f * pathLength // relatively linear movement
+                        val isStraight = displacement > 0.40f * pathLength // relatively linear movement
 
                         if (isStraight) {
                             if (abs(dx) > abs(dy)) {
