@@ -513,11 +513,27 @@ fun Sphere3D(
                     rotationState.tiltYaw = 0f
                     rotationState.tiltPitch = 0f
                 } else {
-                    // Clear accumulator when not in use
-                    dragAccumulator[0] = 0f
-                    dragAccumulator[1] = 0f
+                    // 1. Process touch dragging smoothly using accumulator
+                    if (isUserInteracting) {
+                        val drainX = dragAccumulator[0] * (8f * deltaTime).coerceAtMost(1f)
+                        val drainY = dragAccumulator[1] * (8f * deltaTime).coerceAtMost(1f)
+                        
+                        if (kotlin.math.abs(drainX) > 0.000001f || kotlin.math.abs(drainY) > 0.000001f) {
+                            rotationState.yaw += drainX
+                            rotationState.pitch += drainY
+                            if (shapeType != ShapeType.FLAT_PLANE) {
+                                applyTrackballRotation(rotationState.trackballMatrix, -drainX, drainY)
+                            }
+                            dragAccumulator[0] -= drainX
+                            dragAccumulator[1] -= drainY
+                        }
+                    } else {
+                        // Clear accumulator when not in use
+                        dragAccumulator[0] = 0f
+                        dragAccumulator[1] = 0f
+                    }
 
-                    // 1. Update physics if not interacting
+                    // 2. Update physics if not interacting
                     if (!isUserInteracting) {
                         val yVel = yawVelocity[0]
                         val pVel = yawVelocity[1]
@@ -754,16 +770,16 @@ fun Sphere3D(
                                     val dYaw = -delta.x * effectiveSensitivity
                                     val dPitch = delta.y * effectiveSensitivity
                                     
-                                    // Apply drag instantly for 1:1 responsive mapping (no artificial animation lag)
-                                    rotationState.yaw += dYaw
-                                    rotationState.pitch += dPitch
-                                    if (shapeType != ShapeType.FLAT_PLANE) {
-                                        applyTrackballRotation(rotationState.trackballMatrix, -dYaw, dPitch)
-                                    }
+                                    // Accumulate drag for smooth VSYNC-synchronized application
+                                    dragAccumulator[0] += dYaw
+                                    dragAccumulator[1] += dPitch
                                     
                                     if (shapeType == ShapeType.FLAT_PLANE) {
-                                        rotationState.yaw = rotationState.yaw.coerceIn(-1.5f, 1.5f)
-                                        rotationState.pitch = rotationState.pitch.coerceIn(-1.5f, 1.5f)
+                                        // Still bound the target yaw/pitch for flat plane
+                                        val targetYaw = (rotationState.yaw + dragAccumulator[0]).coerceIn(-1.5f, 1.5f)
+                                        val targetPitch = (rotationState.pitch + dragAccumulator[1]).coerceIn(-1.5f, 1.5f)
+                                        dragAccumulator[0] = targetYaw - rotationState.yaw
+                                        dragAccumulator[1] = targetPitch - rotationState.pitch
                                     }
                                     
                                     if (isInertiaEnabled) {
@@ -813,17 +829,17 @@ fun Sphere3D(
                                 
                                 val dYaw = -dX * effectiveSensitivity
                                 val dPitch = dY * effectiveSensitivity
-                                rotationState.yaw += dYaw
-                                rotationState.pitch += dPitch
                                 
-                                if (shapeType != ShapeType.FLAT_PLANE) {
-                                    applyTrackballRotation(rotationState.trackballMatrix, -dYaw, dPitch)
-                                }
+                                // Accumulate drag for smooth VSYNC-synchronized application
+                                dragAccumulator[0] += dYaw
+                                dragAccumulator[1] += dPitch
                             }
                             
                             if (shapeType == ShapeType.FLAT_PLANE) {
-                                rotationState.yaw = rotationState.yaw.coerceIn(-1.5f, 1.5f)
-                                rotationState.pitch = rotationState.pitch.coerceIn(-1.5f, 1.5f)
+                                val targetYaw = (rotationState.yaw + dragAccumulator[0]).coerceIn(-1.5f, 1.5f)
+                                val targetPitch = (rotationState.pitch + dragAccumulator[1]).coerceIn(-1.5f, 1.5f)
+                                dragAccumulator[0] = targetYaw - rotationState.yaw
+                                dragAccumulator[1] = targetPitch - rotationState.pitch
                             }
                         }
                     }
@@ -1209,7 +1225,7 @@ fun Sphere3D(
                     
                     if (node.appInfo.packageName == pinchedApp?.packageName && launchAnimationProgress > 0f) {
                         // Exponential zoom in towards the camera
-                        val animScale = 1f + 35f * launchAnimationProgress.pow(3)
+                        val animScale = 1f + 35f * launchAnimationProgress
                         finalScale *= animScale
                     }
                     

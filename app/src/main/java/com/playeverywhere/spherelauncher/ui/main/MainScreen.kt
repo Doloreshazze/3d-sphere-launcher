@@ -217,7 +217,8 @@ fun MainScreen(
                 val now = androidx.compose.runtime.withFrameMillis { it }
                 val holdTime = now - startTime
                 if (holdTime > 1000L) {
-                    launchAnimationProgress = ((holdTime - 1000L) / 4000f).coerceIn(0f, 1f)
+                    val linearProgress = ((holdTime - 1000L) / 4000f).coerceIn(0f, 1f)
+                    launchAnimationProgress = java.lang.Math.pow(linearProgress.toDouble(), 5.0).toFloat()
                     if (launchAnimationProgress >= 1f && !isLaunchTriggered) {
                         isLaunchTriggered = true
                         try {
