@@ -50,6 +50,12 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
      */
     val appleSizeFlow: StateFlow<Float> = _appleSizeFlow.asStateFlow()
 
+    private val _handRotationFlow = MutableStateFlow(floatArrayOf(0f, 0f, 0f))
+    /**
+     * Emits the 3D rotation of the hand: Pitch, Yaw, Roll (in radians).
+     */
+    val handRotationFlow: StateFlow<FloatArray> = _handRotationFlow.asStateFlow()
+
     // Sliding window history for wave gesture recognition
     private val history = mutableListOf<TimestampedPoint>()
     private val historyWindowMs = 450L
@@ -74,8 +80,8 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         // Pinch hysteresis thresholds (as fraction of hand scale = wrist→middleMcp distance)
         // Pinch ENGAGES when dist < PINCH_ENGAGE_RATIO  (fingers close together)
         // Pinch RELEASES when dist > PINCH_RELEASE_RATIO (fingers clearly apart)
-        private const val PINCH_ENGAGE_RATIO  = 0.35f
-        private const val PINCH_RELEASE_RATIO = 0.50f
+        private const val PINCH_ENGAGE_RATIO  = 0.28f
+        private const val PINCH_RELEASE_RATIO = 0.42f
     }
 
     private data class TimestampedPoint(val x: Float, val y: Float, val timestampMs: Long, val isClenched: Boolean)
@@ -256,6 +262,20 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
         val appleSize = (thumbDist + indexDist + middleDist + ringDist + pinkyDist) / 5f
         _appleSizeFlow.value = appleSize
 
+        // Calculate hand rotation (Pitch, Yaw, Roll)
+        val dx1 = middleMcp.x - wrist.x
+        val dy1 = middleMcp.y - wrist.y
+        val dz1 = middleMcp.z - wrist.z
+        val roll = kotlin.math.atan2(dy1, dx1)
+        val pitch = kotlin.math.atan2(dz1, sqrt(dx1 * dx1 + dy1 * dy1))
+
+        val dx2 = indexMcp.x - pinkyMcp.x
+        val dy2 = indexMcp.y - pinkyMcp.y
+        val dz2 = indexMcp.z - pinkyMcp.z
+        val yaw = kotlin.math.atan2(dz2, sqrt(dx2 * dx2 + dy2 * dy2))
+        
+        _handRotationFlow.value = floatArrayOf(pitch, yaw, roll)
+
         var detectedWave = Gesture.NONE
 
         synchronized(history) {
@@ -375,6 +395,8 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
             _landmarksFlow.value = null
             _gestureFlow.value = Gesture.NONE
             _handScaleFlow.value = 0.5f
+            _appleSizeFlow.value = 0f
+            _handRotationFlow.value = floatArrayOf(0f, 0f, 0f)
             isPinchActive = false
             synchronized(history) {
                 history.clear()

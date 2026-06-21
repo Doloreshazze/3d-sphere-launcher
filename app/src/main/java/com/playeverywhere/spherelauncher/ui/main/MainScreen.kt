@@ -120,6 +120,7 @@ fun MainScreen(
     val activeGesture by gestureDetector.gestureFlow.collectAsStateWithLifecycle()
     val rawHandScale by gestureDetector.handScaleFlow.collectAsStateWithLifecycle(initialValue = 0.5f)
     val rawAppleSize by gestureDetector.appleSizeFlow.collectAsStateWithLifecycle(initialValue = 0f)
+    val handRotation by gestureDetector.handRotationFlow.collectAsStateWithLifecycle(initialValue = floatArrayOf(0f, 0f, 0f))
     val isHandClenched = activeGesture == Gesture.ACTIVATE || activeGesture == Gesture.FIST
     var ignoreUntilOpen by remember { mutableStateOf(false) }
 
@@ -146,6 +147,9 @@ fun MainScreen(
         }
     }
 
+    val view = androidx.compose.ui.platform.LocalView.current
+    val snapTargetBoundsMap = remember { androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.geometry.Rect>() }
+
     SideEffect {
         val lms = landmarks
         if (lms != null && lms.size > 8) {
@@ -160,8 +164,22 @@ fun MainScreen(
             if (isHandClenched) {
                 if (!wasClenchedForOffset) {
                     wasClenchedForOffset = true
-                    cursorOffsetX = pointerX - wrist.x
-                    cursorOffsetY = pointerY - wrist.y
+                    
+                    val pointerXScreen = pointerX * view.width
+                    val pointerYScreen = pointerY * view.height
+                    var snapped = false
+                    for (bounds in snapTargetBoundsMap.values) {
+                        if (bounds.contains(androidx.compose.ui.geometry.Offset(pointerXScreen, pointerYScreen))) {
+                            cursorOffsetX = (bounds.center.x / view.width.toFloat()) - wrist.x
+                            cursorOffsetY = (bounds.center.y / view.height.toFloat()) - wrist.y
+                            snapped = true
+                            break
+                        }
+                    }
+                    if (!snapped) {
+                        cursorOffsetX = pointerX - wrist.x
+                        cursorOffsetY = pointerY - wrist.y
+                    }
                 }
             } else {
                 wasClenchedForOffset = false
@@ -202,7 +220,6 @@ fun MainScreen(
     }
 
     // Translate coordinates and their changes (deltas) to simulated native touch events on the main screen.
-    val view = LocalView.current
     var wasClenched by remember { mutableStateOf(false) }
     var touchDownTime by remember { mutableStateOf(0L) }
     var touchDownX by remember { mutableStateOf(0f) }
@@ -471,6 +488,7 @@ fun MainScreen(
                             shape = RoundedCornerShape(24.dp)
                         )
                         .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .onGloballyPositioned { coords -> snapTargetBoundsMap["SearchBar"] = coords.boundsInRoot() }
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -628,6 +646,7 @@ fun MainScreen(
                             isSwipeToRotateEnabled = state.isSwipeToRotateEnabled,
                             isAppleZoomEnabled = state.isAppleZoomEnabled,
                             appleSize = state.appleSize,
+                            handRotation = handRotation,
                             projectedNodes = projectedNodesList,
                             pinchedApp = pinchedApp,
                             launchAnimationProgress = launchAnimationProgress,
@@ -677,6 +696,7 @@ fun MainScreen(
                             shape = CircleShape
                         )
                         .clip(CircleShape)
+                        .onGloballyPositioned { coords -> snapTargetBoundsMap["HomeBtn"] = coords.boundsInRoot() }
                         .clickable {
                             try {
                                 val pm = context.packageManager
@@ -742,6 +762,7 @@ fun MainScreen(
                             color = Color.White.copy(alpha = 0.3f),
                             shape = CircleShape
                         )
+                        .onGloballyPositioned { coords -> snapTargetBoundsMap["BackBtn"] = coords.boundsInRoot() }
                         .clickable { viewModel.setShapeType(ShapeType.SPHERE) },
                     contentAlignment = Alignment.Center
                 ) {
@@ -782,6 +803,7 @@ fun MainScreen(
                             shape = CircleShape
                         )
                         .clip(CircleShape)
+                        .onGloballyPositioned { coords -> snapTargetBoundsMap["CameraBtn"] = coords.boundsInRoot() }
                         .clickable {
                             try {
                                 val intent = Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA).apply {
@@ -848,6 +870,7 @@ fun MainScreen(
                             shape = CircleShape
                         )
                         .clip(CircleShape)
+                        .onGloballyPositioned { coords -> snapTargetBoundsMap["SettingsBtn"] = coords.boundsInRoot() }
                         .clickable { showSettings = true },
                     contentAlignment = Alignment.Center
                 ) {
@@ -889,6 +912,7 @@ fun MainScreen(
                             shape = CircleShape
                         )
                         .clip(CircleShape)
+                        .onGloballyPositioned { coords -> snapTargetBoundsMap["InertiaBtn"] = coords.boundsInRoot() }
                         .clickable { viewModel.setInertiaEnabled(!isInertia) },
                     contentAlignment = Alignment.Center
                 ) {
@@ -919,6 +943,7 @@ fun MainScreen(
                             shape = CircleShape
                         )
                         .clip(CircleShape)
+                        .onGloballyPositioned { coords -> snapTargetBoundsMap["LockBtn"] = coords.boundsInRoot() }
                         .clickable { viewModel.setShapeLocked(!isLocked) },
                     contentAlignment = Alignment.Center
                 ) {
@@ -961,6 +986,7 @@ fun MainScreen(
                                 shape = CircleShape
                             )
                             .clip(CircleShape)
+                            .onGloballyPositioned { coords -> snapTargetBoundsMap["SnakeBackBtn"] = coords.boundsInRoot() }
                             .clickable { viewModel.setShapeType(ShapeType.SPHERE) },
                         contentAlignment = Alignment.Center
                     ) {

@@ -164,6 +164,7 @@ fun Sphere3D(
     isSwipeToRotateEnabled: Boolean = true,
     isAppleZoomEnabled: Boolean = false,
     appleSize: Float = 0f,
+    handRotation: FloatArray = floatArrayOf(0f, 0f, 0f),
     projectedNodes: MutableList<AppRenderNode>? = null,
     pinchedApp: AppInfo? = null,
     launchAnimationProgress: Float = 0f,
@@ -449,6 +450,42 @@ fun Sphere3D(
             rotationState.radius = (rotationState.radius * multiplier).coerceIn(120f, 1000f)
         }
         previousAppleSize = appleSize
+    }
+
+    var previousHandRotation by remember { mutableStateOf(floatArrayOf(0f, 0f, 0f)) }
+    LaunchedEffect(handRotation, isAppleZoomEnabled, appleSize) {
+        if (isAppleZoomEnabled && appleSize > 0.05f && previousHandRotation.any { it != 0f }) {
+            var dPitch = handRotation[0] - previousHandRotation[0]
+            var dYaw = handRotation[1] - previousHandRotation[1]
+            var dRoll = handRotation[2] - previousHandRotation[2]
+
+            fun normalize(angle: Float): Float {
+                var a = angle
+                while (a > Math.PI) a -= (2 * Math.PI).toFloat()
+                while (a < -Math.PI) a += (2 * Math.PI).toFloat()
+                return a
+            }
+            dPitch = normalize(dPitch)
+            dYaw = normalize(dYaw)
+            dRoll = normalize(dRoll)
+
+            if (kotlin.math.abs(dPitch) < 1f && kotlin.math.abs(dYaw) < 1f && kotlin.math.abs(dRoll) < 1f) {
+                val temp = FloatArray(16)
+                android.opengl.Matrix.setIdentityM(temp, 0)
+                
+                val sensitivity = 1.2f 
+                
+                // Map hand Pitch to trackball X-axis, Hand Yaw to Y-axis, Hand Roll to Z-axis
+                android.opengl.Matrix.rotateM(temp, 0, (dPitch * sensitivity * 180f / Math.PI).toFloat(), 1f, 0f, 0f)
+                android.opengl.Matrix.rotateM(temp, 0, (dYaw * sensitivity * 180f / Math.PI).toFloat(), 0f, 1f, 0f)
+                android.opengl.Matrix.rotateM(temp, 0, (dRoll * sensitivity * 180f / Math.PI).toFloat(), 0f, 0f, 1f)
+                
+                val result = FloatArray(16)
+                android.opengl.Matrix.multiplyMM(result, 0, temp, 0, rotationState.trackballMatrix, 0)
+                System.arraycopy(result, 0, rotationState.trackballMatrix, 0, 16)
+            }
+        }
+        previousHandRotation = handRotation
     }
 
     LaunchedEffect(activeGesture) {

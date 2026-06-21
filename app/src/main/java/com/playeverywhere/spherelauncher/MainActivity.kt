@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.playeverywhere.spherelauncher.theme.SphereLauncherTheme
@@ -22,6 +23,14 @@ class MainActivity : ComponentActivity() {
 
     setContent {
       SphereLauncherTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+    }
+
+    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { v, insets ->
+      val isImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+      if (!isImeVisible) {
+        hideSystemUI()
+      }
+      ViewCompat.onApplyWindowInsets(v, insets)
     }
   }
 
