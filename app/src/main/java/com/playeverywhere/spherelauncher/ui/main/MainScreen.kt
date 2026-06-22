@@ -2465,31 +2465,104 @@ fun OnboardingTour(
                             }
                         }
                         4 -> {
-                            // Slide 4: Air gestures radar ping
-                            val infiniteTransition = rememberInfiniteTransition(label = "radar")
-                            val animScan by infiniteTransition.animateFloat(initialValue = 0.2f, targetValue = 1.0f, animationSpec = infiniteRepeatable(tween(1500, easing = LinearOutSlowInEasing), RepeatMode.Restart), label = "scan")
-                            val animAlpha by infiniteTransition.animateFloat(initialValue = 1.0f, targetValue = 0.0f, animationSpec = infiniteRepeatable(tween(1500, easing = LinearOutSlowInEasing), RepeatMode.Restart), label = "alpha")
+                            // Slide 4: Air gestures sequence
+                            val phaseAnim = remember { androidx.compose.animation.core.Animatable(0f) }
+                            LaunchedEffect(Unit) {
+                                while(true) {
+                                    phaseAnim.animateTo(0.8f, tween(800, easing = FastOutSlowInEasing))
+                                    kotlinx.coroutines.delay(600)
+                                    phaseAnim.snapTo(1.0f)
+                                    phaseAnim.animateTo(1.8f, tween(800, easing = FastOutSlowInEasing))
+                                    kotlinx.coroutines.delay(600)
+                                    phaseAnim.snapTo(2.0f)
+                                    phaseAnim.animateTo(2.8f, tween(800, easing = FastOutSlowInEasing))
+                                    kotlinx.coroutines.delay(600)
+                                    phaseAnim.snapTo(3.0f)
+                                    phaseAnim.animateTo(3.8f, tween(800, easing = FastOutSlowInEasing))
+                                    kotlinx.coroutines.delay(600)
+                                    phaseAnim.snapTo(0f)
+                                }
+                            }
                             
                             androidx.compose.foundation.Canvas(modifier = Modifier.size(80.dp)) {
                                 val cX = size.width / 2f
                                 val cY = size.height / 2f
-                                val maxRad = size.width / 2f
+                                val v = phaseAnim.value
+                                val color = Color(0xFF00FF88)
                                 
-                                // Radar rings
-                                drawCircle(
-                                    color = Color(0xFF00FF88).copy(alpha = animAlpha * 0.5f),
-                                    radius = maxRad * animScan,
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
-                                )
-                                drawCircle(
-                                    color = Color(0xFF00FF88).copy(alpha = animAlpha * 0.2f),
-                                    radius = maxRad * animScan
-                                )
-                                // Center point
-                                drawCircle(
-                                    color = Color(0xFF00FF88),
-                                    radius = 4.dp.toPx()
-                                )
+                                fun lerp(start: Float, end: Float, fraction: Float): Float {
+                                    return start + (end - start) * fraction.coerceIn(0f, 1f)
+                                }
+
+                                if (v < 1f) {
+                                    // 0: Pinch (Rotate)
+                                    val progress = v / 0.8f
+                                    val dist = lerp(25.dp.toPx(), 4.dp.toPx(), progress)
+                                    // Draw sphere wireframe or simple circle in center
+                                    drawCircle(color.copy(alpha = 0.2f), radius = 20.dp.toPx(), style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                                    
+                                    // Thumb and Index finger
+                                    drawCircle(color, radius = 6.dp.toPx(), center = androidx.compose.ui.geometry.Offset(cX - dist, cY + dist))
+                                    drawCircle(color, radius = 6.dp.toPx(), center = androidx.compose.ui.geometry.Offset(cX + dist, cY - dist))
+                                    
+                                } else if (v < 2f) {
+                                    // 1: Zoom by pinch
+                                    val progress = (v - 1f) / 0.8f
+                                    val dist = lerp(4.dp.toPx(), 30.dp.toPx(), progress)
+                                    val sphereRad = lerp(10.dp.toPx(), 35.dp.toPx(), progress)
+                                    val sphereAlpha = lerp(0.8f, 0.1f, progress)
+                                    
+                                    drawCircle(color.copy(alpha = sphereAlpha), radius = sphereRad, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                                    
+                                    // Thumb and Index finger
+                                    drawCircle(color, radius = 6.dp.toPx(), center = androidx.compose.ui.geometry.Offset(cX - dist, cY + dist))
+                                    drawCircle(color, radius = 6.dp.toPx(), center = androidx.compose.ui.geometry.Offset(cX + dist, cY - dist))
+                                    
+                                } else if (v < 3f) {
+                                    // 2: Open Palm Zoom
+                                    val progress = (v - 2f) / 0.8f
+                                    val scale = lerp(0.5f, 1.3f, progress)
+                                    
+                                    val palmRad = 10.dp.toPx() * scale
+                                    val fingerLen = 14.dp.toPx() * scale
+                                    drawCircle(color, radius = palmRad)
+                                    
+                                    for (i in 0..4) {
+                                        val angle = kotlin.math.PI.toFloat() + (i * kotlin.math.PI.toFloat() / 4f)
+                                        val startX = cX + (palmRad * 0.8f) * kotlin.math.cos(angle)
+                                        val startY = cY + (palmRad * 0.8f) * kotlin.math.sin(angle)
+                                        val endX = cX + (palmRad + fingerLen) * kotlin.math.cos(angle)
+                                        val endY = cY + (palmRad + fingerLen) * kotlin.math.sin(angle)
+                                        drawLine(color, androidx.compose.ui.geometry.Offset(startX, startY), androidx.compose.ui.geometry.Offset(endX, endY), strokeWidth = 4.dp.toPx() * scale, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                                    }
+                                    
+                                    // Some speed lines or expanding rings behind
+                                    drawCircle(color.copy(alpha = 1f - progress), radius = 35.dp.toPx() * progress, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                                } else {
+                                    // 3: Fist Launch
+                                    val progress = (v - 3f) / 0.8f
+                                    // Hand closing
+                                    val fingerLen = lerp(14.dp.toPx(), 0f, progress)
+                                    val palmRad = lerp(10.dp.toPx(), 12.dp.toPx(), progress)
+                                    
+                                    drawCircle(color, radius = palmRad)
+                                    if (progress < 1f) {
+                                        for (i in 0..4) {
+                                            val angle = kotlin.math.PI.toFloat() + (i * kotlin.math.PI.toFloat() / 4f)
+                                            val startX = cX + (palmRad * 0.8f) * kotlin.math.cos(angle)
+                                            val startY = cY + (palmRad * 0.8f) * kotlin.math.sin(angle)
+                                            val endX = cX + (palmRad + fingerLen) * kotlin.math.cos(angle)
+                                            val endY = cY + (palmRad + fingerLen) * kotlin.math.sin(angle)
+                                            drawLine(color, androidx.compose.ui.geometry.Offset(startX, startY), androidx.compose.ui.geometry.Offset(endX, endY), strokeWidth = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                                        }
+                                    }
+                                    
+                                    // Burst at the end
+                                    if (progress > 0.7f) {
+                                        val burstP = (progress - 0.7f) / 0.3f
+                                        drawCircle(Color(0xFFFF55BB).copy(alpha = 1f - burstP), radius = 40.dp.toPx() * burstP, style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
+                                    }
+                                }
                             }
                         }
                     }

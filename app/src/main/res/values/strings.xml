@@ -53,7 +53,7 @@
     <string name="ob_btn_start">Start</string>
     <string name="ob_btn_skip">Skip</string>
     <string name="ob_title_gestures">Air Gestures</string>
-    <string name="ob_desc_gestures">Control the sphere with your hand without touching the screen! Open your palm to rotate the sphere, pinch your fingers to zoom, and clench a fist to launch apps. Enable this in settings.</string>
+    <string name="ob_desc_gestures">Control the sphere with your hand without touching the screen! Gesture schemes: pinch, zoom by pinch, zoom by opening palm, launch by pinch. Enable this in settings.</string>
     <string name="ob_btn_back">Back</string>
 
     <!-- Glow Color Selector Strings -->
