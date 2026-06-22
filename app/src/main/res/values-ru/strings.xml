@@ -52,6 +52,9 @@
     <string name="ob_btn_next">Далее</string>
     <string name="ob_btn_start">Начать</string>
     <string name="ob_btn_skip">Пропустить</string>
+    <string name="ob_title_gestures">Воздушные жесты</string>
+    <string name="ob_desc_gestures">Управляйте сферой взмахом руки, не касаясь экрана! Раскройте ладонь для вращения сферы, сведите пальцы (щипок) для зума и сожмите кулак для запуска приложений. Включите эту функцию в настройках.</string>
+    <string name="ob_btn_back">Назад</string>
 
     <!-- Glow Color Selector Strings -->
     <string name="color_system">Системный</string>

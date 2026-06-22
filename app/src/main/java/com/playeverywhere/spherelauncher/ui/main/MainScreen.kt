@@ -2229,7 +2229,7 @@ fun OnboardingTour(
     modifier: Modifier = Modifier
 ) {
     var currentSlide by remember { mutableStateOf(0) }
-    val totalSlides = 4
+    val totalSlides = 5
     
     var canClose by remember { mutableStateOf(false) }
 
@@ -2464,6 +2464,34 @@ fun OnboardingTour(
                                 }
                             }
                         }
+                        4 -> {
+                            // Slide 4: Air gestures radar ping
+                            val infiniteTransition = rememberInfiniteTransition(label = "radar")
+                            val animScan by infiniteTransition.animateFloat(initialValue = 0.2f, targetValue = 1.0f, animationSpec = infiniteRepeatable(tween(1500, easing = LinearOutSlowInEasing), RepeatMode.Restart), label = "scan")
+                            val animAlpha by infiniteTransition.animateFloat(initialValue = 1.0f, targetValue = 0.0f, animationSpec = infiniteRepeatable(tween(1500, easing = LinearOutSlowInEasing), RepeatMode.Restart), label = "alpha")
+                            
+                            androidx.compose.foundation.Canvas(modifier = Modifier.size(80.dp)) {
+                                val cX = size.width / 2f
+                                val cY = size.height / 2f
+                                val maxRad = size.width / 2f
+                                
+                                // Radar rings
+                                drawCircle(
+                                    color = Color(0xFF00FF88).copy(alpha = animAlpha * 0.5f),
+                                    radius = maxRad * animScan,
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                                )
+                                drawCircle(
+                                    color = Color(0xFF00FF88).copy(alpha = animAlpha * 0.2f),
+                                    radius = maxRad * animScan
+                                )
+                                // Center point
+                                drawCircle(
+                                    color = Color(0xFF00FF88),
+                                    radius = 4.dp.toPx()
+                                )
+                            }
+                        }
                     }
                 }
                 
@@ -2474,7 +2502,8 @@ fun OnboardingTour(
                     stringResource(R.string.ob_title_permission),
                     stringResource(R.string.ob_title_sphere),
                     stringResource(R.string.ob_title_access),
-                    stringResource(R.string.ob_title_music)
+                    stringResource(R.string.ob_title_music),
+                    stringResource(R.string.ob_title_gestures)
                 )
                 Text(
                     text = titles[currentSlide],
@@ -2491,7 +2520,8 @@ fun OnboardingTour(
                     stringResource(R.string.ob_desc_permission),
                     stringResource(R.string.ob_desc_sphere),
                     stringResource(R.string.ob_desc_access),
-                    stringResource(R.string.ob_desc_music)
+                    stringResource(R.string.ob_desc_music),
+                    stringResource(R.string.ob_desc_gestures)
                 )
                 Text(
                     text = descriptions[currentSlide],
@@ -2499,7 +2529,9 @@ fun OnboardingTour(
                     fontSize = 13.sp,
                     lineHeight = 18.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.height(80.dp)
+                    modifier = Modifier
+                        .height(150.dp)
+                        .verticalScroll(rememberScrollState())
                 )
                 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -2529,7 +2561,7 @@ fun OnboardingTour(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (currentSlide < totalSlides - 1) {
+                    if (currentSlide == 0) {
                         Text(
                             text = stringResource(R.string.ob_btn_skip),
                             color = Color(0x80FFFFFF),
@@ -2540,7 +2572,15 @@ fun OnboardingTour(
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     } else {
-                        Spacer(modifier = Modifier.width(70.dp))
+                        Text(
+                            text = stringResource(R.string.ob_btn_back),
+                            color = Color(0x80FFFFFF),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier
+                                .clickable { if (currentSlide > 0) currentSlide-- }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                     }
                     
                     Button(
