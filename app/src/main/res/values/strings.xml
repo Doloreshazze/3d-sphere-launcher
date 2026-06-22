@@ -72,9 +72,22 @@
     <!-- Center Object Settings -->
     <string name="center_object_title">Object Inside Sphere</string>
     <string name="center_none">None</string>
-    <string name="center_earth">Wireframe Earth</string>
+    <string name="center_earth">Earth Hologram</string>
     <string name="center_earth_real">Realistic Earth</string>
-    <string name="center_black_hole">Black Hole</string>
+    <string name="center_black_hole">Black Hole (Top)</string>
+    <string name="center_black_hole_side">Black Hole (Side)</string>
+    <string name="zoom_settings">Zoom Controls</string>
     <string name="running_apps_only">Running Apps Only</string>
     <string name="running_apps_only_desc">Only show apps launched during this session</string>
+
+    <!-- New added strings -->
+    <string name="fist_detected">FIST DETECTED!</string>
+    <string name="starfield_title">Star Background</string>
+    <string name="starfield_desc">Display moving stars in the background</string>
+    <string name="zoom_control_title">Zoom Control</string>
+    <string name="zoom_control_desc">Scale with pinch and gestures</string>
+    <string name="camera_permission_title">Camera Permission</string>
+    <string name="camera_permission_rationale">For Air Gestures to work, the app requires access to the camera. The image is processed locally and never sent anywhere.</string>
+    <string name="mic_permission_title">Microphone Permission</string>
+    <string name="mic_permission_rationale">For audio reactivity, the app needs microphone access to react to music and sounds.</string>
 </resources>

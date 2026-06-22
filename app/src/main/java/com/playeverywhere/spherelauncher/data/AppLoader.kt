@@ -34,7 +34,7 @@ class AppLoader(private val context: Context) {
                 val iconBitmap = circularBitmap.asImageBitmap()
                 AppInfo(label, packageName, activityName, iconBitmap)
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AppLoader", "Failed to load info for package: ${resolveInfo.activityInfo.packageName}", e)
                 null
             }
         }.sortedBy { it.label.lowercase() }
@@ -62,7 +62,7 @@ class AppLoader(private val context: Context) {
             }
             File(context.cacheDir, "apps_cache.json").writeText(jsonArray.toString())
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AppLoader", "Failed to save apps to cache", e)
         }
     }
 
@@ -91,7 +91,7 @@ class AppLoader(private val context: Context) {
             }
             if (cachedApps.isEmpty()) null else cachedApps
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AppLoader", "Failed to load cached apps", e)
             null
         }
     }

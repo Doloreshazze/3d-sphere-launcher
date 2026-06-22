@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
         // Light status bar icons (contrasty white icons on dark background)
         windowInsetsController.isAppearanceLightStatusBars = false
     } catch (e: Exception) {
-        e.printStackTrace()
+        android.util.Log.e("MainActivity", "Failed to hide system UI", e)
     }
   }
 }

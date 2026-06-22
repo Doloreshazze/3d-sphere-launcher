@@ -55,6 +55,11 @@
 
     <!-- Glow Color Selector Strings -->
     <string name="color_system">Системный</string>
+    <string name="center_earth">Голограмма Земли</string>
+    <string name="center_earth_real">Реалистичная Земля</string>
+    <string name="center_black_hole">Черная дыра (Сверху)</string>
+    <string name="center_black_hole_side">Черная дыра (Сбоку)</string>
+    <string name="zoom_settings">Управление зумом</string>
     <string name="color_cyan">Голубой</string>
     <string name="color_purple">Сиреневый</string>
     <string name="color_green">Зеленый</string>
@@ -63,4 +68,15 @@
     <string name="exit_to_system_launcher">Системный лаунчер</string>
     <string name="running_apps_only">Только запущенные</string>
     <string name="running_apps_only_desc">Показывать только приложения, открытые в этой сессии</string>
+
+    <!-- New added strings -->
+    <string name="fist_detected">КУЛАК ОБНАРУЖЕН!</string>
+    <string name="starfield_title">Звездный фон</string>
+    <string name="starfield_desc">Отображать движущиеся звезды на фоне</string>
+    <string name="zoom_control_title">Управление зумом</string>
+    <string name="zoom_control_desc">Масштабирование щипком и жестами</string>
+    <string name="camera_permission_title">Разрешение на камеру</string>
+    <string name="camera_permission_rationale">Для работы воздушных жестов (Air Gestures) приложению требуется доступ к камере. Изображение обрабатывается локально и никуда не отправляется.</string>
+    <string name="mic_permission_title">Разрешение на микрофон</string>
+    <string name="mic_permission_rationale">Для аудио-реактивности приложению нужен доступ к микрофону, чтобы реагировать на музыку и звуки.</string>
 </resources>

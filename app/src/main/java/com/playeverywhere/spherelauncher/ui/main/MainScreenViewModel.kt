@@ -63,8 +63,6 @@ data class MainUiState(
     val isHandDetected: Boolean = false,
     val handScale: Float = 0.5f,
     val appleSize: Float = 0f,
-    val isSwipeToRotateEnabled: Boolean = true,
-    val isAppleZoomEnabled: Boolean = false,
     val handCursorSpeed: Float = 0f,
     val hoverProgress: Float = 0f,
     val focusedApp: AppInfo? = null,
@@ -72,9 +70,11 @@ data class MainUiState(
     val isEarthInsideEnabled: Boolean = false,
     val isRealisticEarthEnabled: Boolean = false,
     val isBlackHoleEnabled: Boolean = false,
+    val isBlackHoleSideEnabled: Boolean = false,
     val isZoomEnabled: Boolean = false,
     val isHandOverlayEnabled: Boolean = true,
-    val showRunningAppsOnly: Boolean = false
+    val showRunningAppsOnly: Boolean = false,
+    val isStarfieldEnabled: Boolean = true
 )
 
 data class SettingsState(
@@ -117,8 +117,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isHandDetectedState = MutableStateFlow(false)
     private val handScaleState = MutableStateFlow(0.5f)
     private val appleSizeState = MutableStateFlow(0f)
-    private val isSwipeToRotateEnabledState = MutableStateFlow(prefs.getBoolean("swipe_to_rotate_enabled", true))
-    private val isAppleZoomEnabledState = MutableStateFlow(prefs.getBoolean("apple_zoom_enabled", false))
     private val handCursorSpeedState = MutableStateFlow(0f)
     private val hoverProgressState = MutableStateFlow(0f)
     private val focusedAppState = MutableStateFlow<AppInfo?>(null)
@@ -126,9 +124,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isEarthInsideEnabledState = MutableStateFlow(prefs.getBoolean("earth_inside_enabled", false))
     private val isRealisticEarthEnabledState = MutableStateFlow(prefs.getBoolean("realistic_earth_enabled", false))
     private val isBlackHoleEnabledState = MutableStateFlow(prefs.getBoolean("black_hole_enabled", false))
+    private val isBlackHoleSideEnabledState = MutableStateFlow(prefs.getBoolean("black_hole_side_enabled", false))
     private val isZoomEnabledState = MutableStateFlow(prefs.getBoolean("zoom_enabled", false))
     private val isHandOverlayEnabledState = MutableStateFlow(prefs.getBoolean("hand_overlay_enabled", true))
     private val showRunningAppsOnlyState = MutableStateFlow(prefs.getBoolean("running_apps_only", false))
+    private val isStarfieldEnabledState = MutableStateFlow(prefs.getBoolean("starfield_enabled", true))
     private val launchedPackagesState = MutableStateFlow<Set<String>>(
         prefs.getStringSet("launched_packages", emptySet()) ?: emptySet()
     )
@@ -165,17 +165,17 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isHandDetectedState,
         handScaleState,
         appleSizeState,
-        isSwipeToRotateEnabledState,
-        isAppleZoomEnabledState,
         handCursorSpeedState,
         hoverProgressState,
         focusedAppState,
         isEarthInsideEnabledState,
         isRealisticEarthEnabledState,
         isBlackHoleEnabledState,
+        isBlackHoleSideEnabledState,
         isZoomEnabledState,
         isHandOverlayEnabledState,
         showRunningAppsOnlyState,
+        isStarfieldEnabledState,
         launchedPackagesState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
@@ -201,17 +201,17 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val isHandDetected = array[19] as Boolean
         val handScale = array[20] as Float
         val appleSize = array[21] as Float
-        val isSwipeToRotateEnabled = array[22] as Boolean
-        val isAppleZoomEnabled = array[23] as Boolean
-        val handSpeed = array[24] as Float
-        val hoverProgress = array[25] as Float
-        val focusedApp = array[26] as AppInfo?
-        val isEarthInside = array[27] as Boolean
-        val isRealisticEarth = array[28] as Boolean
-        val isBlackHole = array[29] as Boolean
-        val isZoomEnabled = array[30] as Boolean
-        val isHandOverlayEnabled = array[31] as Boolean
-        val showRunningAppsOnly = array[32] as Boolean
+        val handSpeed = array[22] as Float
+        val hoverProgress = array[23] as Float
+        val focusedApp = array[24] as AppInfo?
+        val isEarthInside = array[25] as Boolean
+        val isRealisticEarth = array[26] as Boolean
+        val isBlackHole = array[27] as Boolean
+        val isBlackHoleSide = array[28] as Boolean
+        val isZoomEnabled = array[29] as Boolean
+        val isHandOverlayEnabled = array[30] as Boolean
+        val showRunningAppsOnly = array[31] as Boolean
+        val isStarfieldEnabled = array[32] as Boolean
         @Suppress("UNCHECKED_CAST")
         val launchedPackages = array[33] as Set<String>
 
@@ -251,8 +251,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isHandDetected = isHandDetected,
             handScale = handScale,
             appleSize = appleSize,
-            isSwipeToRotateEnabled = isSwipeToRotateEnabled,
-            isAppleZoomEnabled = isAppleZoomEnabled,
             handCursorSpeed = handSpeed,
             hoverProgress = hoverProgress,
             focusedApp = focusedApp,
@@ -260,9 +258,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isEarthInsideEnabled = isEarthInside,
             isRealisticEarthEnabled = isRealisticEarth,
             isBlackHoleEnabled = isBlackHole,
+            isBlackHoleSideEnabled = isBlackHoleSide,
             isZoomEnabled = isZoomEnabled,
             isHandOverlayEnabled = isHandOverlayEnabled,
-            showRunningAppsOnly = showRunningAppsOnly
+            showRunningAppsOnly = showRunningAppsOnly,
+            isStarfieldEnabled = isStarfieldEnabled
         )
     }.stateIn(
         viewModelScope,
@@ -287,7 +287,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             }
             application.registerReceiver(packageReceiver, filter)
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("MainScreenViewModel", "Failed to register package receiver", e)
         }
     }
 
@@ -310,7 +310,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 val loadedApps = appLoader.loadInstalledApps()
                 appsState.value = loadedApps
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("MainScreenViewModel", "Failed to load installed apps", e)
                 if (appsState.value.isEmpty()) {
                     errorState.value = "Failed to load apps: ${e.message}"
                 }
@@ -488,12 +488,12 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                     kotlinx.coroutines.delay(16L)
                 }
             } catch (e: SecurityException) {
-                e.printStackTrace()
+                android.util.Log.e("MainScreenViewModel", "Missing permission for AudioRecord", e)
                 isAudioReactiveEnabledState.value = false
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("MainScreenViewModel", "Error in audio recording loop", e)
             } finally {
                 stopAudioRecordingInternal()
             }
@@ -507,7 +507,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 release()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("MainScreenViewModel", "Failed to stop visualizer", e)
         }
         visualizer = null
     }
@@ -521,7 +521,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 release()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("MainScreenViewModel", "Failed to stop audio record", e)
         }
         audioRecord = null
         audioAmplitudeState.value = 0f
@@ -540,7 +540,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         try {
             getApplication<Application>().unregisterReceiver(packageReceiver)
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("MainScreenViewModel", "Failed to unregister package receiver", e)
         }
     }
 
@@ -584,7 +584,14 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         hiddenPackagesState.value = emptySet()
         isEarthInsideEnabledState.value = false
         isBlackHoleEnabledState.value = false
+        isBlackHoleSideEnabledState.value = false
+        isStarfieldEnabledState.value = true
         stopAudioRecording()
+    }
+
+    fun setStarfieldEnabled(enabled: Boolean) {
+        isStarfieldEnabledState.value = enabled
+        prefs.edit().putBoolean("starfield_enabled", enabled).apply()
     }
 
     fun setEarthInsideEnabled(enabled: Boolean) {
@@ -592,6 +599,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit().putBoolean("earth_inside_enabled", enabled).apply()
         if (enabled) {
             setBlackHoleEnabled(false)
+            setBlackHoleSideEnabled(false)
         }
     }
 
@@ -600,6 +608,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit().putBoolean("realistic_earth_enabled", enabled).apply()
         if (enabled) {
             setBlackHoleEnabled(false)
+            setBlackHoleSideEnabled(false)
         }
     }
 
@@ -609,6 +618,17 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         if (enabled) {
             setEarthInsideEnabled(false)
             setRealisticEarthEnabled(false)
+            setBlackHoleSideEnabled(false)
+        }
+    }
+
+    fun setBlackHoleSideEnabled(enabled: Boolean) {
+        isBlackHoleSideEnabledState.value = enabled
+        prefs.edit().putBoolean("black_hole_side_enabled", enabled).apply()
+        if (enabled) {
+            setEarthInsideEnabled(false)
+            setRealisticEarthEnabled(false)
+            setBlackHoleEnabled(false)
         }
     }
 
@@ -638,16 +658,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     fun setGestureControlEnabled(enabled: Boolean) {
         gestureControlEnabledState.value = enabled
         prefs.edit().putBoolean("gesture_control_enabled", enabled).apply()
-    }
-
-    fun setSwipeToRotateEnabled(enabled: Boolean) {
-        isSwipeToRotateEnabledState.value = enabled
-        prefs.edit().putBoolean("swipe_to_rotate_enabled", enabled).apply()
-    }
-
-    fun setAppleZoomEnabled(enabled: Boolean) {
-        isAppleZoomEnabledState.value = enabled
-        prefs.edit().putBoolean("apple_zoom_enabled", enabled).apply()
     }
 
     fun updateHandCursor(x: Float, y: Float, isDetected: Boolean, scale: Float = 0.5f, speed: Float = 0f, appleSize: Float = 0f) {

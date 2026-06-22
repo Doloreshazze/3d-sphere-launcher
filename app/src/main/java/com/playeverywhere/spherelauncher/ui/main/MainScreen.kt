@@ -136,9 +136,7 @@ fun MainScreen(
     var resetZoomTrigger by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(activeGesture) {
-        if (activeGesture == Gesture.FIST) {
-            android.widget.Toast.makeText(context, "КУЛАК ОБНАРУЖЕН!", android.widget.Toast.LENGTH_SHORT).show()
-        }
+        // Gesture FIST is handled elsewhere, no toast needed
         if (activeGesture == Gesture.FIST_TO_OPEN_PALM && state.isZoomEnabled) {
             resetZoomTrigger = System.currentTimeMillis()
         }
@@ -628,10 +626,11 @@ fun MainScreen(
                             isPulsingEnabled = state.isPulsingEnabled,
                             isAudioReactiveEnabled = state.isAudioReactiveEnabled,
                             audioAmplitude = state.audioAmplitude,
+                            isBlackHoleEnabled = state.isBlackHoleEnabled,
+                            isBlackHoleSideEnabled = state.isBlackHoleSideEnabled,
                             isGestureEnabled = state.isGestureControlEnabled && state.shapeType != ShapeType.SNAKE,
                             isEarthInsideEnabled = state.isEarthInsideEnabled,
                             isRealisticEarthEnabled = state.isRealisticEarthEnabled,
-                            isBlackHoleEnabled = state.isBlackHoleEnabled,
                             handCursorX = state.handCursorX,
                             handCursorY = state.handCursorY,
                             isHandDetected = state.isHandDetected && state.shapeType != ShapeType.SNAKE,
@@ -643,13 +642,12 @@ fun MainScreen(
                             isZoomEnabled = state.isZoomEnabled,
                             resetZoomTrigger = resetZoomTrigger,
                             activeGesture = activeGesture,
-                            isSwipeToRotateEnabled = state.isSwipeToRotateEnabled,
-                            isAppleZoomEnabled = state.isAppleZoomEnabled,
                             appleSize = state.appleSize,
                             handRotation = handRotation,
                             projectedNodes = projectedNodesList,
                             pinchedApp = pinchedApp,
                             launchAnimationProgress = launchAnimationProgress,
+                            isStarfieldEnabled = state.isStarfieldEnabled,
                             onAppClick = { app ->
                                 try {
                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
@@ -1050,8 +1048,13 @@ fun MainScreen(
                         Toast.makeText(context, context.getString(R.string.mic_permission_denied), Toast.LENGTH_SHORT).show()
                     }
                 }
+                
+                var showMicRationale by remember { mutableStateOf(false) }
+                var showCameraRationale by remember { mutableStateOf(false) }
+
                 SettingsSheetContent(
                     state = state,
+                    onStarfieldChanged = { viewModel.setStarfieldEnabled(it) },
                     onAutoDriftChanged = { viewModel.setAutoDrift(it) },
                     onTiltChanged = { viewModel.setTiltEnabled(it) },
                     onShapeSelected = { viewModel.setShapeType(it) },
@@ -1059,8 +1062,6 @@ fun MainScreen(
                     onGlowOpacityChanged = { viewModel.setGlowOpacity(it) },
                     onGlowBrightnessChanged = { viewModel.setGlowBrightness(it) },
                     onPulsingChanged = { viewModel.setPulsingEnabled(it) },
-                    onSwipeToRotateChanged = { viewModel.setSwipeToRotateEnabled(it) },
-                    onAppleZoomChanged = { viewModel.setAppleZoomEnabled(it) },
                     onAudioReactiveChanged = { enabled ->
                         if (enabled) {
                             if (androidx.core.content.ContextCompat.checkSelfPermission(
@@ -1070,7 +1071,7 @@ fun MainScreen(
                             ) {
                                 viewModel.setAudioReactiveEnabled(true)
                             } else {
-                                permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                                showMicRationale = true
                             }
                         } else {
                             viewModel.setAudioReactiveEnabled(false)
@@ -1086,7 +1087,7 @@ fun MainScreen(
                             ) {
                                 viewModel.setGestureControlEnabled(true)
                             } else {
-                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                showCameraRationale = true
                             }
                         } else {
                             viewModel.setGestureControlEnabled(false)
@@ -1097,6 +1098,7 @@ fun MainScreen(
                     onEarthInsideChanged = { viewModel.setEarthInsideEnabled(it) },
                     onRealisticEarthChanged = { viewModel.setRealisticEarthEnabled(it) },
                     onBlackHoleChanged = { viewModel.setBlackHoleEnabled(it) },
+                    onBlackHoleSideChanged = { viewModel.setBlackHoleSideEnabled(it) },
                     onRefreshApps = {
                         viewModel.loadApps()
                         showSettings = false
@@ -1111,6 +1113,50 @@ fun MainScreen(
                         showSettings = false
                     }
                 )
+
+                if (showMicRationale) {
+                    AlertDialog(
+                        onDismissRequest = { showMicRationale = false },
+                        containerColor = Color(0xE00D0B18),
+                        title = { Text(stringResource(R.string.mic_permission_title), color = Color(0xFF00F2FE)) },
+                        text = { Text(stringResource(R.string.mic_permission_rationale), color = Color.White) },
+                        confirmButton = {
+                            Button(onClick = {
+                                showMicRationale = false
+                                permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE), contentColor = Color.Black)) {
+                                Text(stringResource(android.R.string.ok))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showMicRationale = false }) {
+                                Text(stringResource(android.R.string.cancel), color = Color(0xFF00F2FE))
+                            }
+                        }
+                    )
+                }
+
+                if (showCameraRationale) {
+                    AlertDialog(
+                        onDismissRequest = { showCameraRationale = false },
+                        containerColor = Color(0xE00D0B18),
+                        title = { Text(stringResource(R.string.camera_permission_title), color = Color(0xFF00F2FE)) },
+                        text = { Text(stringResource(R.string.camera_permission_rationale), color = Color.White) },
+                        confirmButton = {
+                            Button(onClick = {
+                                showCameraRationale = false
+                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE), contentColor = Color.Black)) {
+                                Text(stringResource(android.R.string.ok))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showCameraRationale = false }) {
+                                Text(stringResource(android.R.string.cancel), color = Color(0xFF00F2FE))
+                            }
+                        }
+                    )
+                }
             }
         }
 
@@ -1293,6 +1339,7 @@ fun BasicTextField(
 @Composable
 fun SettingsSheetContent(
     state: MainUiState,
+    onStarfieldChanged: (Boolean) -> Unit,
     onAutoDriftChanged: (Boolean) -> Unit,
     onTiltChanged: (Boolean) -> Unit,
     onShapeSelected: (ShapeType) -> Unit,
@@ -1302,13 +1349,12 @@ fun SettingsSheetContent(
     onPulsingChanged: (Boolean) -> Unit,
     onAudioReactiveChanged: (Boolean) -> Unit,
     onGestureControlChanged: (Boolean) -> Unit,
-    onSwipeToRotateChanged: (Boolean) -> Unit,
-    onAppleZoomChanged: (Boolean) -> Unit,
     onZoomEnabledChanged: (Boolean) -> Unit,
     onHandOverlayChanged: (Boolean) -> Unit,
     onEarthInsideChanged: (Boolean) -> Unit,
     onRealisticEarthChanged: (Boolean) -> Unit,
     onBlackHoleChanged: (Boolean) -> Unit,
+    onBlackHoleSideChanged: (Boolean) -> Unit,
     onRunningAppsOnlyChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit,
@@ -1459,6 +1505,38 @@ fun SettingsSheetContent(
         }
 
         // Toggles
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = stringResource(R.string.starfield_title),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+                Text(
+                    text = stringResource(R.string.starfield_desc),
+                    fontSize = 11.sp,
+                    color = Color(0x66FFFFFF)
+                )
+            }
+            Switch(
+                checked = state.isStarfieldEnabled,
+                onCheckedChange = onStarfieldChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF00F2FE),
+                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
+                    uncheckedThumbColor = Color(0xFF808080),
+                    uncheckedTrackColor = Color(0x1Fffffff)
+                )
+            )
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1622,57 +1700,7 @@ fun SettingsSheetContent(
             )
         }
 
-        if (state.isGestureControlEnabled) {
-            // --- SWIPE TO ROTATE ROW ---
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Вращение взмахом",
-                    fontSize = 13.sp,
-                    color = Color.White
-                )
-                Switch(
-                    checked = state.isSwipeToRotateEnabled,
-                    onCheckedChange = onSwipeToRotateChanged,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF00F2FE),
-                        checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
-                        uncheckedThumbColor = Color(0xFF808080),
-                        uncheckedTrackColor = Color(0x1Fffffff)
-                    )
-                )
-            }
 
-            // --- APPLE ZOOM ROW ---
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 4.dp, bottom = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Зум Яблоком",
-                    fontSize = 13.sp,
-                    color = Color.White
-                )
-                Switch(
-                    checked = state.isAppleZoomEnabled,
-                    onCheckedChange = onAppleZoomChanged,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF00F2FE),
-                        checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
-                        uncheckedThumbColor = Color(0xFF808080),
-                        uncheckedTrackColor = Color(0x1Fffffff)
-                    )
-                )
-            }
-        }
 
         // --- ZOOM CONTROL ROW ---
         Spacer(modifier = Modifier.height(8.dp))
@@ -1685,13 +1713,13 @@ fun SettingsSheetContent(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Управление зумом",
+                    text = stringResource(R.string.zoom_control_title),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Text(
-                    text = "Масштабирование щипком и жестами",
+                    text = stringResource(R.string.zoom_control_desc),
                     fontSize = 11.sp,
                     color = Color(0x66FFFFFF)
                 )
@@ -2443,10 +2471,10 @@ fun OnboardingTour(
                 
                 // Title
                 val titles = listOf(
-                    "Доступ к приложениям",
-                    "3D Сфера приложений",
-                    "Быстрый доступ",
-                    "Музыкальный бит"
+                    stringResource(R.string.ob_title_permission),
+                    stringResource(R.string.ob_title_sphere),
+                    stringResource(R.string.ob_title_access),
+                    stringResource(R.string.ob_title_music)
                 )
                 Text(
                     text = titles[currentSlide],
@@ -2460,10 +2488,10 @@ fun OnboardingTour(
                 
                 // Description
                 val descriptions = listOf(
-                    "Для работы лаунчеру требуется ваше согласие на получение списка приложений (QUERY_ALL_PACKAGES). Это используется исключительно локально на вашем устройстве для отображения иконок в 3D Сфере и 2D сетке, а также их запуска. Мы гарантируем 100% приватность.",
-                    "Добро пожаловать! Ваши приложения парят в трехмерном пространстве. Вращайте сферу свайпами в любом направлении и запускайте их в одно касание.",
-                    "В левом нижнем углу замораживайте вращение сферы кнопкой «Замок» или управляйте инерцией. В правом нижнем углу мгновенно открывайте Камеру одной кнопкой!",
-                    "Включите режим «Аудио-реактивность» в настройках: сфера и неоновый туман начнут динамично раздуваться и вспыхивать в такт музыке на YouTube или вашему голосу."
+                    stringResource(R.string.ob_desc_permission),
+                    stringResource(R.string.ob_desc_sphere),
+                    stringResource(R.string.ob_desc_access),
+                    stringResource(R.string.ob_desc_music)
                 )
                 Text(
                     text = descriptions[currentSlide],
@@ -2503,7 +2531,7 @@ fun OnboardingTour(
                 ) {
                     if (currentSlide < totalSlides - 1) {
                         Text(
-                            text = "Пропустить",
+                            text = stringResource(R.string.ob_btn_skip),
                             color = Color(0x80FFFFFF),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
@@ -2531,7 +2559,7 @@ fun OnboardingTour(
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
                     ) {
                         Text(
-                            text = if (currentSlide == 0) "Согласиться" else if (currentSlide == totalSlides - 1) "Начать" else "Далее",
+                            text = if (currentSlide == 0) stringResource(R.string.ob_btn_agree) else if (currentSlide == totalSlides - 1) stringResource(R.string.ob_btn_start) else stringResource(R.string.ob_btn_next),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )

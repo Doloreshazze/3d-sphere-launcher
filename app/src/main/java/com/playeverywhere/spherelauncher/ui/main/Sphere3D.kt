@@ -80,6 +80,14 @@ data class AppRenderNode(
     val zDepth: Float
 )
 
+data class SpaceStar(
+    val x: Float, // 0.0 to 1.0 (relative width)
+    val y: Float, // 0.0 to 1.0 (relative height)
+    val z: Float, // depth for parallax (e.g. 0.5 to 3.0)
+    val size: Float, // base size of star
+    val alpha: Int // brightness
+)
+
 data class Vector3D(val x: Float, val y: Float, val z: Float) {
     fun length(): Float = sqrt(x * x + y * y + z * z)
     fun normalized(): Vector3D {
@@ -150,6 +158,7 @@ fun Sphere3D(
     isEarthInsideEnabled: Boolean = false,
     isRealisticEarthEnabled: Boolean = false,
     isBlackHoleEnabled: Boolean = false,
+    isBlackHoleSideEnabled: Boolean = false,
     handCursorX: Float = 0.5f,
     handCursorY: Float = 0.5f,
     isHandDetected: Boolean = false,
@@ -161,13 +170,12 @@ fun Sphere3D(
     isZoomEnabled: Boolean = false,
     resetZoomTrigger: Long = 0L,
     activeGesture: com.antigravity.gesture.Gesture = com.antigravity.gesture.Gesture.NONE,
-    isSwipeToRotateEnabled: Boolean = true,
-    isAppleZoomEnabled: Boolean = false,
     appleSize: Float = 0f,
     handRotation: FloatArray = floatArrayOf(0f, 0f, 0f),
     projectedNodes: MutableList<AppRenderNode>? = null,
     pinchedApp: AppInfo? = null,
     launchAnimationProgress: Float = 0f,
+    isStarfieldEnabled: Boolean = true,
     onAppClick: (AppInfo) -> Unit,
     onAppLongClick: ((AppInfo) -> Unit)? = null
 ) {
@@ -182,6 +190,7 @@ fun Sphere3D(
     val earthBitmap = ImageBitmap.imageResource(id = R.drawable.earth_realistic)
     val earthCloudsBitmap = ImageBitmap.imageResource(id = R.drawable.earth_clouds)
     val blackHoleBitmap = ImageBitmap.imageResource(id = R.drawable.black_hole)
+    val blackHoleSideBitmap = ImageBitmap.imageResource(id = R.drawable.black_hole_side)
 
     var sphereCenterScreenX by remember { mutableFloatStateOf(0f) }
     var sphereCenterScreenY by remember { mutableFloatStateOf(0f) }
@@ -197,10 +206,29 @@ fun Sphere3D(
 
     var clickedPackageName by remember { mutableStateOf<String?>(null) }
     var gestureStartTime by remember { mutableStateOf(0L) }
-    var lastLongGestureEndTime by remember { mutableStateOf(0L) }
+    var lastLongGestureEndTime by remember { mutableLongStateOf(0L) }
     val scope = rememberCoroutineScope()
+    
+    // Initialize stars array
+    val stars = remember {
+        Array(200) {
+            SpaceStar(
+                x = Math.random().toFloat(),
+                y = Math.random().toFloat(),
+                z = Math.random().toFloat() * 2f + 0.5f,
+                size = Math.random().toFloat() * 3f + 0.5f,
+                alpha = (Math.random() * 200 + 55).toInt()
+            )
+        }
+    }
+    val starPaint = remember {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.WHITE
+            isAntiAlias = true
+        }
+    }
 
-    // Rotation state & fast frame cache (completely non-compose states)
+    // Audio reactive state & fast frame cache (completely non-compose states)
     val rotationState = remember { RotationState(radius = baseRadius) }
     val frameRotationData = remember { FrameRotationData(radius = baseRadius) }
 
@@ -441,67 +469,7 @@ fun Sphere3D(
     // Touch velocities for physics fling inertia (regular floats, VSYNC-only changes)
     var yawVelocity = remember { floatArrayOf(0f, 0f) } // index 0 = yawVelocity, 1 = pitchVelocity
     
-    var previousAppleSize by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(appleSize, isAppleZoomEnabled) {
-        if (isAppleZoomEnabled && previousAppleSize > 0.05f && appleSize > 0.05f) {
-            val delta = appleSize - previousAppleSize
-            // apply zoom: delta is small (e.g. 0.01 - 0.1), map it to multiplier
-            val multiplier = 1f + (delta * 6f) 
-            rotationState.radius = (rotationState.radius * multiplier).coerceIn(120f, 1000f)
-        }
-        previousAppleSize = appleSize
-    }
 
-    var previousHandRotation by remember { mutableStateOf(floatArrayOf(0f, 0f, 0f)) }
-    LaunchedEffect(handRotation, isAppleZoomEnabled, appleSize) {
-        if (isAppleZoomEnabled && appleSize > 0.05f && previousHandRotation.any { it != 0f }) {
-            var dPitch = handRotation[0] - previousHandRotation[0]
-            var dYaw = handRotation[1] - previousHandRotation[1]
-            var dRoll = handRotation[2] - previousHandRotation[2]
-
-            fun normalize(angle: Float): Float {
-                var a = angle
-                while (a > Math.PI) a -= (2 * Math.PI).toFloat()
-                while (a < -Math.PI) a += (2 * Math.PI).toFloat()
-                return a
-            }
-            dPitch = normalize(dPitch)
-            dYaw = normalize(dYaw)
-            dRoll = normalize(dRoll)
-
-            if (kotlin.math.abs(dPitch) < 1f && kotlin.math.abs(dYaw) < 1f && kotlin.math.abs(dRoll) < 1f) {
-                val temp = FloatArray(16)
-                android.opengl.Matrix.setIdentityM(temp, 0)
-                
-                val sensitivity = 1.2f 
-                
-                // Map hand Pitch to trackball X-axis, Hand Yaw to Y-axis, Hand Roll to Z-axis
-                android.opengl.Matrix.rotateM(temp, 0, (dPitch * sensitivity * 180f / Math.PI).toFloat(), 1f, 0f, 0f)
-                android.opengl.Matrix.rotateM(temp, 0, (dYaw * sensitivity * 180f / Math.PI).toFloat(), 0f, 1f, 0f)
-                android.opengl.Matrix.rotateM(temp, 0, (dRoll * sensitivity * 180f / Math.PI).toFloat(), 0f, 0f, 1f)
-                
-                val result = FloatArray(16)
-                android.opengl.Matrix.multiplyMM(result, 0, temp, 0, rotationState.trackballMatrix, 0)
-                System.arraycopy(result, 0, rotationState.trackballMatrix, 0, 16)
-            }
-        }
-        previousHandRotation = handRotation
-    }
-
-    LaunchedEffect(activeGesture) {
-        if (activeGesture != com.antigravity.gesture.Gesture.NONE && isSwipeToRotateEnabled) {
-            // To rotate exactly 120 degrees (2.0944 radians) with friction = 0.982:
-            // Sum = V_0 / (1 - friction) => 2.0944 = V_0 / 0.018 => V_0 = 0.0377f
-            val impulse = 0.0377f 
-            when (activeGesture) {
-                com.antigravity.gesture.Gesture.LEFT -> yawVelocity[0] = -impulse
-                com.antigravity.gesture.Gesture.RIGHT -> yawVelocity[0] = impulse
-                com.antigravity.gesture.Gesture.UP -> yawVelocity[1] = -impulse
-                com.antigravity.gesture.Gesture.DOWN -> yawVelocity[1] = impulse
-                else -> {}
-            }
-        }
-    }
 
     // Accumulator to smoothly apply discrete 15Hz drag events over 60Hz physics frames
     val dragAccumulator = remember { floatArrayOf(0f, 0f) }
@@ -1043,6 +1011,24 @@ fun Sphere3D(
                 val centerCanvasX = w / 2f
                 val centerCanvasY = h / 2f
                 
+                // 0.5 Draw moving stars background
+                val time = android.os.SystemClock.uptimeMillis()
+                val driftSpeed = 0.00004f // Speed multiplier for parallax
+                
+                if (isStarfieldEnabled) {
+                    stars.forEach { star ->
+                        // Calculate drifted X position based on depth for parallax effect
+                        // Stars move left
+                        var currentX = (star.x - time * driftSpeed / star.z) % 1.0f
+                        if (currentX < 0) currentX += 1.0f
+                        
+                        starPaint.alpha = star.alpha
+                        val sx = currentX * w
+                        val sy = star.y * h
+                        nativeCanvas.drawCircle(sx, sy, star.size, starPaint)
+                    }
+                }
+                
                 // 1. Holographic background pulsing glow
                 val rad = frameRotationData.radius
                 val currentRad = if (isPulsingEnabled) {
@@ -1117,6 +1103,59 @@ fun Sphere3D(
                             centerCanvasX, centerCanvasY, bhRadius,
                             intArrayOf(0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0x00FFFFFF),
                             floatArrayOf(0.0f, 0.6f, 1.0f),
+                            android.graphics.Shader.TileMode.CLAMP
+                        )
+                    }
+                    nativeCanvas.drawRect(
+                        centerCanvasX - bhRadius, centerCanvasY - bhRadius,
+                        centerCanvasX + bhRadius, centerCanvasY + bhRadius,
+                        maskPaint
+                    )
+                    nativeCanvas.restoreToCount(saveCount)
+                } else if (isBlackHoleSideEnabled && launchAnimationProgress < 1f) {
+                    val bhRadius = currentRad * 1.2f // Side view spans wider
+                    
+                    val saveCount = nativeCanvas.saveLayer(
+                        centerCanvasX - bhRadius, centerCanvasY - bhRadius,
+                        centerCanvasX + bhRadius, centerCanvasY + bhRadius,
+                        null
+                    )
+                    
+                    val bhYaw = (android.os.SystemClock.uptimeMillis() % 60000L) / 60000f * 360f
+
+                    val destRect = android.graphics.Rect(
+                        (centerCanvasX - bhRadius).toInt(),
+                        (centerCanvasY - bhRadius).toInt(),
+                        (centerCanvasX + bhRadius).toInt(),
+                        (centerCanvasY + bhRadius).toInt()
+                    )
+
+                    // Draw the static side-view black hole (base structure, lensed halos, event horizon)
+                    nativeCanvas.drawBitmap(blackHoleSideBitmap.asAndroidBitmap(), null, destRect, bgPaint)
+
+                    // Add the rotating accretion disk overlay using the top-view black hole texture
+                    val diskSave = nativeCanvas.save()
+                    // Squash vertically to match the side-view disk perspective, slightly wider
+                    nativeCanvas.scale(1.1f, 0.12f, centerCanvasX, centerCanvasY)
+                    nativeCanvas.rotate(bhYaw, centerCanvasX, centerCanvasY) // rotate the squashed texture
+                    
+                    val overlayPaint = android.graphics.Paint().apply {
+                        isAntiAlias = true
+                        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SCREEN)
+                        alpha = 220 // Semi-transparent glow
+                    }
+                    
+                    nativeCanvas.drawBitmap(blackHoleBitmap.asAndroidBitmap(), null, destRect, overlayPaint)
+                    nativeCanvas.restoreToCount(diskSave)
+
+                    // Apply soft circular mask
+                    val maskPaint = android.graphics.Paint().apply {
+                        isAntiAlias = true
+                        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
+                        shader = android.graphics.RadialGradient(
+                            centerCanvasX, centerCanvasY, bhRadius * 0.9f,
+                            intArrayOf(0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0x00FFFFFF),
+                            floatArrayOf(0.0f, 0.7f, 1.0f),
                             android.graphics.Shader.TileMode.CLAMP
                         )
                     }

@@ -49,7 +49,9 @@ fun GestureCameraLauncher(
             if (isDisposed) {
                 try {
                     cameraProviderFuture.get().unbindAll()
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    Log.e("GestureCameraLauncher", "Failed to unbind camera provider on disposal", e)
+                }
                 return@addListener
             }
 
@@ -123,7 +125,7 @@ fun GestureCameraLauncher(
                     cameraProviderFuture.get().unbindAll()
                     Log.d("GestureCameraLauncher", "CameraX unbound.")
                 } catch (e: Exception) {
-                    // Ignore cleanup errors
+                    Log.e("GestureCameraLauncher", "Failed to unbind camera provider on disposal", e)
                 }
             }, ContextCompat.getMainExecutor(context))
         }
