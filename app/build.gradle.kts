@@ -93,3 +93,14 @@ dependencies {
   // Gesture Recognition Library
   implementation(project(":gesture-library"))
 }
+
+tasks.register("renameAllImages") {
+    doLast {
+        val dir = file("src/main/res/drawable")
+        dir.listFiles()?.forEach { file ->
+            if (file.name.endsWith(".png")) {
+                file.renameTo(File(file.parent, file.nameWithoutExtension + ".jpg"))
+            }
+        }
+    }
+}

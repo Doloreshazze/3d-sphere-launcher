@@ -33,6 +33,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -71,6 +79,8 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     var showSettings by remember { mutableStateOf(false) }
     var selectedAppForAction by remember { mutableStateOf<AppInfo?>(null) }
@@ -450,6 +460,9 @@ fun MainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { focusManager.clearFocus() })
+                }
                 .systemBarsPadding()
                 .padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -508,6 +521,8 @@ fun MainScreen(
                             ),
                             modifier = Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus(); keyboardController?.hide() }),
                             decorationBox = { innerTextField ->
                                 if (state.searchQuery.isEmpty()) {
                                     Text(
@@ -521,7 +536,11 @@ fun MainScreen(
                         )
                         if (state.searchQuery.isNotEmpty()) {
                             IconButton(
-                                onClick = { viewModel.setSearchQuery("") },
+                                onClick = { 
+                                    viewModel.setSearchQuery("")
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                },
                                 modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
@@ -552,6 +571,17 @@ fun MainScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.changes.any { it.pressed }) {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                }
+                            }
+                        }
+                    }
                     .onGloballyPositioned { coords ->
                         sphereBounds = coords.boundsInRoot()
                     },
@@ -1324,6 +1354,8 @@ fun BasicTextField(
     textStyle: androidx.compose.ui.text.TextStyle,
     modifier: Modifier = Modifier,
     singleLine: Boolean = true,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
     decorationBox: @Composable (@Composable () -> Unit) -> Unit
 ) {
     androidx.compose.foundation.text.BasicTextField(
@@ -1332,6 +1364,8 @@ fun BasicTextField(
         textStyle = textStyle,
         modifier = modifier,
         singleLine = singleLine,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
         decorationBox = decorationBox
     )
 }
