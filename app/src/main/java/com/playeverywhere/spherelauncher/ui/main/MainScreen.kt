@@ -594,7 +594,7 @@ fun MainScreen(
                 } else {
                     if (state.isStandardView) {
                         StandardAppGrid(
-                            apps = state.filteredApps,
+                            apps = state.filteredApps.sortedBy { it.colorHue },
                             onAppClick = { app ->
                                 try {
                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)

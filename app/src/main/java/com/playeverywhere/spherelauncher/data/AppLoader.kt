@@ -31,8 +31,9 @@ class AppLoader(private val context: Context) {
                 val rawIcon = resolveInfo.loadIcon(pm)
                 val rawBitmap = drawableToBitmap(rawIcon)
                 val circularBitmap = getCircularBitmap(rawBitmap)
+                val hue = getDominantHue(circularBitmap)
                 val iconBitmap = circularBitmap.asImageBitmap()
-                AppInfo(label, packageName, activityName, iconBitmap)
+                AppInfo(label, packageName, activityName, iconBitmap, hue)
             } catch (e: Exception) {
                 android.util.Log.e("AppLoader", "Failed to load info for package: ${resolveInfo.activityInfo.packageName}", e)
                 null
@@ -52,6 +53,7 @@ class AppLoader(private val context: Context) {
                     put("label", app.label)
                     put("packageName", app.packageName)
                     put("activityName", app.activityName)
+                    put("colorHue", app.colorHue.toDouble())
                 }
                 jsonArray.put(jsonObject)
 
@@ -80,12 +82,16 @@ class AppLoader(private val context: Context) {
                 val label = jsonObject.getString("label")
                 val packageName = jsonObject.getString("packageName")
                 val activityName = jsonObject.getString("activityName")
+                if (!jsonObject.has("colorHue")) {
+                    return@withContext null // Force reload if old cache
+                }
+                val colorHue = jsonObject.optDouble("colorHue", 0.0).toFloat()
 
                 val file = File(cacheDir, "$packageName.png")
                 if (file.exists()) {
                     val bitmap = BitmapFactory.decodeFile(file.absolutePath)
                     if (bitmap != null) {
-                        cachedApps.add(AppInfo(label, packageName, activityName, bitmap.asImageBitmap()))
+                        cachedApps.add(AppInfo(label, packageName, activityName, bitmap.asImageBitmap(), colorHue))
                     }
                 }
             }
@@ -128,5 +134,40 @@ class AppLoader(private val context: Context) {
         drawable.setBounds(0, 0, canvas.width, canvas.height)
         drawable.draw(canvas)
         return bitmap
+    }
+
+    private fun getDominantHue(bitmap: Bitmap): Float {
+        val scaled = Bitmap.createScaledBitmap(bitmap, 16, 16, true)
+        var sumR = 0L
+        var sumG = 0L
+        var sumB = 0L
+        var count = 0
+        for (x in 0 until 16) {
+            for (y in 0 until 16) {
+                val pixel = scaled.getPixel(x, y)
+                val alpha = android.graphics.Color.alpha(pixel)
+                if (alpha > 50) {
+                    sumR += android.graphics.Color.red(pixel)
+                    sumG += android.graphics.Color.green(pixel)
+                    sumB += android.graphics.Color.blue(pixel)
+                    count++
+                }
+            }
+        }
+        if (count == 0) return 0f
+        val avgR = (sumR / count).toInt()
+        val avgG = (sumG / count).toInt()
+        val avgB = (sumB / count).toInt()
+        val hsv = FloatArray(3)
+        android.graphics.Color.RGBToHSV(avgR, avgG, avgB, hsv)
+        val hue = hsv[0]
+        val sat = hsv[1]
+        val value = hsv[2]
+        
+        if (sat < 0.15f || value < 0.15f) {
+            return 1000f + value
+        }
+        
+        return if (hue > 330f) hue - 360f else hue
     }
 }

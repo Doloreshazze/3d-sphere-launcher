@@ -488,13 +488,14 @@ fun Sphere3D(
         if (count == 1) return@remember listOf(SphereNode(apps[0], 0f, 0f, -1f))
 
         if (shapeType == ShapeType.FLAT_PLANE) {
+            val sortedApps = apps.sortedBy { it.colorHue }
             // Distribute in a spacious flat 4-column puzzle board grid
             val columns = 4
             val spacing = 0.42f
             val numCols = columns.toFloat()
             val numRows = kotlin.math.ceil((count + 1).toFloat() / columns).coerceAtLeast(1f)
             
-            apps.mapIndexed { index, app ->
+            sortedApps.mapIndexed { index, app ->
                 val col = index % columns
                 val row = index / columns
                 
