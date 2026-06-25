@@ -25,12 +25,14 @@ class MainActivity : ComponentActivity() {
       SphereLauncherTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
     }
 
-    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { v, insets ->
-      val isImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-      if (!isImeVisible) {
-        hideSystemUI()
+    @Suppress("DEPRECATION")
+    window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
+      if ((visibility and android.view.View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+        // Post a small delay to allow the system to finish its transition before re-applying flags
+        window.decorView.postDelayed({
+            hideSystemUI()
+        }, 300)
       }
-      ViewCompat.onApplyWindowInsets(v, insets)
     }
   }
 
@@ -43,13 +45,22 @@ class MainActivity : ComponentActivity() {
 
   private fun hideSystemUI() {
     try {
-        // Immersive fullscreen: hide system navigation bars entirely (swipe to show transiently)
+        // Modern approach
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController.hide(WindowInsetsCompat.Type.navigationBars())
+        windowInsetsController.hide(WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.statusBars())
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        
-        // Light status bar icons (contrasty white icons on dark background)
         windowInsetsController.isAppearanceLightStatusBars = false
+
+        // Legacy approach for reliable behavior on older devices (e.g. Android 9)
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = (
+            android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+            or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        )
     } catch (e: Exception) {
         android.util.Log.e("MainActivity", "Failed to hide system UI", e)
     }
