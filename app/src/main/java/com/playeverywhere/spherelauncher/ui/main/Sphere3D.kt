@@ -62,6 +62,14 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.pow
 
+object SphereConstants {
+    const val SNAKE_GRID_SIZE = 12
+    const val SNAKE_TICK_RATE_MS = 600L
+    const val INERTIA_FRICTION = 0.982f
+    const val DRIFT_SPEED_X = 0.015f
+    const val DRIFT_SPEED_Y = 0.035f
+}
+
 // SphereNode holds the base coordinates on the unit sphere
 data class SphereNode(
     val appInfo: AppInfo,
@@ -205,7 +213,7 @@ fun Sphere3D(
     val baseRadius = (screenWidthPx.coerceAtMost(screenHeightPx) * 0.38f).coerceAtLeast(250f)
 
     var clickedPackageName by remember { mutableStateOf<String?>(null) }
-    var gestureStartTime by remember { mutableStateOf(0L) }
+    var gestureStartTime by remember { mutableLongStateOf(0L) }
     var lastLongGestureEndTime by remember { mutableLongStateOf(0L) }
     val scope = rememberCoroutineScope()
     
@@ -282,14 +290,14 @@ fun Sphere3D(
     }
 
     // Single Compose State ticket to synchronize VSYNC and Draw phases
-    var frameTicket by remember { mutableStateOf(0) }
+    var frameTicket by remember { mutableIntStateOf(0) }
 
     // Protection against accidental clicks during panning/dragging
     var allowClicks by remember { mutableStateOf(true) }
 
     // State for gesture zooming
-    var initialPinchScale by remember { mutableStateOf(-1f) }
-    var initialPinchRadius by remember { mutableStateOf(-1f) }
+    var initialPinchScale by remember { mutableFloatStateOf(-1f) }
+    var initialPinchRadius by remember { mutableFloatStateOf(-1f) }
     
     LaunchedEffect(isHandClenched, handScale, isZoomEnabled, isGestureEnabled) {
         if (isHandClenched && isGestureEnabled && isZoomEnabled) {
@@ -383,16 +391,16 @@ fun Sphere3D(
     }
 
     // Snake Game State
-    val snakeGridSize = 12
+    val snakeGridSize = SphereConstants.SNAKE_GRID_SIZE
     val snakeBody = remember { androidx.compose.runtime.mutableStateListOf(Pair(5, 5), Pair(5, 6), Pair(5, 7)) } // Head is at index 0
     var snakeDirection by remember { mutableStateOf(Pair(0, -1)) } // Start moving UP
     var lastProcessedDirection by remember { mutableStateOf(Pair(0, -1)) }
     var foodPos by remember { mutableStateOf(Pair(8, 4)) }
     var isGameOver by remember { mutableStateOf(false) }
-    var score by remember { mutableStateOf(0) }
+    var score by remember { mutableIntStateOf(0) }
     
     val prefs = remember { context.getSharedPreferences("sphere_launcher_prefs", android.content.Context.MODE_PRIVATE) }
-    var highScore by remember { mutableStateOf(prefs.getInt("snake_high_score", 0)) }
+    var highScore by remember { mutableIntStateOf(prefs.getInt("snake_high_score", 0)) }
     
     var isPaused by remember { mutableStateOf(true) }
 
@@ -431,7 +439,7 @@ fun Sphere3D(
     LaunchedEffect(shapeType, isGameOver, isPaused) {
         if (shapeType == ShapeType.SNAKE && !isGameOver && !isPaused) {
             while (true) {
-                delay(600L) // Tick rate: 600ms (slower)
+                delay(SphereConstants.SNAKE_TICK_RATE_MS)
                 lastProcessedDirection = snakeDirection
                 val head = snakeBody.firstOrNull() ?: Pair(5, 5)
                 val nextHead = Pair(
@@ -532,9 +540,9 @@ fun Sphere3D(
             yawVelocity[0] = 0f
             yawVelocity[1] = 0f
         }
-        val friction = 0.982f // Heavier, more massive physical inertia (decelerates much slower)
-        val driftSpeedX = 0.015f // in radians per second
-        val driftSpeedY = 0.035f // in radians per second
+        val friction = SphereConstants.INERTIA_FRICTION // Heavier, more massive physical inertia (decelerates much slower)
+        val driftSpeedX = SphereConstants.DRIFT_SPEED_X // in radians per second
+        val driftSpeedY = SphereConstants.DRIFT_SPEED_Y // in radians per second
         var lastTime = withFrameMillis { it }
         
         while (true) {

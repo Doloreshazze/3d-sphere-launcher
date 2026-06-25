@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SphereLauncher</string>
+    <string name="search_placeholder">Apps suchen…</string>
+    <string name="fail_launch_app">%1$s konnte nicht gestartet werden</string>
+    <string name="error_prefix">Fehler: %1$s</string>
+    <string name="camera_unavailable">Kamera nicht verfügbar: %1$s</string>
+    <string name="no_apps_found">Keine Apps gefunden</string>
+    <string name="rotation_inertia">Rotations-Trägheit</string>
+    <string name="rotation_lock">Rotationssperre</string>
+    <string name="settings_title">3D-Sphären-Einstellungen</string>
+    <string name="shape_selector_title">3D-Form:</string>
+    <string name="shape_sphere">Sphäre</string>
+    <string name="shape_snake">Schlange</string>
+    <string name="auto_drift_title">Auto-Rotation</string>
+    <string name="auto_drift_desc">Langsames automatisches Drehen der Symbole</string>
+    <string name="device_tilt_title">Geräteneigung (3D-Effekt)</string>
+    <string name="device_tilt_desc">Sphäre durch Neigen des Geräts (Gyroskop) drehen</string>
+    <string name="pulsation_title">3D-Raum-Pulsation</string>
+    <string name="pulsation_desc">Symbole kommen rhythmisch näher und entfernen sich</string>
+    <string name="audio_reactivity">Audio-Reaktivität</string>
+    <string name="audio_reactive_desc">Sphäre pulsiert passend zu Musik und Geräuschen (Mikrofon)</string>
+    <string name="bind_home_title">Standard-HOME-Taste</string>
+    <string name="bind_home_desc">Launcher als Standard für die Home-Taste festlegen</string>
+    <string name="bind_home_btn">Festlegen</string>
+    <string name="neon_glow_settings">Neonlicht-Anpassung</string>
+    <string name="neon_color">Neonfarbe:</string>
+    <string name="glow_intensity">Neonintensität:</string>
+    <string name="glow_size">Leuchtgröße:</string>
+    <string name="show_manual">Benutzerhandbuch anzeigen</string>
+    <string name="restore_hidden_apps">Versteckte Apps wiederherstellen (%1$d)</string>
+    <string name="refresh_button">Aktualisieren</string>
+    <string name="close_button">Schließen</string>
+    <string name="retry_button">Wiederholen</string>
+    <string name="mic_permission_denied">Mikrofon-Berechtigung verweigert</string>
+    <string name="uninstall_fail">Deinstallations-Dialog konnte nicht geöffnet werden: %1$s</string>
+    <string name="dialog_choose_action">Aktion für die App auswählen. Ausblenden entfernt sie aus dem Launcher, sie bleibt aber installiert. Deinstallieren entfernt sie komplett vom Gerät.</string>
+    <string name="dialog_hide_icon">Symbol ausblenden</string>
+    <string name="dialog_uninstall_app">App deinstallieren</string>
+    <string name="dialog_cancel">Abbrechen</string>
+
+    <!-- Onboarding Tour Strings -->
+    <string name="ob_title_permission">App-Zugriff</string>
+    <string name="ob_desc_permission">Der Launcher benötigt Ihre Zustimmung, um installierte Apps abzufragen (QUERY_ALL_PACKAGES). Dies wird nur lokal auf Ihrem Gerät verwendet, um Apps in der 3D-Sphäre anzuzeigen und zu starten. Wir garantieren 100% Datenschutz.</string>
+    <string name="ob_title_sphere">3D-App-Sphäre</string>
+    <string name="ob_desc_sphere">Willkommen! Ihre Apps schweben im dreidimensionalen Raum. Drehen Sie die Sphäre in jede Richtung mit Wischgesten und starten Sie Apps mit einem Fingertipp.</string>
+    <string name="ob_title_access">Schnellzugriff</string>
+    <string name="ob_desc_access">Stoppen Sie die Rotation der Sphäre mit der Schloss-Taste oder steuern Sie die Trägheit unten links. Starten Sie die Kamera sofort mit einem Tippen unten rechts!</string>
+    <string name="ob_title_music">Musik-Rhythmus</string>
+    <string name="ob_desc_music">Aktivieren Sie die \'Audio-Reaktivität\' in den Einstellungen: Die Sphäre und der Neon-Nebel erweitern und pulsieren dynamisch synchron mit Ihrer Musik oder Stimme.</string>
+    <string name="ob_btn_agree">Zustimmen</string>
+    <string name="ob_btn_next">Weiter</string>
+    <string name="ob_btn_start">Starten</string>
+    <string name="ob_btn_skip">Überspringen</string>
+    <string name="ob_title_gestures">Luftgesten</string>
+    <string name="ob_desc_gestures">Steuern Sie die Sphäre mit der Hand, ohne den Bildschirm zu berühren! Gesten: Greifen zum Auswählen, Greifen zum Vergrößern/Verkleinern. In den Einstellungen aktivieren.</string>
+    <string name="ob_btn_back">Zurück</string>
+
+    <!-- Glow Color Selector Strings -->
+    <string name="color_system">System</string>
+    <string name="color_cyan">Zyanblau</string>
+    <string name="color_purple">Lila</string>
+    <string name="color_green">Grün</string>
+    <string name="color_red">Rot</string>
+    <string name="color_gold">Gold</string>
+    <string name="exit_to_system_launcher">System-Launcher</string>
+
+    <!-- Air Gesture Control strings -->
+    <string name="gesture_control_title">Luftgesten-Steuerung</string>
+    <string name="gesture_control_desc">Steuern Sie die Sphäre und starten Sie Apps mit Handbewegungen vor der Kamera</string>
+    <string name="camera_permission_denied">Für Luftgesten wird die Kameraberechtigung benötigt</string>
+
+    <!-- Center Object Settings -->
+    <string name="center_object_title">Objekt in der Sphäre</string>
+    <string name="center_none">Nichts</string>
+    <string name="center_earth">Erd-Hologramm</string>
+    <string name="center_earth_real">Realistische Erde</string>
+    <string name="center_black_hole">Schwarzes Loch (Oben)</string>
+    <string name="running_apps_only">Nur ausgeführte Apps</string>
+    <string name="running_apps_only_desc">Zeigt nur Apps an, die während dieser Sitzung gestartet wurden</string>
+
+    <!-- New added strings -->
+    <string name="starfield_title">Sternen-Hintergrund</string>
+    <string name="starfield_desc">Bewegte Sterne im Hintergrund anzeigen</string>
+    <string name="zoom_control_title">Zoom-Steuerung</string>
+    <string name="zoom_control_desc">Maßstab mit Zwei-Finger-Zoom und Gesten ändern</string>
+    <string name="camera_permission_title">Kameraberechtigung</string>
+    <string name="camera_permission_rationale">Damit die Luftgesten funktionieren, benötigt die App Zugriff auf die Kamera. Das Bild wird lokal verarbeitet und nicht gesendet.</string>
+    <string name="mic_permission_title">Mikrofon-Berechtigung</string>
+    <string name="mic_permission_rationale">Für die Audio-Reaktivität benötigt die App Mikrofonzugriff, um auf Musik und Geräusche reagieren zu können.</string>
+    <string name="search_desc">Suche</string>
+    <string name="clear_desc">Löschen</string>
+    <string name="back_desc">Zurück</string>
+    <string name="settings_unavailable">Einstellungen nicht verfügbar</string>
+</resources>

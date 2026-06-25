@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SphereLauncher</string>
+    <string name="search_placeholder">搜索应用…</string>
+    <string name="fail_launch_app">无法启动 %1$s</string>
+    <string name="error_prefix">错误：%1$s</string>
+    <string name="camera_unavailable">相机不可用：%1$s</string>
+    <string name="no_apps_found">未找到应用</string>
+    <string name="rotation_inertia">旋转惯性</string>
+    <string name="rotation_lock">旋转锁定</string>
+    <string name="settings_title">3D球体设置</string>
+    <string name="shape_selector_title">3D形状：</string>
+    <string name="shape_sphere">球体</string>
+    <string name="shape_snake">贪吃蛇</string>
+    <string name="auto_drift_title">自动旋转</string>
+    <string name="auto_drift_desc">图标缓慢自动漂移</string>
+    <string name="device_tilt_title">设备倾斜 (3D效果)</string>
+    <string name="device_tilt_desc">使用陀螺仪旋转和倾斜球体</string>
+    <string name="pulsation_title">3D空间脉动</string>
+    <string name="pulsation_desc">图标有节奏地靠近和远离</string>
+    <string name="audio_reactivity">音频响应</string>
+    <string name="audio_reactive_desc">球体随音乐和声音（麦克风）同步脉动</string>
+    <string name="bind_home_title">默认主页键</string>
+    <string name="bind_home_desc">将启动器绑定到系统主页键</string>
+    <string name="bind_home_btn">绑定</string>
+    <string name="neon_glow_settings">霓虹光环自定义</string>
+    <string name="neon_color">霓虹颜色：</string>
+    <string name="glow_intensity">霓虹强度：</string>
+    <string name="glow_size">发光大小：</string>
+    <string name="show_manual">显示用户指南</string>
+    <string name="restore_hidden_apps">恢复隐藏的应用 (%1$d)</string>
+    <string name="refresh_button">刷新</string>
+    <string name="close_button">关闭</string>
+    <string name="retry_button">重试</string>
+    <string name="mic_permission_denied">麦克风录音权限被拒绝</string>
+    <string name="uninstall_fail">无法打开卸载对话框：%1$s</string>
+    <string name="dialog_choose_action">为应用选择操作。隐藏它将使其从启动器中移除，但保留在设备中。卸载它将从设备中完全删除。</string>
+    <string name="dialog_hide_icon">隐藏图标</string>
+    <string name="dialog_uninstall_app">卸载应用</string>
+    <string name="dialog_cancel">取消</string>
+
+    <!-- Onboarding Tour Strings -->
+    <string name="ob_title_permission">应用访问</string>
+    <string name="ob_desc_permission">启动器需要您的同意以查询已安装的应用 (QUERY_ALL_PACKAGES)。这仅在您的设备上本地使用，以便在 3D 球体中显示和启动应用。我们保证 100% 的隐私。</string>
+    <string name="ob_title_sphere">3D 应用球体</string>
+    <string name="ob_desc_sphere">欢迎！您的应用程序漂浮在三维空间中。通过滑动以任何方向旋转球体，并单击启动它们。</string>
+    <string name="ob_title_access">快速访问</string>
+    <string name="ob_desc_access">使用锁形按钮冻结球体旋转，或控制左下角的惯性。点击右下角即可立即启动相机！</string>
+    <string name="ob_title_music">音乐节拍</string>
+    <string name="ob_desc_music">在设置中启用“音频响应”：球体和霓虹星云将随着您的音乐或声音动态膨胀并闪烁。</string>
+    <string name="ob_btn_agree">同意</string>
+    <string name="ob_btn_next">下一步</string>
+    <string name="ob_btn_start">开始</string>
+    <string name="ob_btn_skip">跳过</string>
+    <string name="ob_title_gestures">隔空手势</string>
+    <string name="ob_desc_gestures">无需触摸屏幕，即可用手控制球体！手势方案：捏合、通过捏合缩放、通过张开手掌缩放、通过捏合启动。在设置中启用。</string>
+    <string name="ob_btn_back">返回</string>
+
+    <!-- Glow Color Selector Strings -->
+    <string name="color_system">系统</string>
+    <string name="color_cyan">青色</string>
+    <string name="color_purple">紫色</string>
+    <string name="color_green">绿色</string>
+    <string name="color_red">红色</string>
+    <string name="color_gold">金色</string>
+    <string name="exit_to_system_launcher">系统启动器</string>
+
+    <!-- Air Gesture Control strings -->
+    <string name="gesture_control_title">隔空手势控制</string>
+    <string name="gesture_control_desc">通过在相机前的挥手动作控制球体并启动应用</string>
+    <string name="camera_permission_denied">隔空手势需要相机权限</string>
+
+    <!-- Center Object Settings -->
+    <string name="center_object_title">球体内部对象</string>
+    <string name="center_none">无</string>
+    <string name="center_earth">地球全息图</string>
+    <string name="center_earth_real">真实的地球</string>
+    <string name="center_black_hole">黑洞 (顶部)</string>
+    <string name="running_apps_only">仅运行中的应用</string>
+    <string name="running_apps_only_desc">仅显示本次会话期间启动过的应用</string>
+
+    <!-- New added strings -->
+    <string name="starfield_title">星空背景</string>
+    <string name="starfield_desc">在背景中显示移动的星星</string>
+    <string name="zoom_control_title">缩放控制</string>
+    <string name="zoom_control_desc">通过捏合和手势缩放</string>
+    <string name="camera_permission_title">相机权限</string>
+    <string name="camera_permission_rationale">为了让隔空手势起作用，应用需要访问相机。图像在本地处理，绝不会发送到任何地方。</string>
+    <string name="mic_permission_title">麦克风权限</string>
+    <string name="mic_permission_rationale">为了音频响应，应用需要麦克风访问权限以响应音乐和声音。</string>
+    <string name="search_desc">搜索</string>
+    <string name="clear_desc">清除</string>
+    <string name="back_desc">返回</string>
+    <string name="settings_unavailable">设置不可用</string>
+</resources>

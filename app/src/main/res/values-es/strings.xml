@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SphereLauncher</string>
+    <string name="search_placeholder">Buscar aplicaciones…</string>
+    <string name="fail_launch_app">No se pudo iniciar %1$s</string>
+    <string name="error_prefix">Error: %1$s</string>
+    <string name="camera_unavailable">Cámara no disponible: %1$s</string>
+    <string name="no_apps_found">No se encontraron aplicaciones</string>
+    <string name="rotation_inertia">Inercia de rotación</string>
+    <string name="rotation_lock">Bloqueo de rotación</string>
+    <string name="settings_title">Ajustes de la Esfera 3D</string>
+    <string name="shape_selector_title">Forma 3D:</string>
+    <string name="shape_sphere">Esfera</string>
+    <string name="shape_snake">Serpiente</string>
+    <string name="auto_drift_title">Rotación automática</string>
+    <string name="auto_drift_desc">Rotación automática lenta de iconos</string>
+    <string name="device_tilt_title">Inclinación (Efecto 3D)</string>
+    <string name="device_tilt_desc">Rotar la esfera al inclinar el dispositivo</string>
+    <string name="pulsation_title">Pulsación del espacio 3D</string>
+    <string name="pulsation_desc">Los iconos se acercan y alejan rítmicamente</string>
+    <string name="audio_reactivity">Reactividad de audio</string>
+    <string name="audio_reactive_desc">La esfera pulsa en sincronía con música y sonidos (micrófono)</string>
+    <string name="bind_home_title">Botón HOME predeterminado</string>
+    <string name="bind_home_desc">Asignar el launcher al botón de inicio del sistema</string>
+    <string name="bind_home_btn">Asignar</string>
+    <string name="neon_glow_settings">Personalización de brillo de neón</string>
+    <string name="neon_color">Color de neón:</string>
+    <string name="glow_intensity">Intensidad de neón:</string>
+    <string name="glow_size">Tamaño del brillo:</string>
+    <string name="show_manual">Mostrar guía del usuario</string>
+    <string name="restore_hidden_apps">Restaurar aplicaciones ocultas (%1$d)</string>
+    <string name="refresh_button">Actualizar</string>
+    <string name="close_button">Cerrar</string>
+    <string name="retry_button">Reintentar</string>
+    <string name="mic_permission_denied">Permiso de grabación de micrófono denegado</string>
+    <string name="uninstall_fail">Error al abrir el cuadro de diálogo de desinstalación: %1$s</string>
+    <string name="dialog_choose_action">Elige una acción. Ocultar la aplicación la eliminará del launcher, pero seguirá instalada. Desinstalarla la eliminará completamente del dispositivo.</string>
+    <string name="dialog_hide_icon">Ocultar icono</string>
+    <string name="dialog_uninstall_app">Desinstalar aplicación</string>
+    <string name="dialog_cancel">Cancelar</string>
+
+    <!-- Onboarding Tour Strings -->
+    <string name="ob_title_permission">Acceso a aplicaciones</string>
+    <string name="ob_desc_permission">El launcher requiere su consentimiento para consultar las aplicaciones instaladas (QUERY_ALL_PACKAGES). Esto se usa estrictamente a nivel local en su dispositivo para mostrar e iniciar aplicaciones en la Esfera 3D. Garantizamos 100% de privacidad.</string>
+    <string name="ob_title_sphere">Esfera de aplicaciones 3D</string>
+    <string name="ob_desc_sphere">¡Bienvenido! Sus aplicaciones flotan en un espacio tridimensional. Rote la esfera en cualquier dirección deslizando y ábralas con un solo toque.</string>
+    <string name="ob_title_access">Acceso rápido</string>
+    <string name="ob_desc_access">Congele la rotación de la esfera con el botón del candado o controle la inercia en la esquina inferior izquierda. ¡Inicie la cámara al instante con un toque en la esquina inferior derecha!</string>
+    <string name="ob_title_music">Ritmo de música</string>
+    <string name="ob_desc_music">Active la \'Reactividad de audio\' en la configuración: la esfera y la nebulosa de neón se expandirán y pulsarán dinámicamente en sincronía con su música o su voz.</string>
+    <string name="ob_btn_agree">Aceptar</string>
+    <string name="ob_btn_next">Siguiente</string>
+    <string name="ob_btn_start">Empezar</string>
+    <string name="ob_btn_skip">Omitir</string>
+    <string name="ob_title_gestures">Gestos aéreos</string>
+    <string name="ob_desc_gestures">¡Controle la esfera con su mano sin tocar la pantalla! Opciones: pellizcar, acercar pellizcando, acercar con la palma abierta, iniciar pellizcando. Actívelo en la configuración.</string>
+    <string name="ob_btn_back">Atrás</string>
+
+    <!-- Glow Color Selector Strings -->
+    <string name="color_system">Sistema</string>
+    <string name="color_cyan">Cian</string>
+    <string name="color_purple">Morado</string>
+    <string name="color_green">Verde</string>
+    <string name="color_red">Rojo</string>
+    <string name="color_gold">Dorado</string>
+    <string name="exit_to_system_launcher">Launcher del sistema</string>
+
+    <!-- Air Gesture Control strings -->
+    <string name="gesture_control_title">Control por gestos aéreos</string>
+    <string name="gesture_control_desc">Controle la esfera e inicie aplicaciones con movimientos de mano frente a la cámara</string>
+    <string name="camera_permission_denied">Se requiere permiso de cámara para Gestos Aéreos</string>
+
+    <!-- Center Object Settings -->
+    <string name="center_object_title">Objeto dentro de la esfera</string>
+    <string name="center_none">Ninguno</string>
+    <string name="center_earth">Holograma de la Tierra</string>
+    <string name="center_earth_real">Tierra Realista</string>
+    <string name="center_black_hole">Agujero Negro (Arriba)</string>
+    <string name="running_apps_only">Solo aplicaciones en ejecución</string>
+    <string name="running_apps_only_desc">Muestra solo las aplicaciones iniciadas durante esta sesión</string>
+
+    <!-- New added strings -->
+    <string name="starfield_title">Fondo de estrellas</string>
+    <string name="starfield_desc">Mostrar estrellas en movimiento en el fondo</string>
+    <string name="zoom_control_title">Control de Zoom</string>
+    <string name="zoom_control_desc">Escale pellizcando o con gestos aéreos</string>
+    <string name="camera_permission_title">Permiso de la cámara</string>
+    <string name="camera_permission_rationale">Para que los Gestos Aéreos funcionen, la aplicación requiere acceso a la cámara. La imagen se procesa localmente y nunca se envía a ningún lado.</string>
+    <string name="mic_permission_title">Permiso del micrófono</string>
+    <string name="mic_permission_rationale">Para la reactividad de audio, la aplicación necesita acceso al micrófono para reaccionar a música y sonidos.</string>
+    <string name="search_desc">Buscar</string>
+    <string name="clear_desc">Borrar</string>
+    <string name="back_desc">Atrás</string>
+    <string name="settings_unavailable">Ajustes no disponibles</string>
+</resources>

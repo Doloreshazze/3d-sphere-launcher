@@ -78,9 +78,9 @@ fun MainScreen(
     // Gesture tracking variables
     val projectedNodesList = remember { ArrayList<AppRenderNode>() }
     // Smoothed (damped) cursor position – prevents micro-tremors from jittering the sphere
-    var smoothCursorX by remember { mutableStateOf(0.5f) }
-    var smoothCursorY by remember { mutableStateOf(0.5f) }
-    var smoothHandScale by remember { mutableStateOf(0.5f) }
+    var smoothCursorX by remember { mutableFloatStateOf(0.5f) }
+    var smoothCursorY by remember { mutableFloatStateOf(0.5f) }
+    var smoothHandScale by remember { mutableFloatStateOf(0.5f) }
     var smoothAppleSize by remember { mutableFloatStateOf(0f) }
 
     val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -130,8 +130,8 @@ fun MainScreen(
         isEnabled = state.isGestureControlEnabled && state.shapeType != ShapeType.SNAKE
     )
 
-    var cursorOffsetX by remember { mutableStateOf(0f) }
-    var cursorOffsetY by remember { mutableStateOf(0f) }
+    var cursorOffsetX by remember { mutableFloatStateOf(0f) }
+    var cursorOffsetY by remember { mutableFloatStateOf(0f) }
     var wasClenchedForOffset by remember { mutableStateOf(false) }
     var resetZoomTrigger by remember { mutableLongStateOf(0L) }
 
@@ -219,9 +219,9 @@ fun MainScreen(
 
     // Translate coordinates and their changes (deltas) to simulated native touch events on the main screen.
     var wasClenched by remember { mutableStateOf(false) }
-    var touchDownTime by remember { mutableStateOf(0L) }
-    var touchDownX by remember { mutableStateOf(0f) }
-    var touchDownY by remember { mutableStateOf(0f) }
+    var touchDownTime by remember { mutableLongStateOf(0L) }
+    var touchDownX by remember { mutableFloatStateOf(0f) }
+    var touchDownY by remember { mutableFloatStateOf(0f) }
     var hasMovedSignificantly by remember { mutableStateOf(false) }
     var pinchedApp by remember { mutableStateOf<AppInfo?>(null) }
     var hoveredApp by remember { mutableStateOf<AppInfo?>(null) }
@@ -494,7 +494,7 @@ fun MainScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
+                            contentDescription = stringResource(R.string.search_desc),
                             tint = Color(0xB300F2FE),
                             modifier = Modifier.size(20.dp)
                         )
@@ -526,7 +526,7 @@ fun MainScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear",
+                                    contentDescription = stringResource(R.string.clear_desc),
                                     tint = Color(0x80FFFFFF),
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -578,7 +578,7 @@ fun MainScreen(
                             onClick = { viewModel.loadApps() },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE))
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Retry")
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.retry_button))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(stringResource(R.string.retry_button), color = Color.Black)
                         }
@@ -729,7 +729,7 @@ fun MainScreen(
                                     }
                                     context.startActivity(intent)
                                 } catch (e2: Exception) {
-                                    Toast.makeText(context, "Settings unavailable", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.settings_unavailable), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
@@ -766,7 +766,7 @@ fun MainScreen(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.back_desc),
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
@@ -990,7 +990,7 @@ fun MainScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back_desc),
                             tint = Color.White,
                             modifier = Modifier.size(26.dp)
                         )
@@ -2039,7 +2039,7 @@ fun SettingsSheetContent(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_button), modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(stringResource(R.string.refresh_button), fontSize = 13.sp)
             }
@@ -2228,7 +2228,7 @@ fun OnboardingTour(
     onComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var currentSlide by remember { mutableStateOf(0) }
+    var currentSlide by remember { mutableIntStateOf(0) }
     val totalSlides = 5
     
     var canClose by remember { mutableStateOf(false) }

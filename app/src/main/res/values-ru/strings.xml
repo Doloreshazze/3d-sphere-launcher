@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SphereLauncher</string>
-    <string name="search_placeholder">Поиск приложений...</string>
+    <string name="search_placeholder">Поиск приложений…</string>
     <string name="fail_launch_app">Не удалось запустить %1$s</string>
     <string name="error_prefix">Ошибка: %1$s</string>
     <string name="camera_unavailable">Камера недоступна: %1$s</string>
@@ -9,77 +9,87 @@
     <string name="rotation_inertia">Инерция вращения</string>
     <string name="rotation_lock">Блокировка вращения</string>
     <string name="settings_title">Настройки 3D Сферы</string>
-    <string name="shape_selector_title">Форма 3D-пространства:</string>
+    <string name="shape_selector_title">3D Форма:</string>
     <string name="shape_sphere">Сфера</string>
     <string name="shape_snake">Змейка</string>
-    <string name="auto_drift_title">Авто-вращение сферы</string>
-    <string name="auto_drift_desc">Медленный автоматический дрейф икон</string>
-    <string name="device_tilt_title">Наклон устройства (3D-эффект)</string>
-    <string name="device_tilt_desc">Вращение и наклон сферы гироскопом</string>
-    <string name="pulsation_title">Пульсация 3D-пространства</string>
+    <string name="auto_drift_title">Авто-вращение</string>
+    <string name="auto_drift_desc">Медленное автоматическое вращение иконок</string>
+    <string name="device_tilt_title">Наклон устройства (3D эффект)</string>
+    <string name="device_tilt_desc">Вращение и наклон сферы с помощью гироскопа</string>
+    <string name="pulsation_title">Пульсация пространства</string>
     <string name="pulsation_desc">Иконки ритмично приближаются и отдаляются</string>
     <string name="audio_reactivity">Аудио-реактивность</string>
     <string name="audio_reactive_desc">Сфера пульсирует в такт музыке и звукам (микрофон)</string>
     <string name="bind_home_title">Кнопка HOME по умолчанию</string>
-    <string name="bind_home_desc">Привязать лаунчер к системной кнопке Home</string>
-    <string name="bind_home_btn">Привязать</string>
-    <string name="neon_glow_settings">Настройка свечения ореола</string>
+    <string name="bind_home_desc">Назначить лаунчер системной кнопкой Home</string>
+    <string name="bind_home_btn">Назначить</string>
+    <string name="neon_glow_settings">Настройка неонового свечения</string>
     <string name="neon_color">Цвет неона:</string>
     <string name="glow_intensity">Интенсивность неона:</string>
     <string name="glow_size">Размер свечения:</string>
-    <string name="show_manual">Показать инструкцию пользователя</string>
+    <string name="show_manual">Показать руководство пользователя</string>
     <string name="restore_hidden_apps">Восстановить скрытые приложения (%1$d)</string>
     <string name="refresh_button">Обновить</string>
     <string name="close_button">Закрыть</string>
     <string name="retry_button">Повторить</string>
-    <string name="mic_permission_denied">Разрешение на доступ к микрофону отклонено</string>
-    <string name="uninstall_fail">Не удалось открыть удаление: %1$s</string>
-    <string name="dialog_choose_action">Выберите действие для приложения. При скрытии иконка исчезнет с лаунчера, но приложение останется установленным. При удалении приложение будет полностью удалено с устройства.</string>
+    <string name="mic_permission_denied">В разрешении на запись аудио отказано</string>
+    <string name="uninstall_fail">Не удалось открыть диалог удаления: %1$s</string>
+    <string name="dialog_choose_action">Выберите действие для приложения. Скрытие уберет его из лаунчера, но оставит установленным. Удаление полностью сотрет его с устройства.</string>
     <string name="dialog_hide_icon">Скрыть иконку</string>
     <string name="dialog_uninstall_app">Удалить приложение</string>
     <string name="dialog_cancel">Отмена</string>
 
     <!-- Onboarding Tour Strings -->
     <string name="ob_title_permission">Доступ к приложениям</string>
-    <string name="ob_desc_permission">Для работы лаунчеру требуется ваше согласие на получение списка приложений (QUERY_ALL_PACKAGES). Это используется исключительно локально на вашем устройстве для отображения иконок в 3D Сфере и 2D сетке, а также их запуска. Мы гарантируем 100% приватность.</string>
+    <string name="ob_desc_permission">Лаунчеру требуется ваше согласие для получения списка установленных приложений (QUERY_ALL_PACKAGES). Это используется строго локально на вашем устройстве для отображения и запуска приложений в 3D-сфере. Мы гарантируем 100% конфиденциальность.</string>
     <string name="ob_title_sphere">3D Сфера приложений</string>
-    <string name="ob_desc_sphere">Добро пожаловать! Ваши приложения парят в трехмерном пространстве. Вращайте сферу свайпами в любом направлении и запускайте их в одно касание.</string>
+    <string name="ob_desc_sphere">Добро пожаловать! Ваши приложения парят в трехмерном пространстве. Вращайте сферу в любом направлении свайпами и запускайте их одним касанием.</string>
     <string name="ob_title_access">Быстрый доступ</string>
-    <string name="ob_desc_access">В левом нижнем углу замораживайте вращение сферы кнопкой «Замок» или управляйте инерцией. В правом нижнем углу мгновенно открывайте Камеру одной кнопкой!</string>
-    <string name="ob_title_music">Музыкальный бит</string>
-    <string name="ob_desc_music">Включите режим «Аудио-реактивность» в настройках: сфера и неоновый туман начнут динамично раздуваться и вспыхивать в такт музыке на YouTube или вашему голосу.</string>
-    <string name="ob_btn_agree">Согласиться</string>
+    <string name="ob_desc_access">Заморозьте вращение сферы кнопкой-замком или управляйте инерцией в левом нижнем углу. Быстрый запуск камеры — одним касанием в правом нижнем углу!</string>
+    <string name="ob_title_music">Музыкальный ритм</string>
+    <string name="ob_desc_music">Включите \'Аудио-реактивность\' в настройках: сфера и неоновая туманность будут динамично расширяться и пульсировать в такт вашей музыке из YouTube или вашему голосу.</string>
+    <string name="ob_btn_agree">Согласен</string>
     <string name="ob_btn_next">Далее</string>
-    <string name="ob_btn_start">Начать</string>
+    <string name="ob_btn_start">Старт</string>
     <string name="ob_btn_skip">Пропустить</string>
     <string name="ob_title_gestures">Воздушные жесты</string>
-    <string name="ob_desc_gestures">Управляйте сферой взмахом руки, не касаясь экрана! Схемы жестов: щипок, зум щипком, зум раскрывающаяся ладонь, запуск щипком. Включите эту функцию в настройках.</string>
+    <string name="ob_desc_gestures">Управляйте сферой с помощью руки, не касаясь экрана! Схемы жестов: захват щепоткой, масштаб щепоткой, масштаб открытой ладонью, запуск щепоткой. Включите это в настройках.</string>
     <string name="ob_btn_back">Назад</string>
 
     <!-- Glow Color Selector Strings -->
     <string name="color_system">Системный</string>
-    <string name="center_earth">Голограмма Земли</string>
-    <string name="center_earth_real">Реалистичная Земля</string>
-    <string name="center_black_hole">Черная дыра (Сверху)</string>
-    <string name="center_black_hole_side">Черная дыра (Сбоку)</string>
-    <string name="zoom_settings">Управление зумом</string>
     <string name="color_cyan">Голубой</string>
-    <string name="color_purple">Сиреневый</string>
+    <string name="color_purple">Пурпурный</string>
     <string name="color_green">Зеленый</string>
     <string name="color_red">Красный</string>
     <string name="color_gold">Золотой</string>
     <string name="exit_to_system_launcher">Системный лаунчер</string>
-    <string name="running_apps_only">Только запущенные</string>
-    <string name="running_apps_only_desc">Показывать только приложения, открытые в этой сессии</string>
+
+    <!-- Air Gesture Control strings -->
+    <string name="gesture_control_title">Управление воздушными жестами</string>
+    <string name="gesture_control_desc">Управляйте сферой и запускайте приложения движениями руки перед камерой</string>
+    <string name="camera_permission_denied">Для воздушных жестов требуется разрешение на использование камеры</string>
+
+    <!-- Center Object Settings -->
+    <string name="center_object_title">Объект внутри сферы</string>
+    <string name="center_none">Ничего</string>
+    <string name="center_earth">Голограмма Земли</string>
+    <string name="center_earth_real">Реалистичная Земля</string>
+    <string name="center_black_hole">Черная дыра (Сверху)</string>
+    <string name="running_apps_only">Только запущенные приложения</string>
+    <string name="running_apps_only_desc">Показывать только те приложения, которые были запущены в текущей сессии</string>
 
     <!-- New added strings -->
-    <string name="fist_detected">КУЛАК ОБНАРУЖЕН!</string>
     <string name="starfield_title">Звездный фон</string>
     <string name="starfield_desc">Отображать движущиеся звезды на фоне</string>
-    <string name="zoom_control_title">Управление зумом</string>
-    <string name="zoom_control_desc">Масштабирование щипком и жестами</string>
-    <string name="camera_permission_title">Разрешение на камеру</string>
-    <string name="camera_permission_rationale">Для работы воздушных жестов (Air Gestures) приложению требуется доступ к камере. Изображение обрабатывается локально и никуда не отправляется.</string>
-    <string name="mic_permission_title">Разрешение на микрофон</string>
+    <string name="zoom_control_title">Управление масштабом</string>
+    <string name="zoom_control_desc">Изменение масштаба щепоткой и жестами</string>
+    <string name="camera_permission_title">Разрешение камеры</string>
+    <string name="camera_permission_rationale">Для работы Воздушных Жестов приложению нужен доступ к камере. Изображение обрабатывается локально и никуда не отправляется.</string>
+    <string name="mic_permission_title">Разрешение микрофона</string>
     <string name="mic_permission_rationale">Для аудио-реактивности приложению нужен доступ к микрофону, чтобы реагировать на музыку и звуки.</string>
+    <string name="search_desc">Поиск</string>
+    <string name="clear_desc">Очистить</string>
+    <string name="back_desc">Назад</string>
+    <string name="settings_unavailable">Настройки недоступны</string>
 </resources>
