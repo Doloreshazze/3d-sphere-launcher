@@ -369,7 +369,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     // --- LOW-LATENCY DUAL-MODE AUDIO VISUALIZER ENGINE ---
-    private var audioRecord: android.media.AudioRecord? = null
     private var visualizer: android.media.audiofx.Visualizer? = null
     private var audioJob: kotlinx.coroutines.Job? = null
 
@@ -429,73 +428,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 stopVisualizerInternal()
                 throw e
             } catch (e: Exception) {
-                android.util.Log.w("SphereViewModel", "Visualizer(0) failed, falling back to AudioRecord: ${e.message}")
+                android.util.Log.w("SphereViewModel", "Visualizer(0) failed: ${e.message}")
                 stopVisualizerInternal()
-            }
-            
-            // Tier 2: Fallback to Microphone recorder
-            val sampleRate = 16000
-            val channelConfig = android.media.AudioFormat.CHANNEL_IN_MONO
-            val audioFormat = android.media.AudioFormat.ENCODING_PCM_16BIT
-            val bufferSize = android.media.AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-            
-            if (bufferSize == android.media.AudioRecord.ERROR || bufferSize == android.media.AudioRecord.ERROR_BAD_VALUE) {
-                return@launch
-            }
-            
-            try {
-                if (androidx.core.content.ContextCompat.checkSelfPermission(
-                        getApplication(),
-                        android.Manifest.permission.RECORD_AUDIO
-                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-                ) {
-                    isAudioReactiveEnabledState.value = false
-                    return@launch
-                }
-
-                val record = android.media.AudioRecord(
-                    android.media.MediaRecorder.AudioSource.MIC,
-                    sampleRate,
-                    channelConfig,
-                    audioFormat,
-                    bufferSize * 2
-                )
-                
-                if (record.state != android.media.AudioRecord.STATE_INITIALIZED) {
-                    record.release()
-                    return@launch
-                }
-                
-                audioRecord = record
-                record.startRecording()
-                
-                val audioBuffer = ShortArray(bufferSize / 2)
-                
-                while (isAudioReactiveEnabledState.value) {
-                    val readResult = record.read(audioBuffer, 0, audioBuffer.size)
-                    if (readResult > 0) {
-                        var sum = 0.0
-                        for (i in 0 until readResult) {
-                            val sample = audioBuffer[i].toDouble()
-                            sum += sample * sample
-                        }
-                        val rms = kotlin.math.sqrt(sum / readResult)
-                        
-                        val normalized = ((rms - 150.0) / 4500.0).coerceIn(0.0, 1.0).toFloat()
-                        smoothedAmp = smoothedAmp * 0.75f + normalized * 0.25f
-                        audioAmplitudeState.value = smoothedAmp
-                    }
-                    kotlinx.coroutines.delay(16L)
-                }
-            } catch (e: SecurityException) {
-                android.util.Log.e("MainScreenViewModel", "Missing permission for AudioRecord", e)
                 isAudioReactiveEnabledState.value = false
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("MainScreenViewModel", "Error in audio recording loop", e)
-            } finally {
-                stopAudioRecordingInternal()
             }
         }
     }
@@ -512,26 +447,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         visualizer = null
     }
 
-    private fun stopAudioRecordingInternal() {
-        try {
-            audioRecord?.apply {
-                if (recordingState == android.media.AudioRecord.RECORDSTATE_RECORDING) {
-                    stop()
-                }
-                release()
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("MainScreenViewModel", "Failed to stop audio record", e)
-        }
-        audioRecord = null
-        audioAmplitudeState.value = 0f
-    }
-    
     private fun stopAudioRecording() {
         audioJob?.cancel()
         audioJob = null
         stopVisualizerInternal()
-        stopAudioRecordingInternal()
+        audioAmplitudeState.value = 0f
     }
 
     override fun onCleared() {

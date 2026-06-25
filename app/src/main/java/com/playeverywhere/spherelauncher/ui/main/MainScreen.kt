@@ -1079,7 +1079,6 @@ fun MainScreen(
                     }
                 }
                 
-                var showMicRationale by remember { mutableStateOf(false) }
                 var showCameraRationale by remember { mutableStateOf(false) }
 
                 SettingsSheetContent(
@@ -1093,19 +1092,7 @@ fun MainScreen(
                     onGlowBrightnessChanged = { viewModel.setGlowBrightness(it) },
                     onPulsingChanged = { viewModel.setPulsingEnabled(it) },
                     onAudioReactiveChanged = { enabled ->
-                        if (enabled) {
-                            if (androidx.core.content.ContextCompat.checkSelfPermission(
-                                    context,
-                                    android.Manifest.permission.RECORD_AUDIO
-                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                            ) {
-                                viewModel.setAudioReactiveEnabled(true)
-                            } else {
-                                showMicRationale = true
-                            }
-                        } else {
-                            viewModel.setAudioReactiveEnabled(false)
-                        }
+                        viewModel.setAudioReactiveEnabled(enabled)
                     },
                     onRunningAppsOnlyChanged = { viewModel.toggleRunningAppsFilter() },
                     onGestureControlChanged = { enabled ->
@@ -1143,28 +1130,6 @@ fun MainScreen(
                         showSettings = false
                     }
                 )
-
-                if (showMicRationale) {
-                    AlertDialog(
-                        onDismissRequest = { showMicRationale = false },
-                        containerColor = Color(0xE00D0B18),
-                        title = { Text(stringResource(R.string.mic_permission_title), color = Color(0xFF00F2FE)) },
-                        text = { Text(stringResource(R.string.mic_permission_rationale), color = Color.White) },
-                        confirmButton = {
-                            Button(onClick = {
-                                showMicRationale = false
-                                permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE), contentColor = Color.Black)) {
-                                Text(stringResource(android.R.string.ok))
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showMicRationale = false }) {
-                                Text(stringResource(android.R.string.cancel), color = Color(0xFF00F2FE))
-                            }
-                        }
-                    )
-                }
 
                 if (showCameraRationale) {
                     AlertDialog(
