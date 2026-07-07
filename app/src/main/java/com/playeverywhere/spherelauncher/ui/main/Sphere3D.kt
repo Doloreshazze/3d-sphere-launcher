@@ -163,6 +163,8 @@ fun Sphere3D(
     isAudioReactiveEnabled: Boolean = false,
     audioAmplitude: Float = 0.0f,
     isGestureEnabled: Boolean = false,
+    isCameraInsideEnabled: Boolean = false,
+    cameraLensFacing: Int = 1,
     isEarthInsideEnabled: Boolean = false,
     isRealisticEarthEnabled: Boolean = false,
     isBlackHoleEnabled: Boolean = false,
@@ -893,6 +895,19 @@ fun Sphere3D(
             },
         contentAlignment = Alignment.Center
     ) {
+        if (isCameraInsideEnabled) {
+            Box(
+                modifier = Modifier
+                    .size((rotationState.radius * 2 / density.density).dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+            ) {
+                FisheyeCameraView(
+                    modifier = Modifier.fillMaxSize(),
+                    lensFacing = cameraLensFacing
+                )
+            }
+        }
+
         if (shapeType == ShapeType.SPHERE) {
             val tileSize = (400f / kotlin.math.sqrt(apps.size.toFloat())).coerceIn(45f, 80f)
             val iconSize = tileSize * 0.70f

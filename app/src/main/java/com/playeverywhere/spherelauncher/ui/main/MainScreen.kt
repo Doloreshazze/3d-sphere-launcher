@@ -710,6 +710,8 @@ fun MainScreen(
                             isBlackHoleSideEnabled = state.isBlackHoleSideEnabled,
                             isGestureEnabled = state.isGestureControlEnabled && state.shapeType != ShapeType.SNAKE,
                             isEarthInsideEnabled = state.isEarthInsideEnabled,
+                            isCameraInsideEnabled = state.isCameraInsideEnabled,
+                            cameraLensFacing = state.cameraLensFacing,
                             isRealisticEarthEnabled = state.isRealisticEarthEnabled,
                             handCursorX = state.handCursorX,
                             handCursorY = state.handCursorY,
@@ -1236,6 +1238,8 @@ fun MainScreen(
                     onRealisticEarthChanged = { viewModel.setRealisticEarthEnabled(it) },
                     onBlackHoleChanged = { viewModel.setBlackHoleEnabled(it) },
                     onBlackHoleSideChanged = { viewModel.setBlackHoleSideEnabled(it) },
+                    onCameraInsideChanged = { viewModel.setCameraInsideEnabled(it) },
+                    onCameraLensFacingChanged = { viewModel.setCameraLensFacing(it) },
                     onRefreshApps = {
                         viewModel.loadApps()
                         showSettings = false
@@ -1478,6 +1482,8 @@ fun SettingsSheetContent(
     onRealisticEarthChanged: (Boolean) -> Unit,
     onBlackHoleChanged: (Boolean) -> Unit,
     onBlackHoleSideChanged: (Boolean) -> Unit,
+    onCameraInsideChanged: (Boolean) -> Unit,
+    onCameraLensFacingChanged: (Int) -> Unit,
     onRunningAppsOnlyChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit,
@@ -1540,8 +1546,9 @@ fun SettingsSheetContent(
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    val labelText = if (labelRes is Int) stringResource(labelRes) else labelRes as String
                     Text(
-                        text = stringResource(labelRes),
+                        text = labelText,
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) Color.White else Color(0xB3FFFFFF)
@@ -1564,15 +1571,17 @@ fun SettingsSheetContent(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val centerOptions = listOf(
-                Triple(0, R.string.center_none, Color(0xFF808080)),
-                Triple(1, R.string.center_earth, Color(0xFF00F2FE)),
-                Triple(2, R.string.center_earth_real, Color(0xFF4FACFE)),
-                Triple(3, R.string.center_black_hole, Color(0xFFFF5500))
+                Triple(0, "Нет", Color(0xFF808080)),
+                Triple(1, "Земля", Color(0xFF00F2FE)),
+                Triple(2, "Реал. Земля", Color(0xFF4FACFE)),
+                Triple(3, "ЧД", Color(0xFFFF5500)),
+                Triple(4, "Камера", Color(0xFF00FF88))
             )
             val currentSelected = when {
                 state.isBlackHoleEnabled -> 3
                 state.isRealisticEarthEnabled -> 2
                 state.isEarthInsideEnabled -> 1
+                state.isCameraInsideEnabled -> 4
                 else -> 0
             }
             centerOptions.forEach { (optionId, labelRes, colorAccent) ->
@@ -1596,35 +1605,74 @@ fun SettingsSheetContent(
                                     onBlackHoleChanged(false)
                                     onRealisticEarthChanged(false)
                                     onEarthInsideChanged(false)
+                                    onCameraInsideChanged(false)
                                 }
                                 1 -> {
                                     onBlackHoleChanged(false)
                                     onRealisticEarthChanged(false)
                                     onEarthInsideChanged(true)
+                                    onCameraInsideChanged(false)
                                 }
                                 2 -> {
                                     onBlackHoleChanged(false)
                                     onEarthInsideChanged(true)
                                     onRealisticEarthChanged(true)
+                                    onCameraInsideChanged(false)
                                 }
                                 3 -> {
                                     onEarthInsideChanged(false)
                                     onRealisticEarthChanged(false)
                                     onBlackHoleChanged(true)
+                                    onCameraInsideChanged(false)
+                                }
+                                4 -> {
+                                    onEarthInsideChanged(false)
+                                    onRealisticEarthChanged(false)
+                                    onBlackHoleChanged(false)
+                                    onCameraInsideChanged(true)
                                 }
                             }
                         }
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    val labelText = if (labelRes is Int) stringResource(labelRes) else labelRes as String
                     Text(
-                        text = stringResource(labelRes),
+                        text = labelText,
                         fontSize = 10.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) Color.White else Color(0xB3FFFFFF),
                         textAlign = TextAlign.Center
                     )
                 }
+            }
+        }
+
+        if (state.isCameraInsideEnabled) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Перевернуть камеру",
+                    fontSize = 14.sp,
+                    color = Color.White
+                )
+                Switch(
+                    checked = state.cameraLensFacing == 1, // 1 = back, 0 = front
+                    onCheckedChange = { isBack ->
+                        onCameraLensFacingChanged(if (isBack) 1 else 0)
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = Color(0xFF00FF88),
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color.Gray
+                    )
+                )
             }
         }
 

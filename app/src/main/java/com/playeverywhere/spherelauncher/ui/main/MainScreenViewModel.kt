@@ -74,7 +74,9 @@ data class MainUiState(
     val isZoomEnabled: Boolean = false,
     val isHandOverlayEnabled: Boolean = true,
     val showRunningAppsOnly: Boolean = false,
-    val isStarfieldEnabled: Boolean = true
+    val isStarfieldEnabled: Boolean = true,
+    val isCameraInsideEnabled: Boolean = false,
+    val cameraLensFacing: Int = 1
 )
 
 data class SettingsState(
@@ -129,6 +131,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isHandOverlayEnabledState = MutableStateFlow(prefs.getBoolean("hand_overlay_enabled", true))
     private val showRunningAppsOnlyState = MutableStateFlow(prefs.getBoolean("running_apps_only", false))
     private val isStarfieldEnabledState = MutableStateFlow(prefs.getBoolean("starfield_enabled", true))
+    private val isCameraInsideEnabledState = MutableStateFlow(prefs.getBoolean("camera_inside_enabled", false))
+    private val cameraLensFacingState = MutableStateFlow(prefs.getInt("camera_lens_facing", 1))
     private val launchedPackagesState = MutableStateFlow<Set<String>>(
         prefs.getStringSet("launched_packages", emptySet()) ?: emptySet()
     )
@@ -176,7 +180,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isHandOverlayEnabledState,
         showRunningAppsOnlyState,
         isStarfieldEnabledState,
-        launchedPackagesState
+        launchedPackagesState,
+        isCameraInsideEnabledState,
+        cameraLensFacingState
     ) { array ->
         @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
@@ -214,6 +220,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val isStarfieldEnabled = array[32] as Boolean
         @Suppress("UNCHECKED_CAST")
         val launchedPackages = array[33] as Set<String>
+        val isCameraInsideEnabled = array[34] as Boolean
+        val cameraLensFacing = array[35] as Int
 
         val visibleApps = apps.filter { 
             it.packageName !in hiddenPackages && 
@@ -262,7 +270,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isZoomEnabled = isZoomEnabled,
             isHandOverlayEnabled = isHandOverlayEnabled,
             showRunningAppsOnly = showRunningAppsOnly,
-            isStarfieldEnabled = isStarfieldEnabled
+            isStarfieldEnabled = isStarfieldEnabled,
+            isCameraInsideEnabled = isCameraInsideEnabled,
+            cameraLensFacing = cameraLensFacing
         )
     }.stateIn(
         viewModelScope,
@@ -518,8 +528,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isEarthInsideEnabledState.value = enabled
         prefs.edit().putBoolean("earth_inside_enabled", enabled).apply()
         if (enabled) {
+            setRealisticEarthEnabled(false)
             setBlackHoleEnabled(false)
             setBlackHoleSideEnabled(false)
+            setCameraInsideEnabled(false)
         }
     }
 
@@ -527,8 +539,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isRealisticEarthEnabledState.value = enabled
         prefs.edit().putBoolean("realistic_earth_enabled", enabled).apply()
         if (enabled) {
+            setEarthInsideEnabled(false)
             setBlackHoleEnabled(false)
             setBlackHoleSideEnabled(false)
+            setCameraInsideEnabled(false)
         }
     }
 
@@ -539,6 +553,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             setEarthInsideEnabled(false)
             setRealisticEarthEnabled(false)
             setBlackHoleSideEnabled(false)
+            setCameraInsideEnabled(false)
         }
     }
 
@@ -549,6 +564,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             setEarthInsideEnabled(false)
             setRealisticEarthEnabled(false)
             setBlackHoleEnabled(false)
+            setCameraInsideEnabled(false)
         }
     }
 
@@ -595,5 +611,22 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setFocusedApp(app: AppInfo?) {
         focusedAppState.value = app
+    }
+
+    fun setCameraInsideEnabled(enabled: Boolean) {
+        isCameraInsideEnabledState.value = enabled
+        prefs.edit().putBoolean("camera_inside_enabled", enabled).apply()
+        // If camera is enabled, disable other background modes
+        if (enabled) {
+            setEarthInsideEnabled(false)
+            setRealisticEarthEnabled(false)
+            setBlackHoleEnabled(false)
+            setBlackHoleSideEnabled(false)
+        }
+    }
+
+    fun setCameraLensFacing(facing: Int) {
+        cameraLensFacingState.value = facing
+        prefs.edit().putInt("camera_lens_facing", facing).apply()
     }
 }
