@@ -69,6 +69,11 @@ import android.os.SystemClock
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.filled.Mic
+import com.playeverywhere.spherelauncher.VoiceSetup
+import com.playeverywhere.spherelauncher.audio.VoiceViewModel
+import com.playeverywhere.spherelauncher.audio.SpeechState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +86,16 @@ fun MainScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    val voiceViewModel: VoiceViewModel = viewModel()
+    val speechState by voiceViewModel.speechState.collectAsStateWithLifecycle()
+    val recognizedText by voiceViewModel.recognizedText.collectAsStateWithLifecycle()
+    var voiceAppToLaunch by remember { mutableStateOf<AppInfo?>(null) }
+    var showVoiceVisualizer by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        voiceViewModel.initializeListener(context)
+    }
 
     var showSettings by remember { mutableStateOf(false) }
     var selectedAppForAction by remember { mutableStateOf<AppInfo?>(null) }
@@ -242,8 +257,42 @@ fun MainScreen(
     var isLaunchTriggered by remember { mutableStateOf(false) }
     var sphereBounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
 
-    LaunchedEffect(isHandClenched, pinchedApp, hasMovedSignificantly) {
-        if (isHandClenched && pinchedApp != null && !hasMovedSignificantly) {
+    LaunchedEffect(isHandClenched, pinchedApp, hasMovedSignificantly, voiceAppToLaunch) {
+        if (voiceAppToLaunch != null) {
+            // Voice triggered launch
+            pinchedApp = voiceAppToLaunch
+            showVoiceVisualizer = true
+            val startTime = android.os.SystemClock.uptimeMillis()
+            while (true) {
+                val now = androidx.compose.runtime.withFrameMillis { it }
+                val holdTime = now - startTime
+                if (holdTime > 0L) {
+                    val linearProgress = (holdTime / 1500f).coerceIn(0f, 1f)
+                    launchAnimationProgress = java.lang.Math.pow(linearProgress.toDouble(), 3.0).toFloat()
+                    if (launchAnimationProgress >= 1f && !isLaunchTriggered) {
+                        isLaunchTriggered = true
+                        try {
+                            val launchIntent = context.packageManager.getLaunchIntentForPackage(pinchedApp!!.packageName)
+                            if (launchIntent != null) {
+                                launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(launchIntent)
+                                viewModel.onAppLaunched(pinchedApp!!.packageName)
+                            } else {
+                                android.widget.Toast.makeText(context, context.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        
+                        pinchedApp = null
+                        voiceAppToLaunch = null
+                        showVoiceVisualizer = false
+                        launchAnimationProgress = 0f
+                        break
+                    }
+                }
+            }
+        } else if (isHandClenched && pinchedApp != null && !hasMovedSignificantly) {
             val startTime = android.os.SystemClock.uptimeMillis()
             while (true) {
                 val now = androidx.compose.runtime.withFrameMillis { it }
@@ -283,6 +332,7 @@ fun MainScreen(
         } else {
             launchAnimationProgress = 0f
             isLaunchTriggered = false
+            showVoiceVisualizer = false
         }
     }
 
@@ -811,6 +861,45 @@ fun MainScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Voice Launch Trigger Button
+                androidx.compose.animation.AnimatedVisibility(visible = state.shapeType != ShapeType.SNAKE) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .background(
+                                brush = if (speechState == SpeechState.LISTENING) {
+                                    Brush.linearGradient(colors = listOf(Color(0xFFFF0055), Color(0xFFFF0000)))
+                                } else {
+                                    Brush.linearGradient(colors = listOf(Color(0xFF9900FF), Color(0xFF5500FF)))
+                                },
+                                shape = CircleShape
+                            )
+                            .border(
+                                width = 2.dp,
+                                color = Color.White.copy(alpha = 0.6f),
+                                shape = CircleShape
+                            )
+                            .clip(CircleShape)
+                            .clickable {
+                                if (speechState == SpeechState.LISTENING) {
+                                    voiceViewModel.stopListening()
+                                } else {
+                                    voiceViewModel.startListeningForLaunch { packageName -> 
+                                        voiceAppToLaunch = state.filteredApps.find { it.packageName == packageName }
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Voice Launch",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
                 // Camera Quick Launch Button
                 androidx.compose.animation.AnimatedVisibility(visible = state.shapeType != ShapeType.SNAKE) {
                     Box(
@@ -983,7 +1072,7 @@ fun MainScreen(
                     )
                 }
                 }
-            }
+                }
             }
 
             // 7. Floating Back Button (Bottom-Left) for exiting Snake/other modes
@@ -1023,6 +1112,37 @@ fun MainScreen(
                             contentDescription = stringResource(R.string.back_desc),
                             tint = Color.White,
                             modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+            }
+
+            // 8. Voice Recognition HUD
+            if (speechState == SpeechState.LISTENING || showVoiceVisualizer) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth()
+                        .padding(32.dp)
+                        .background(Color(0x80000000), RoundedCornerShape(24.dp))
+                        .border(1.dp, Color(0xFF00F2FE), RoundedCornerShape(24.dp))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = null,
+                            tint = if (showVoiceVisualizer) Color(0xFF00FF00) else Color(0xFF00F2FE),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = if (showVoiceVisualizer) "Voice Launch Authorized" else recognizedText.ifEmpty { "Listening..." },
+                            color = if (showVoiceVisualizer) Color(0xFF00FF00) else Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -1128,6 +1248,10 @@ fun MainScreen(
                     onUnhideAllApps = {
                         viewModel.unhideAllApps()
                         showSettings = false
+                    },
+                    onVoiceSetupClick = {
+                        showSettings = false
+                        onItemClick(VoiceSetup)
                     }
                 )
 
@@ -1358,7 +1482,8 @@ fun SettingsSheetContent(
     onRefreshApps: () -> Unit,
     onClose: () -> Unit,
     onShowOnboarding: () -> Unit,
-    onUnhideAllApps: () -> Unit
+    onUnhideAllApps: () -> Unit,
+    onVoiceSetupClick: () -> Unit
 ) {
     val systemPrimary = MaterialTheme.colorScheme.primary
     val systemSecondary = MaterialTheme.colorScheme.secondary
@@ -1501,6 +1626,17 @@ fun SettingsSheetContent(
                     )
                 }
             }
+        }
+
+        // Voice Launch Setup
+        Button(
+            onClick = onVoiceSetupClick,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8E25FF))
+        ) {
+            Icon(androidx.compose.material.icons.Icons.Default.Mic, contentDescription = "Voice Setup")
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Voice Launch Setup")
         }
 
         // Toggles

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -21,6 +23,14 @@ fun MainNavigation() {
       entryProvider {
         entry<Main> {
           MainScreen(onItemClick = { navKey -> backStack.add(navKey) }, modifier = Modifier.safeDrawingPadding().padding(16.dp))
+        }
+        entry<VoiceSetup> {
+            val viewModel: com.playeverywhere.spherelauncher.ui.main.MainScreenViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val state by viewModel.uiState.collectAsStateWithLifecycle()
+            com.playeverywhere.spherelauncher.ui.main.VoiceEnrollmentScreen(
+                apps = state.filteredApps,
+                onBack = { backStack.removeLastOrNull() }
+            )
         }
       },
   )
