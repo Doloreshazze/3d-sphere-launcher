@@ -1,5 +1,6 @@
 package com.playeverywhere.spherelauncher.audio
 
+import kotlinx.serialization.Serializable
 import kotlin.math.abs
 
 /**
@@ -11,6 +12,7 @@ import kotlin.math.abs
  */
 class VoiceMatcher {
 
+    @Serializable
     data class VoicePrint(
         val wakeWordText: String,
         val appWordText: String,
@@ -36,8 +38,10 @@ class VoiceMatcher {
 
         // 1. First, check if the text contains the wake word and app word
         val matchingPrints = enrolledPrints.filter { print ->
-            lowerSpoken.contains(print.wakeWordText.lowercase()) &&
-            lowerSpoken.contains(print.appWordText.lowercase())
+            val wake = print.wakeWordText.trim().lowercase()
+            val app = print.appWordText.trim().lowercase()
+            // We use contains to allow matching within a larger sentence, e.g. "старт навигатор пожалуйста"
+            wake.isNotEmpty() && app.isNotEmpty() && lowerSpoken.contains(wake) && lowerSpoken.contains(app)
         }
 
         if (matchingPrints.isEmpty()) return null

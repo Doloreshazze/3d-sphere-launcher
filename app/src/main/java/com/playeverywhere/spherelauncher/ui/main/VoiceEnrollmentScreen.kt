@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
@@ -47,6 +48,8 @@ fun VoiceEnrollmentScreen(
     val recognizedText by voiceViewModel.recognizedText.collectAsState()
     val lastEnrolledPrint by voiceViewModel.lastEnrolledPrint.collectAsState()
 
+    val allEnrolledPrints by voiceViewModel.allEnrolledPrints.collectAsState()
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -69,7 +72,7 @@ fun VoiceEnrollmentScreen(
                 title = { Text("Voice Launch Setup", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1E1E1E))
@@ -88,6 +91,7 @@ fun VoiceEnrollmentScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 LazyColumn {
                     items(apps) { app ->
+                        val enrolledPrint = allEnrolledPrints.find { it.packageName == app.packageName }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -100,7 +104,12 @@ fun VoiceEnrollmentScreen(
                         ) {
                             Image(bitmap = app.iconBitmap, contentDescription = app.label, modifier = Modifier.size(48.dp))
                             Spacer(modifier = Modifier.width(16.dp))
-                            Text(app.label, color = Color.White, fontSize = 16.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(app.label, color = Color.White, fontSize = 16.sp)
+                                if (enrolledPrint != null) {
+                                    Text("Command: \"${enrolledPrint.wakeWordText} ${enrolledPrint.appWordText}\"", color = Color.Green, fontSize = 12.sp)
+                                }
+                            }
                         }
                     }
                 }
@@ -193,10 +202,29 @@ fun VoiceEnrollmentScreen(
                     )
                 }
 
+                val currentPrint = allEnrolledPrints.find { it.packageName == selectedApp?.packageName }
+                if (currentPrint != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            voiceViewModel.deleteEnrollment(selectedApp!!.packageName)
+                            Toast.makeText(context, "Command cleared", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text("Delete Current Command")
+                    }
+                }
+
                 Spacer(modifier = Modifier.weight(1f))
                 
                 OutlinedButton(
-                    onClick = { selectedApp = null },
+                    onClick = { 
+                        selectedApp = null 
+                        wakeWord = ""
+                        appWord = ""
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Select a different app")

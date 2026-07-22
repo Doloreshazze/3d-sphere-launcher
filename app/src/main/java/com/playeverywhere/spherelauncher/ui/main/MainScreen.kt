@@ -90,8 +90,11 @@ fun MainScreen(
     val voiceViewModel: VoiceViewModel = viewModel()
     val speechState by voiceViewModel.speechState.collectAsStateWithLifecycle()
     val recognizedText by voiceViewModel.recognizedText.collectAsStateWithLifecycle()
+    val allEnrolledPrints by voiceViewModel.allEnrolledPrints.collectAsStateWithLifecycle()
+    val hasVoiceCommands = allEnrolledPrints.isNotEmpty()
     var voiceAppToLaunch by remember { mutableStateOf<AppInfo?>(null) }
     var showVoiceVisualizer by remember { mutableStateOf(false) }
+    var showNoVoiceCommandsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         voiceViewModel.initializeListener(context)
@@ -114,7 +117,7 @@ fun MainScreen(
         if (isGranted) {
             viewModel.setGestureControlEnabled(true)
         } else {
-            Toast.makeText(context, context.getString(R.string.camera_permission_denied), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.resources.getString(R.string.camera_permission_denied), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -278,10 +281,10 @@ fun MainScreen(
                                 context.startActivity(launchIntent)
                                 viewModel.onAppLaunched(pinchedApp!!.packageName)
                             } else {
-                                android.widget.Toast.makeText(context, context.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, context.resources.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, context.resources.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
                         }
                         
                         pinchedApp = null
@@ -309,10 +312,10 @@ fun MainScreen(
                                 context.startActivity(launchIntent)
                                 viewModel.onAppLaunched(pinchedApp!!.packageName)
                             } else {
-                                android.widget.Toast.makeText(context, context.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, context.resources.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, context.resources.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
                         }
                         
                         val cancelEvent = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_CANCEL, touchDownX, touchDownY, 0)
@@ -683,10 +686,10 @@ fun MainScreen(
                                         context.startActivity(launchIntent)
                                         viewModel.onAppLaunched(app.packageName)
                                     } else {
-                                        Toast.makeText(context, context.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.resources.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.resources.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onAppLongClick = { selectedAppForAction = it }
@@ -738,10 +741,10 @@ fun MainScreen(
                                         context.startActivity(launchIntent)
                                         viewModel.onAppLaunched(app.packageName)
                                     } else {
-                                        Toast.makeText(context, context.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.resources.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, context.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.resources.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         )
@@ -811,7 +814,7 @@ fun MainScreen(
                                     }
                                     context.startActivity(intent)
                                 } catch (e2: Exception) {
-                                    Toast.makeText(context, context.getString(R.string.settings_unavailable), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.resources.getString(R.string.settings_unavailable), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
@@ -871,6 +874,8 @@ fun MainScreen(
                             .background(
                                 brush = if (speechState == SpeechState.LISTENING) {
                                     Brush.linearGradient(colors = listOf(Color(0xFFFF0055), Color(0xFFFF0000)))
+                                } else if (!hasVoiceCommands) {
+                                    Brush.linearGradient(colors = listOf(Color(0xFF888888), Color(0xFF555555)))
                                 } else {
                                     Brush.linearGradient(colors = listOf(Color(0xFF9900FF), Color(0xFF5500FF)))
                                 },
@@ -883,7 +888,9 @@ fun MainScreen(
                             )
                             .clip(CircleShape)
                             .clickable {
-                                if (speechState == SpeechState.LISTENING) {
+                                if (!hasVoiceCommands) {
+                                    showNoVoiceCommandsDialog = true
+                                } else if (speechState == SpeechState.LISTENING) {
                                     voiceViewModel.stopListening()
                                 } else {
                                     voiceViewModel.startListeningForLaunch { packageName -> 
@@ -930,7 +937,7 @@ fun MainScreen(
                                 }
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, context.getString(R.string.camera_unavailable, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.resources.getString(R.string.camera_unavailable, e.message ?: ""), Toast.LENGTH_SHORT).show()
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -1150,6 +1157,32 @@ fun MainScreen(
                 }
             }
 
+            if (showNoVoiceCommandsDialog) {
+                AlertDialog(
+                    onDismissRequest = { showNoVoiceCommandsDialog = false },
+                    containerColor = Color(0xE00D0B18),
+                    title = { Text("Нет записанных команд", color = Color(0xFF00F2FE)) },
+                    text = { Text("У вас еще нет ни одной записанной голосовой команды. Хотите записать сейчас?", color = Color.White) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showNoVoiceCommandsDialog = false
+                                Toast.makeText(context, "Микрофон нужен для записи и распознавания ваших голосовых команд", Toast.LENGTH_LONG).show()
+                                onItemClick(VoiceSetup)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE), contentColor = Color.Black)
+                        ) {
+                            Text("ОК")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showNoVoiceCommandsDialog = false }) {
+                            Text("Назад", color = Color(0xFF00F2FE))
+                        }
+                    }
+                )
+            }
+
         // 5. Settings Bottom Sheet Dialog
         if (showSettings) {
             val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1197,7 +1230,7 @@ fun MainScreen(
                     if (isGranted) {
                         viewModel.setAudioReactiveEnabled(true)
                     } else {
-                        Toast.makeText(context, context.getString(R.string.mic_permission_denied), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.resources.getString(R.string.mic_permission_denied), Toast.LENGTH_SHORT).show()
                     }
                 }
                 
@@ -1256,6 +1289,10 @@ fun MainScreen(
                     onVoiceSetupClick = {
                         showSettings = false
                         onItemClick(VoiceSetup)
+                    },
+                    onResetSettings = {
+                        viewModel.resetSettings()
+                        showSettings = false
                     }
                 )
 
@@ -1268,6 +1305,7 @@ fun MainScreen(
                         confirmButton = {
                             Button(onClick = {
                                 showCameraRationale = false
+                                Toast.makeText(context, "Камера нужна для отслеживания движений ваших рук в пространстве", Toast.LENGTH_LONG).show()
                                 cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                             }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE), contentColor = Color.Black)) {
                                 Text(stringResource(android.R.string.ok))
@@ -1355,7 +1393,7 @@ fun MainScreen(
                                     }
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, context.getString(R.string.uninstall_fail, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.resources.getString(R.string.uninstall_fail, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                 }
                                 selectedAppForAction = null
                             },
@@ -1489,7 +1527,8 @@ fun SettingsSheetContent(
     onClose: () -> Unit,
     onShowOnboarding: () -> Unit,
     onUnhideAllApps: () -> Unit,
-    onVoiceSetupClick: () -> Unit
+    onVoiceSetupClick: () -> Unit,
+    onResetSettings: () -> Unit
 ) {
     val systemPrimary = MaterialTheme.colorScheme.primary
     val systemSecondary = MaterialTheme.colorScheme.secondary
@@ -1574,14 +1613,12 @@ fun SettingsSheetContent(
                 Triple(0, "Нет", Color(0xFF808080)),
                 Triple(1, "Земля", Color(0xFF00F2FE)),
                 Triple(2, "Реал. Земля", Color(0xFF4FACFE)),
-                Triple(3, "ЧД", Color(0xFFFF5500)),
-                Triple(4, "Камера", Color(0xFF00FF88))
+                Triple(3, "ЧД", Color(0xFFFF5500))
             )
             val currentSelected = when {
                 state.isBlackHoleEnabled -> 3
                 state.isRealisticEarthEnabled -> 2
                 state.isEarthInsideEnabled -> 1
-                state.isCameraInsideEnabled -> 4
                 else -> 0
             }
             centerOptions.forEach { (optionId, labelRes, colorAccent) ->
@@ -1625,12 +1662,6 @@ fun SettingsSheetContent(
                                     onBlackHoleChanged(true)
                                     onCameraInsideChanged(false)
                                 }
-                                4 -> {
-                                    onEarthInsideChanged(false)
-                                    onRealisticEarthChanged(false)
-                                    onBlackHoleChanged(false)
-                                    onCameraInsideChanged(true)
-                                }
                             }
                         }
                         .padding(vertical = 12.dp),
@@ -1645,34 +1676,6 @@ fun SettingsSheetContent(
                         textAlign = TextAlign.Center
                     )
                 }
-            }
-        }
-
-        if (state.isCameraInsideEnabled) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Перевернуть камеру",
-                    fontSize = 14.sp,
-                    color = Color.White
-                )
-                Switch(
-                    checked = state.cameraLensFacing == 1, // 1 = back, 0 = front
-                    onCheckedChange = { isBack ->
-                        onCameraLensFacingChanged(if (isBack) 1 else 0)
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF00FF88),
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color.Gray
-                    )
-                )
             }
         }
 
@@ -2031,7 +2034,7 @@ fun SettingsSheetContent(
                                 }
                                 context.startActivity(intent)
                             } catch (e3: Exception) {
-                                Toast.makeText(context, context.getString(R.string.uninstall_fail, e3.message ?: ""), Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, context.resources.getString(R.string.settings_unavailable), Toast.LENGTH_LONG).show()
                             }
                         }
                     }
@@ -2241,6 +2244,17 @@ fun SettingsSheetContent(
         }
         
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Reset Settings
+        Button(
+            onClick = onResetSettings,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744))
+        ) {
+            Icon(Icons.Default.Refresh, contentDescription = "Сброс настроек", tint = Color.White)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Сброс настроек", color = Color.White, fontWeight = FontWeight.Bold)
+        }
     }
 }
 

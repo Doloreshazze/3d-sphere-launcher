@@ -12,10 +12,17 @@ import kotlinx.coroutines.launch
 class VoiceViewModel(application: Application) : AndroidViewModel(application) {
 
     val voiceMatcher = VoiceMatcher()
+    private val store = VoicePrintStore(application)
     
     // We will initialize SpeechListener in the composables to tie it to the lifecycle better,
     // or we can host it here. Let's host it here so it survives config changes.
     private var speechListener: SpeechListener? = null
+
+    init {
+        // Load persisted prints on startup
+        val savedPrints = store.loadPrints()
+        savedPrints.forEach { voiceMatcher.enrollVoicePrint(it) }
+    }
 
     val speechState: StateFlow<SpeechState>
         get() = speechListener?.speechState ?: MutableStateFlow(SpeechState.IDLE)
@@ -28,6 +35,8 @@ class VoiceViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _lastEnrolledPrint = MutableStateFlow<VoiceMatcher.VoicePrint?>(null)
     val lastEnrolledPrint: StateFlow<VoiceMatcher.VoicePrint?> = _lastEnrolledPrint.asStateFlow()
+    
+    val allEnrolledPrints = MutableStateFlow<List<VoiceMatcher.VoicePrint>>(store.loadPrints())
 
     fun initializeListener(context: Context) {
         if (speechListener == null) {
@@ -44,10 +53,34 @@ class VoiceViewModel(application: Application) : AndroidViewModel(application) {
         speechListener?.onResult = { text, duration, envelope ->
             _recognizedText.value = text
             val print = VoiceMatcher.VoicePrint(wakeWord, appWord, packageName, duration, envelope)
+            
+            // Remove any existing print for this package before adding the new one
+            val currentPrints = voiceMatcher.getEnrolledPrints().toMutableList()
+            currentPrints.removeAll { it.packageName == packageName }
+            
+            voiceMatcher.clear()
+            currentPrints.forEach { voiceMatcher.enrollVoicePrint(it) }
             voiceMatcher.enrollVoicePrint(print)
+            
+            // Save
+            val newPrints = voiceMatcher.getEnrolledPrints()
+            store.savePrints(newPrints)
+            allEnrolledPrints.value = newPrints
+            
             _lastEnrolledPrint.value = print
         }
         speechListener?.startListening()
+    }
+
+    fun deleteEnrollment(packageName: String) {
+        val currentPrints = voiceMatcher.getEnrolledPrints().toMutableList()
+        currentPrints.removeAll { it.packageName == packageName }
+        
+        voiceMatcher.clear()
+        currentPrints.forEach { voiceMatcher.enrollVoicePrint(it) }
+        
+        store.savePrints(currentPrints)
+        allEnrolledPrints.value = currentPrints
     }
 
     fun startListeningForLaunch(onLaunch: (String) -> Unit) {

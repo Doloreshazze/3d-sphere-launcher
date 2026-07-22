@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import com.playeverywhere.spherelauncher.R
 
 enum class SphereStyle {
@@ -57,7 +58,7 @@ data class MainUiState(
     val audioAmplitude: Float = 0.0f,
     val isFirstLaunch: Boolean = true,
     val hiddenAppsCount: Int = 0,
-    val isGestureControlEnabled: Boolean = true,
+    val isGestureControlEnabled: Boolean = false,
     val handCursorX: Float = 0.5f,
     val handCursorY: Float = 0.5f,
     val isHandDetected: Boolean = false,
@@ -113,7 +114,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val audioAmplitudeState = MutableStateFlow(0.0f)
     
     // Gesture tracking state flows
-    private val gestureControlEnabledState = MutableStateFlow(prefs.getBoolean("gesture_control_enabled", true))
+    private val gestureControlEnabledState = MutableStateFlow(prefs.getBoolean("gesture_control_enabled", false))
     private val handCursorXState = MutableStateFlow(0.5f)
     private val handCursorYState = MutableStateFlow(0.5f)
     private val isHandDetectedState = MutableStateFlow(false)
@@ -127,7 +128,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isRealisticEarthEnabledState = MutableStateFlow(prefs.getBoolean("realistic_earth_enabled", false))
     private val isBlackHoleEnabledState = MutableStateFlow(prefs.getBoolean("black_hole_enabled", false))
     private val isBlackHoleSideEnabledState = MutableStateFlow(prefs.getBoolean("black_hole_side_enabled", false))
-    private val isZoomEnabledState = MutableStateFlow(prefs.getBoolean("zoom_enabled", false))
+    private val isZoomEnabledState = MutableStateFlow(prefs.getBoolean("zoom_enabled", true))
     private val isHandOverlayEnabledState = MutableStateFlow(prefs.getBoolean("hand_overlay_enabled", true))
     private val showRunningAppsOnlyState = MutableStateFlow(prefs.getBoolean("running_apps_only", false))
     private val isStarfieldEnabledState = MutableStateFlow(prefs.getBoolean("starfield_enabled", true))
@@ -319,6 +320,8 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 val loadedApps = appLoader.loadInstalledApps()
                 appsState.value = loadedApps
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("MainScreenViewModel", "Failed to load installed apps", e)
                 if (appsState.value.isEmpty()) {
@@ -397,50 +400,113 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         audioJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             var smoothedAmp = 0f
             
-            // Tier 1: Try Global System-wide Visualizer first (captures YouTube/Spotify directly)
-            try {
-                val maxResolution = android.media.audiofx.Visualizer.getCaptureSizeRange()[1]
-                val vis = android.media.audiofx.Visualizer(0).apply {
-                    captureSize = maxResolution
-                }
-                
-                vis.setDataCaptureListener(object : android.media.audiofx.Visualizer.OnDataCaptureListener {
-                    override fun onWaveFormDataCapture(visualizer: android.media.audiofx.Visualizer?, waveform: ByteArray?, samplingRate: Int) {
-                        if (waveform == null || !isAudioReactiveEnabledState.value) return
-                        
-                        // Compute amplitude (RMS) from waveform bytes (unsigned 8-bit PCM offset by 128)
-                        var sum = 0.0
-                        for (i in 0 until waveform.size) {
-                            val v = (waveform[i].toInt() and 0xFF) - 128
-                            sum += v * v
-                        }
-                        val rms = kotlin.math.sqrt(sum / waveform.size)
-                        
-                        // Scale and normalize 8-bit RMS (max possible RMS is 128)
-                        val normalized = ((rms - 1.5) / 54.0).coerceIn(0.0, 1.0).toFloat()
-                        
-                        // Low-pass exponential filter
-                        smoothedAmp = smoothedAmp * 0.72f + normalized * 0.28f
-                        audioAmplitudeState.value = smoothedAmp
+            // On Android 12 (API 31) and higher, Visualizer(0) can cause native crashes (SIGSEGV).
+            // So we only try Visualizer(0) on older versions, and use AudioRecord on newer.
+            if (android.os.Build.VERSION.SDK_INT < 31) {
+                // Tier 1: Try Global System-wide Visualizer
+                try {
+                    val maxResolution = android.media.audiofx.Visualizer.getCaptureSizeRange()[1]
+                    val vis = android.media.audiofx.Visualizer(0).apply {
+                        captureSize = maxResolution
                     }
+                    
+                    vis.setDataCaptureListener(object : android.media.audiofx.Visualizer.OnDataCaptureListener {
+                        override fun onWaveFormDataCapture(visualizer: android.media.audiofx.Visualizer?, waveform: ByteArray?, samplingRate: Int) {
+                            if (waveform == null || !isAudioReactiveEnabledState.value) return
+                            
+                            var sum = 0.0
+                            for (i in 0 until waveform.size) {
+                                val v = (waveform[i].toInt() and 0xFF) - 128
+                                sum += v * v
+                            }
+                            val rms = kotlin.math.sqrt(sum / waveform.size)
+                            val normalized = ((rms - 1.5) / 54.0).coerceIn(0.0, 1.0).toFloat()
+                            
+                            smoothedAmp = smoothedAmp * 0.72f + normalized * 0.28f
+                            audioAmplitudeState.value = smoothedAmp
+                        }
 
-                    override fun onFftDataCapture(visualizer: android.media.audiofx.Visualizer?, fft: ByteArray?, samplingRate: Int) {}
-                }, android.media.audiofx.Visualizer.getMaxCaptureRate() / 2, true, false)
-                
-                visualizer = vis
-                vis.enabled = true
-                
-                while (isAudioReactiveEnabledState.value) {
-                    kotlinx.coroutines.delay(100L)
+                        override fun onFftDataCapture(visualizer: android.media.audiofx.Visualizer?, fft: ByteArray?, samplingRate: Int) {}
+                    }, android.media.audiofx.Visualizer.getMaxCaptureRate() / 2, true, false)
+                    
+                    visualizer = vis
+                    vis.enabled = true
+                    
+                    while (isAudioReactiveEnabledState.value) {
+                        kotlinx.coroutines.delay(100L)
+                    }
+                    return@launch // Success!
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    stopVisualizerInternal()
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.w("SphereViewModel", "Visualizer(0) failed: ${e.message}")
+                    stopVisualizerInternal()
                 }
-                return@launch // Success!
+            }
+
+            // Tier 2: Fallback to AudioRecord for Android 12+ or if Visualizer failed
+            var audioRecord: android.media.AudioRecord? = null
+            try {
+                val sampleRate = 44100
+                val channelConfig = android.media.AudioFormat.CHANNEL_IN_MONO
+                val audioFormat = android.media.AudioFormat.ENCODING_PCM_16BIT
+                val bufferSize = android.media.AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+                
+                if (androidx.core.app.ActivityCompat.checkSelfPermission(
+                        getApplication(),
+                        android.Manifest.permission.RECORD_AUDIO
+                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    isAudioReactiveEnabledState.value = false
+                    return@launch
+                }
+                
+                audioRecord = android.media.AudioRecord(
+                    android.media.MediaRecorder.AudioSource.MIC,
+                    sampleRate,
+                    channelConfig,
+                    audioFormat,
+                    bufferSize
+                )
+                
+                if (audioRecord.state == android.media.AudioRecord.STATE_INITIALIZED) {
+                    audioRecord.startRecording()
+                    val buffer = ShortArray(bufferSize)
+                    
+                    while (isAudioReactiveEnabledState.value && isActive) {
+                        val readResult = audioRecord.read(buffer, 0, buffer.size)
+                        if (readResult > 0) {
+                            var sum = 0.0
+                            for (i in 0 until readResult) {
+                                val v = buffer[i].toDouble()
+                                sum += v * v
+                            }
+                            val rms = kotlin.math.sqrt(sum / readResult)
+                            
+                            // Normalize 16-bit PCM RMS (max 32768)
+                            val normalized = (rms / 8000.0).coerceIn(0.0, 1.0).toFloat()
+                            smoothedAmp = smoothedAmp * 0.72f + normalized * 0.28f
+                            audioAmplitudeState.value = smoothedAmp
+                        } else {
+                            kotlinx.coroutines.delay(16L)
+                        }
+                    }
+                } else {
+                    isAudioReactiveEnabledState.value = false
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
-                stopVisualizerInternal()
                 throw e
             } catch (e: Exception) {
-                android.util.Log.w("SphereViewModel", "Visualizer(0) failed: ${e.message}")
-                stopVisualizerInternal()
+                android.util.Log.e("SphereViewModel", "AudioRecord failed: ${e.message}")
                 isAudioReactiveEnabledState.value = false
+            } finally {
+                audioRecord?.apply {
+                    if (recordingState == android.media.AudioRecord.RECORDSTATE_RECORDING) {
+                        stop()
+                    }
+                    release()
+                }
             }
         }
     }
@@ -510,11 +576,14 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isPulsingEnabledState.value = false
         isAudioReactiveEnabledState.value = false
         audioAmplitudeState.value = 0.0f
-        gestureControlEnabledState.value = true
+        gestureControlEnabledState.value = false
         hiddenPackagesState.value = emptySet()
         isEarthInsideEnabledState.value = false
+        isRealisticEarthEnabledState.value = false
         isBlackHoleEnabledState.value = false
         isBlackHoleSideEnabledState.value = false
+        isCameraInsideEnabledState.value = false
+        isZoomEnabledState.value = true
         isStarfieldEnabledState.value = true
         stopAudioRecording()
     }

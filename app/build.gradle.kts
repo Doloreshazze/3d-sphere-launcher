@@ -11,8 +11,8 @@ android {
         applicationId = "com.playeverywhere.spherelauncher"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "7.0"
+        versionCode = 8
+        versionName = "8.0"
     }
 
     buildTypes {
@@ -56,6 +56,9 @@ dependencies {
   // Arch Components
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+  // Serialization
+  implementation(libs.kotlinx.serialization.json)
 
   // Compose
   implementation(libs.androidx.compose.ui)
