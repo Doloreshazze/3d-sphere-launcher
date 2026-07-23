@@ -92,4 +92,32 @@
     <string name="clear_desc">Clear</string>
     <string name="back_desc">Back</string>
     <string name="settings_unavailable">Settings unavailable</string>
+
+    <!-- Voice launch setup & UI strings -->
+    <string name="voice_launch_setup">Voice Launch Setup</string>
+    <string name="voice_select_app_title">Select an app to configure:</string>
+    <string name="voice_command_format">Command: \"%1$s %2$s\"</string>
+    <string name="voice_configuring_app">Configuring: %1$s</string>
+    <string name="voice_wake_word_label">Wake Word (e.g., \'Computer\')</string>
+    <string name="voice_app_word_label">App Word (e.g., \'Browser\')</string>
+    <string name="voice_press_mic_hint">Press Mic and say: \"%1$s %2$s\"</string>
+    <string name="voice_listening">Listening...</string>
+    <string name="voice_start_training">Start Training</string>
+    <string name="voice_recognized_format">Recognized: %1$s</string>
+    <string name="voice_enrolled_success">Voice Print Enrolled Successfully!</string>
+    <string name="voice_delete_command">Delete Current Command</string>
+    <string name="voice_select_different_app">Select a different app</string>
+    <string name="voice_mic_permission_required">Microphone permission is required for voice launch.</string>
+    <string name="voice_command_cleared">Command cleared</string>
+    <string name="voice_no_commands_title">No voice commands recorded</string>
+    <string name="voice_no_commands_message">You don\'t have any recorded voice commands. Would you like to record one now?</string>
+    <string name="voice_mic_rationale">Microphone access is required to record and recognize your voice commands.</string>
+    <string name="voice_english_only_notice">Note: Voice commands are currently supported in English only.</string>
+    <string name="ok_button">OK</string>
+    <string name="show_palm_title">Display Palm</string>
+    <string name="show_palm_desc">Show translucent palm overlay</string>
+    <string name="reset_settings">Reset Settings</string>
+    <string name="game_over">GAME OVER</string>
+    <string name="game_score_format">Your Score: %1$d\nHigh Score: %2$d</string>
+    <string name="game_restart">Restart Game</string>
 </resources>

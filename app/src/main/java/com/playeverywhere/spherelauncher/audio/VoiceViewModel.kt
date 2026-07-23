@@ -24,11 +24,11 @@ class VoiceViewModel(application: Application) : AndroidViewModel(application) {
         savedPrints.forEach { voiceMatcher.enrollVoicePrint(it) }
     }
 
-    val speechState: StateFlow<SpeechState>
-        get() = speechListener?.speechState ?: MutableStateFlow(SpeechState.IDLE)
+    private val _speechState = MutableStateFlow(SpeechState.IDLE)
+    val speechState: StateFlow<SpeechState> = _speechState.asStateFlow()
 
-    val rmsValues: StateFlow<Float>
-        get() = speechListener?.rmsValues ?: MutableStateFlow(0f)
+    private val _rmsValues = MutableStateFlow(0f)
+    val rmsValues: StateFlow<Float> = _rmsValues.asStateFlow()
 
     private val _recognizedText = MutableStateFlow("")
     val recognizedText: StateFlow<String> = _recognizedText.asStateFlow()
@@ -40,10 +40,23 @@ class VoiceViewModel(application: Application) : AndroidViewModel(application) {
 
     fun initializeListener(context: Context) {
         if (speechListener == null) {
-            speechListener = SpeechListener(context.applicationContext)
+            val listener = SpeechListener(context.applicationContext)
+            speechListener = listener
             
-            speechListener?.onPartialResult = { text ->
+            listener.onPartialResult = { text ->
                 _recognizedText.value = text
+            }
+
+            viewModelScope.launch {
+                listener.speechState.collect { state ->
+                    _speechState.value = state
+                }
+            }
+
+            viewModelScope.launch {
+                listener.rmsValues.collect { rms ->
+                    _rmsValues.value = rms
+                }
             }
         }
     }

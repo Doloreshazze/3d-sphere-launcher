@@ -92,4 +92,32 @@
     <string name="clear_desc">Borrar</string>
     <string name="back_desc">Atrás</string>
     <string name="settings_unavailable">Ajustes no disponibles</string>
+
+    <!-- Voice launch setup & UI strings -->
+    <string name="voice_launch_setup">Configuración de inicio por voz</string>
+    <string name="voice_select_app_title">Selecciona una aplicación para configurar:</string>
+    <string name="voice_command_format">Comando: \"%1$s %2$s\"</string>
+    <string name="voice_configuring_app">Configurando: %1$s</string>
+    <string name="voice_wake_word_label">Palabra de activación (ej. \'Ordenador\')</string>
+    <string name="voice_app_word_label">Palabra de app (ej. \'Navegador\')</string>
+    <string name="voice_press_mic_hint">Presiona el micrófono y di: \"%1$s %2$s\"</string>
+    <string name="voice_listening">Escuchando...</string>
+    <string name="voice_start_training">Iniciar entrenamiento</string>
+    <string name="voice_recognized_format">Reconocido: %1$s</string>
+    <string name="voice_enrolled_success">✅ ¡Comando de voz guardado correctamente!</string>
+    <string name="voice_delete_command">Eliminar comando actual</string>
+    <string name="voice_select_different_app">Seleccionar otra aplicación</string>
+    <string name="voice_mic_permission_required">Se requiere permiso de micrófono para el inicio por voz.</string>
+    <string name="voice_command_cleared">Comando eliminado</string>
+    <string name="voice_no_commands_title">Sin comandos de voz grabados</string>
+    <string name="voice_no_commands_message">No tienes ningún comando de voz grabado. ¿Deseas grabar uno ahora?</string>
+    <string name="voice_mic_rationale">El acceso al micrófono es necesario para grabar y reconocer tus comandos de voz.</string>
+    <string name="voice_english_only_notice">Nota: Los comandos de voz actualmente solo se reconocen en inglés.</string>
+    <string name="ok_button">Aceptar</string>
+    <string name="show_palm_title">Mostrar palma</string>
+    <string name="show_palm_desc">Mostrar la superposición de palma translúcida</string>
+    <string name="reset_settings">Restablecer ajustes</string>
+    <string name="game_over">FIN DEL JUEGO</string>
+    <string name="game_score_format">Puntuación: %1$d\nRécord: %2$d</string>
+    <string name="game_restart">Reiniciar juego</string>
 </resources>

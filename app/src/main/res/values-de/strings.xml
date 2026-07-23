@@ -92,4 +92,32 @@
     <string name="clear_desc">Löschen</string>
     <string name="back_desc">Zurück</string>
     <string name="settings_unavailable">Einstellungen nicht verfügbar</string>
+
+    <!-- Voice launch setup & UI strings -->
+    <string name="voice_launch_setup">Sprachstart-Einrichtung</string>
+    <string name="voice_select_app_title">Wählen Sie eine App zum Konfigurieren:</string>
+    <string name="voice_command_format">Befehl: \"%1$s %2$s\"</string>
+    <string name="voice_configuring_app">Konfigurieren: %1$s</string>
+    <string name="voice_wake_word_label">Aktivierungswort (z. B. \'Computer\')</string>
+    <string name="voice_app_word_label">App-Wort (z. B. \'Browser\')</string>
+    <string name="voice_press_mic_hint">Drücken Sie das Mikrofon und sagen Sie: \"%1$s %2$s\"</string>
+    <string name="voice_listening">Zuhören...</string>
+    <string name="voice_start_training">Training starten</string>
+    <string name="voice_recognized_format">Erkannt: %1$s</string>
+    <string name="voice_enrolled_success">✅ Sprachbefehl erfolgreich gespeichert!</string>
+    <string name="voice_delete_command">Aktuellen Befehl löschen</string>
+    <string name="voice_select_different_app">Andere App auswählen</string>
+    <string name="voice_mic_permission_required">Mikrofonberechtigung ist für Sprachstart erforderlich.</string>
+    <string name="voice_command_cleared">Befehl gelöscht</string>
+    <string name="voice_no_commands_title">Keine Sprachbefehle gespeichert</string>
+    <string name="voice_no_commands_message">Sie haben noch keine Sprachbefehle aufgenommen. Möchten Sie jetzt einen aufnehmen?</string>
+    <string name="voice_mic_rationale">Mikrofonzugriff ist erforderlich, um Ihre Sprachbefehle aufzunehmen und zu erkennen.</string>
+    <string name="voice_english_only_notice">Hinweis: Sprachbefehle werden derzeit nur auf Englisch erkannt.</string>
+    <string name="ok_button">OK</string>
+    <string name="show_palm_title">Handfläche anzeigen</string>
+    <string name="show_palm_desc">Halbtransparente Handfläche einblenden</string>
+    <string name="reset_settings">Einstellungen zurücksetzen</string>
+    <string name="game_over">SPIEL ENDE</string>
+    <string name="game_score_format">Ihre Punkte: %1$d\nRekord: %2$d</string>
+    <string name="game_restart">Erneut starten</string>
 </resources>

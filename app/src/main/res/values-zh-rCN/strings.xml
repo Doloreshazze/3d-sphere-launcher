@@ -92,4 +92,32 @@
     <string name="clear_desc">清除</string>
     <string name="back_desc">返回</string>
     <string name="settings_unavailable">设置不可用</string>
+
+    <!-- Voice launch setup & UI strings -->
+    <string name="voice_launch_setup">语音启动设置</string>
+    <string name="voice_select_app_title">选择要配置的应用：</string>
+    <string name="voice_command_format">指令：\"%1$s %2$s\"</string>
+    <string name="voice_configuring_app">正在配置：%1$s</string>
+    <string name="voice_wake_word_label">唤醒词 (例如：\'电脑\')</string>
+    <string name="voice_app_word_label">应用词 (例如：\'浏览器\')</string>
+    <string name="voice_press_mic_hint">按下麦克风并说：\"%1$s %2$s\"</string>
+    <string name="voice_listening">正在聆听...</string>
+    <string name="voice_start_training">开始录音</string>
+    <string name="voice_recognized_format">识别到：%1$s</string>
+    <string name="voice_enrolled_success">✅ 语音指令录制成功！</string>
+    <string name="voice_delete_command">删除当前指令</string>
+    <string name="voice_select_different_app">选择其他应用</string>
+    <string name="voice_mic_permission_required">语音启动需要麦克风权限。</string>
+    <string name="voice_command_cleared">指令已清除</string>
+    <string name="voice_no_commands_title">暂无录制的语音指令</string>
+    <string name="voice_no_commands_message">您尚未录制任何语音指令。是否现在录制？</string>
+    <string name="voice_mic_rationale">录制和识别您的语音指令需要麦克风权限。</string>
+    <string name="voice_english_only_notice">注意：语音指令目前仅支持英语识别。</string>
+    <string name="ok_button">确定</string>
+    <string name="show_palm_title">显示手掌</string>
+    <string name="show_palm_desc">显示半透明手掌轮廓</string>
+    <string name="reset_settings">重置设置</string>
+    <string name="game_over">游戏结束</string>
+    <string name="game_score_format">您的得分：%1$d\n最高纪录：%2$d</string>
+    <string name="game_restart">重新开始</string>
 </resources>

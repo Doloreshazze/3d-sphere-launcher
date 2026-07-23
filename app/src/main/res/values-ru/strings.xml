@@ -92,4 +92,32 @@
     <string name="clear_desc">Очистить</string>
     <string name="back_desc">Назад</string>
     <string name="settings_unavailable">Настройки недоступны</string>
+
+    <!-- Voice launch setup & UI strings -->
+    <string name="voice_launch_setup">Настройка голосового запуска</string>
+    <string name="voice_select_app_title">Выберите приложение для настройки:</string>
+    <string name="voice_command_format">Команда: \"%1$s %2$s\"</string>
+    <string name="voice_configuring_app">Настройка: %1$s</string>
+    <string name="voice_wake_word_label">Активирующее слово (напр., \'Компьютер\')</string>
+    <string name="voice_app_word_label">Слово приложения (напр., \'Браузер\')</string>
+    <string name="voice_press_mic_hint">Нажмите микрофон и скажите: \"%1$s %2$s\"</string>
+    <string name="voice_listening">Слушаю...</string>
+    <string name="voice_start_training">Начать запись</string>
+    <string name="voice_recognized_format">Распознано: %1$s</string>
+    <string name="voice_enrolled_success">✅ Голосовая команда успешно записана!</string>
+    <string name="voice_delete_command">Удалить текущую команду</string>
+    <string name="voice_select_different_app">Выбрать другое приложение</string>
+    <string name="voice_mic_permission_required">Разрешение микрофона требуется для голосового запуска.</string>
+    <string name="voice_command_cleared">Команда удалена</string>
+    <string name="voice_no_commands_title">Нет записанных команд</string>
+    <string name="voice_no_commands_message">У вас еще нет ни одной записанной голосовой команды. Хотите записать сейчас?</string>
+    <string name="voice_mic_rationale">Микрофон нужен для записи и распознавания ваших голосовых команд.</string>
+    <string name="voice_english_only_notice">Примечание: Голосовые команды пока распознаются только на английском языке.</string>
+    <string name="ok_button">ОК</string>
+    <string name="show_palm_title">Отображать ладонь</string>
+    <string name="show_palm_desc">Показывать полупрозрачную ладонь</string>
+    <string name="reset_settings">Сброс настроек</string>
+    <string name="game_over">ИГРА ОКОНЧЕНА</string>
+    <string name="game_score_format">Ваш счет: %1$d\nРекорд: %2$d</string>
+    <string name="game_restart">Начать заново</string>
 </resources>

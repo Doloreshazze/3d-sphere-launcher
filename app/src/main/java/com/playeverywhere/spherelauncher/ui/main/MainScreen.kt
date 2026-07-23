@@ -1153,31 +1153,51 @@ fun MainScreen(
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
                         )
+                        if (!showVoiceVisualizer) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.voice_english_only_notice),
+                                color = Color(0xB3FFFFFF),
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
 
             if (showNoVoiceCommandsDialog) {
+                val micRationaleMsg = stringResource(R.string.voice_mic_rationale)
                 AlertDialog(
                     onDismissRequest = { showNoVoiceCommandsDialog = false },
                     containerColor = Color(0xE00D0B18),
-                    title = { Text("Нет записанных команд", color = Color(0xFF00F2FE)) },
-                    text = { Text("У вас еще нет ни одной записанной голосовой команды. Хотите записать сейчас?", color = Color.White) },
+                    title = { Text(stringResource(R.string.voice_no_commands_title), color = Color(0xFF00F2FE)) },
+                    text = {
+                        Column {
+                            Text(stringResource(R.string.voice_no_commands_message), color = Color.White)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.voice_english_only_notice),
+                                color = Color(0xB3FFFFFF),
+                                fontSize = 12.sp
+                            )
+                        }
+                    },
                     confirmButton = {
                         Button(
                             onClick = {
                                 showNoVoiceCommandsDialog = false
-                                Toast.makeText(context, "Микрофон нужен для записи и распознавания ваших голосовых команд", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, micRationaleMsg, Toast.LENGTH_LONG).show()
                                 onItemClick(VoiceSetup)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE), contentColor = Color.Black)
                         ) {
-                            Text("ОК")
+                            Text(stringResource(R.string.ok_button))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showNoVoiceCommandsDialog = false }) {
-                            Text("Назад", color = Color(0xFF00F2FE))
+                            Text(stringResource(R.string.back_desc), color = Color(0xFF00F2FE))
                         }
                     }
                 )
@@ -1303,9 +1323,10 @@ fun MainScreen(
                         title = { Text(stringResource(R.string.camera_permission_title), color = Color(0xFF00F2FE)) },
                         text = { Text(stringResource(R.string.camera_permission_rationale), color = Color.White) },
                         confirmButton = {
+                            val cameraRationaleMsg = stringResource(R.string.camera_permission_rationale)
                             Button(onClick = {
                                 showCameraRationale = false
-                                Toast.makeText(context, "Камера нужна для отслеживания движений ваших рук в пространстве", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, cameraRationaleMsg, Toast.LENGTH_LONG).show()
                                 cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                             }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE), contentColor = Color.Black)) {
                                 Text(stringResource(android.R.string.ok))
@@ -1610,10 +1631,10 @@ fun SettingsSheetContent(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val centerOptions = listOf(
-                Triple(0, "Нет", Color(0xFF808080)),
-                Triple(1, "Земля", Color(0xFF00F2FE)),
-                Triple(2, "Реал. Земля", Color(0xFF4FACFE)),
-                Triple(3, "ЧД", Color(0xFFFF5500))
+                Triple(0, stringResource(R.string.center_none), Color(0xFF808080)),
+                Triple(1, stringResource(R.string.center_earth), Color(0xFF00F2FE)),
+                Triple(2, stringResource(R.string.center_earth_real), Color(0xFF4FACFE)),
+                Triple(3, stringResource(R.string.center_black_hole), Color(0xFFFF5500))
             )
             val currentSelected = when {
                 state.isBlackHoleEnabled -> 3
@@ -1930,13 +1951,13 @@ fun SettingsSheetContent(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Отображать ладонь",
+                    text = stringResource(R.string.show_palm_title),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Text(
-                    text = "Показывать полупрозрачную ладонь",
+                    text = stringResource(R.string.show_palm_desc),
                     fontSize = 11.sp,
                     color = Color(0x66FFFFFF)
                 )
@@ -2251,9 +2272,9 @@ fun SettingsSheetContent(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744))
         ) {
-            Icon(Icons.Default.Refresh, contentDescription = "Сброс настроек", tint = Color.White)
+            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.reset_settings), tint = Color.White)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Сброс настроек", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.reset_settings), color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }

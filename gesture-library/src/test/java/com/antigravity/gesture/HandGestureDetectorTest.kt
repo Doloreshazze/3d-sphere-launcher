@@ -1,12 +1,20 @@
 package com.antigravity.gesture
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
-import kotlin.math.sqrt
 
 class HandGestureDetectorTest {
+
+    private lateinit var detector: HandGestureDetector
+
+    @Before
+    fun setUp() {
+        // Create detector instance; Android stubs allow setup without crashing
+        detector = HandGestureDetector(MockContext())
+    }
 
     // Helper to generate a default hand landmark set with all extended fingers
     private fun createBaseHand(
@@ -52,90 +60,79 @@ class HandGestureDetectorTest {
     }
 
     @Test
-    fun testDistanceFormula() {
+    fun testProductionDistanceFormula() {
         val p1 = HandLandmarkData(0f, 0f, 0f, 0)
         val p2 = HandLandmarkData(3f, 4f, 12f, 1)
         
-        // Distance should be sqrt(3^2 + 4^2 + 12^2) = sqrt(9 + 16 + 144) = sqrt(169) = 13.0
-        val dx = p1.x - p2.x
-        val dy = p1.y - p2.y
-        val dz = p1.z - p2.z
-        val dist = sqrt(dx * dx + dy * dy + dz * dz)
+        // Distance should be sqrt(3^2 + 4^2 + 12^2) = 13.0
+        val dist = detector.distance(p1, p2)
         assertEquals(13.0f, dist, 0.001f)
     }
 
     @Test
-    fun testIsFingerFolded() {
+    fun testProductionIsFingerFolded() {
         val wrist = HandLandmarkData(0.5f, 0.9f, 0f, 0)
         
-        // 1. Extended finger: tip is far away from wrist compared to MCP
-        val mcpExtended = HandLandmarkData(0.5f, 0.5f, 0f, 5) // Dist = 0.4
-        val tipExtended = HandLandmarkData(0.5f, 0.1f, 0f, 8) // Dist = 0.8
-        
-        val extendedDistTip = dist(wrist, tipExtended)
-        val extendedDistMcp = dist(wrist, mcpExtended)
-        assertFalse(extendedDistTip < extendedDistMcp * 1.05f)
+        // Extended finger
+        val mcpExtended = HandLandmarkData(0.5f, 0.5f, 0f, 5)
+        val tipExtended = HandLandmarkData(0.5f, 0.1f, 0f, 8)
+        assertFalse(detector.isFingerFolded(wrist, tipExtended, mcpExtended))
 
-        // 2. Folded finger: tip is curled back, closer to wrist
-        val mcpFolded = HandLandmarkData(0.5f, 0.5f, 0f, 5) // Dist = 0.4
-        val tipFolded = HandLandmarkData(0.5f, 0.52f, 0f, 8) // Dist = 0.38
-        
-        val foldedDistTip = dist(wrist, tipFolded)
-        val foldedDistMcp = dist(wrist, mcpFolded)
-        assertTrue(foldedDistTip < foldedDistMcp * 1.05f)
+        // Folded finger
+        val mcpFolded = HandLandmarkData(0.5f, 0.5f, 0f, 5)
+        val tipFolded = HandLandmarkData(0.5f, 0.52f, 0f, 8)
+        assertTrue(detector.isFingerFolded(wrist, tipFolded, mcpFolded))
     }
 
     @Test
     fun testRecognizePinchAsActivate() {
-        // Create hand with Thumb Tip (4) and Index Tip (8) extremely close (pinch)
+        // Hand with Thumb Tip (4) and Index Tip (8) very close (pinch/clenched)
         val landmarks = createBaseHand(
-            thumbTipX = 0.29f, thumbTipY = 0.2f, // Thumb tip near index tip
-            indexTipX = 0.3f, indexTipY = 0.2f
+            thumbTipX = 0.395f, thumbTipY = 0.495f,
+            indexTipX = 0.400f, indexTipY = 0.500f
         )
         
-        // Calculate thumb to index tip distance
-        val thumbTip = landmarks[4]
-        val indexTip = landmarks[8]
-        val dx = thumbTip.x - indexTip.x
-        val dy = thumbTip.y - indexTip.y
-        val dz = thumbTip.z - indexTip.z
-        val dist = sqrt(dx * dx + dy * dy + dz * dz)
-        
-        // dist should be ~0.01, which is < PINCH_THRESHOLD (0.045f)
-        assertTrue(dist < 0.045f)
+        val gesture = detector.recognizeGesture(landmarks)
+        assertEquals(Gesture.ACTIVATE, gesture)
     }
 
     @Test
-    fun testRecognizeFistAsActivate() {
+    fun testRecognizeFist() {
         val wrist = HandLandmarkData(0.5f, 0.9f, 0f, 0)
         
-        // Model a fist hand where all finger tips are curled close to MCPs/wrist
-        val indexMcp = HandLandmarkData(0.4f, 0.5f, 0f, 5)  // dist = 0.412
-        val indexTip = HandLandmarkData(0.4f, 0.53f, 0f, 8) // dist = 0.384 -> Folded!
-        
-        val middleMcp = HandLandmarkData(0.5f, 0.5f, 0f, 9)  // dist = 0.4
-        val middleTip = HandLandmarkData(0.5f, 0.52f, 0f, 12) // dist = 0.38 -> Folded!
-        
-        val ringMcp = HandLandmarkData(0.6f, 0.52f, 0f, 13) // dist = 0.392
-        val ringTip = HandLandmarkData(0.6f, 0.54f, 0f, 16) // dist = 0.372 -> Folded!
-        
-        val pinkyMcp = HandLandmarkData(0.7f, 0.55f, 0f, 17) // dist = 0.403
-        val pinkyTip = HandLandmarkData(0.7f, 0.57f, 0f, 20) // dist = 0.380 -> Folded!
+        // All fingers curled close to wrist / MCP
+        val landmarks = mutableListOf<HandLandmarkData>().apply {
+            add(wrist) // 0
+            // Thumb
+            add(HandLandmarkData(0.4f, 0.7f, 0f, 1))
+            add(HandLandmarkData(0.3f, 0.6f, 0f, 2))
+            add(HandLandmarkData(0.2f, 0.5f, 0f, 3))
+            add(HandLandmarkData(0.3f, 0.65f, 0f, 4))
+            // Index (folded)
+            add(HandLandmarkData(0.4f, 0.5f, 0f, 5))
+            add(HandLandmarkData(0.4f, 0.52f, 0f, 6))
+            add(HandLandmarkData(0.4f, 0.53f, 0f, 7))
+            add(HandLandmarkData(0.4f, 0.55f, 0f, 8))
+            // Middle (folded)
+            add(HandLandmarkData(0.5f, 0.5f, 0f, 9))
+            add(HandLandmarkData(0.5f, 0.52f, 0f, 10))
+            add(HandLandmarkData(0.5f, 0.53f, 0f, 11))
+            add(HandLandmarkData(0.5f, 0.55f, 0f, 12))
+            // Ring (folded)
+            add(HandLandmarkData(0.6f, 0.52f, 0f, 13))
+            add(HandLandmarkData(0.6f, 0.53f, 0f, 14))
+            add(HandLandmarkData(0.6f, 0.54f, 0f, 15))
+            add(HandLandmarkData(0.6f, 0.56f, 0f, 16))
+            // Pinky (folded)
+            add(HandLandmarkData(0.7f, 0.55f, 0f, 17))
+            add(HandLandmarkData(0.7f, 0.56f, 0f, 18))
+            add(HandLandmarkData(0.7f, 0.57f, 0f, 19))
+            add(HandLandmarkData(0.7f, 0.58f, 0f, 20))
+        }
 
-        // Assert all four fingers are detected as folded
-        assertTrue(isFingerFoldedDummy(wrist, indexTip, indexMcp))
-        assertTrue(isFingerFoldedDummy(wrist, middleTip, middleMcp))
-        assertTrue(isFingerFoldedDummy(wrist, ringTip, ringMcp))
-        assertTrue(isFingerFoldedDummy(wrist, pinkyTip, pinkyMcp))
+        val gesture = detector.recognizeGesture(landmarks)
+        assertEquals(Gesture.FIST, gesture)
     }
 
-    private fun isFingerFoldedDummy(wrist: HandLandmarkData, tip: HandLandmarkData, mcp: HandLandmarkData): Boolean {
-        val tipToWrist = dist(wrist, tip)
-        val mcpToWrist = dist(wrist, mcp)
-        return tipToWrist < mcpToWrist * 1.05f
-    }
-
-    private fun dist(p1: HandLandmarkData, p2: HandLandmarkData): Float {
-        return sqrt((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y) + (p1.z - p2.z) * (p1.z - p2.z))
-    }
+    private class MockContext : android.content.ContextWrapper(null)
 }

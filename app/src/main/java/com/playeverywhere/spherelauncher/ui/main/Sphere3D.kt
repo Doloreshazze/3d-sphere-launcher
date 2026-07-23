@@ -18,6 +18,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.res.stringResource
+import com.playeverywhere.spherelauncher.R
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -43,7 +45,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import com.playeverywhere.spherelauncher.R
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -1805,13 +1806,13 @@ fun Sphere3D(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
-                                text = "ИГРА ОКОНЧЕНА",
+                                text = stringResource(R.string.game_over),
                                 color = Color(0xFFFF5252),
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Ваш счет: $score\nРекорд: $highScore",
+                                text = stringResource(R.string.game_score_format, score, highScore),
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 textAlign = TextAlign.Center
@@ -1824,7 +1825,7 @@ fun Sphere3D(
                                     .padding(horizontal = 24.dp, vertical = 12.dp)
                             ) {
                                 Text(
-                                    text = "Начать заново",
+                                    text = stringResource(R.string.game_restart),
                                     color = Color(0xFF0F0E1E),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
@@ -1835,11 +1836,6 @@ fun Sphere3D(
                 }
             }
             
-            if (shapeType == ShapeType.SNAKE && isGameOver) {
-                Box(modifier = Modifier.fillMaxSize().background(Color(0x66000000)), contentAlignment = Alignment.Center) {
-                    androidx.compose.material3.Text("GAME OVER\nTap to Restart", color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 32.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                }
-            }
             if (shapeType == ShapeType.SNAKE && isPaused && !isGameOver) {
                 Box(modifier = Modifier.fillMaxSize().background(Color(0x44000000)), contentAlignment = Alignment.Center) {
                     androidx.compose.material3.Text("PAUSED", color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 32.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)

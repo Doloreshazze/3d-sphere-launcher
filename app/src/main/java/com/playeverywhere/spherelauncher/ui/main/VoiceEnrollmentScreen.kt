@@ -1,5 +1,10 @@
 package com.playeverywhere.spherelauncher.ui.main
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,7 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,16 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import android.Manifest
-import android.content.pm.PackageManager
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.playeverywhere.spherelauncher.R
 import com.playeverywhere.spherelauncher.audio.SpeechState
 import com.playeverywhere.spherelauncher.audio.VoiceViewModel
 import com.playeverywhere.spherelauncher.data.AppInfo
@@ -50,6 +52,9 @@ fun VoiceEnrollmentScreen(
 
     val allEnrolledPrints by voiceViewModel.allEnrolledPrints.collectAsState()
 
+    val micDeniedMsg = stringResource(R.string.voice_mic_permission_required)
+    val commandClearedMsg = stringResource(R.string.voice_command_cleared)
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -58,7 +63,7 @@ fun VoiceEnrollmentScreen(
                 voiceViewModel.startListeningForEnrollment(wakeWord, appWord, selectedApp!!.packageName)
             }
         } else {
-            Toast.makeText(context, "Microphone permission is required for voice launch.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, micDeniedMsg, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -69,10 +74,10 @@ fun VoiceEnrollmentScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Voice Launch Setup", color = Color.White) },
+                title = { Text(stringResource(R.string.voice_launch_setup), color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_desc), tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1E1E1E))
@@ -86,8 +91,34 @@ fun VoiceEnrollmentScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0x2200F2FE)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color(0xFF00F2FE),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = stringResource(R.string.voice_english_only_notice),
+                        color = Color.White,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
             if (selectedApp == null) {
-                Text("Select an app to configure:", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.voice_select_app_title), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
                 LazyColumn {
                     items(apps) { app ->
@@ -107,7 +138,11 @@ fun VoiceEnrollmentScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(app.label, color = Color.White, fontSize = 16.sp)
                                 if (enrolledPrint != null) {
-                                    Text("Command: \"${enrolledPrint.wakeWordText} ${enrolledPrint.appWordText}\"", color = Color.Green, fontSize = 12.sp)
+                                    Text(
+                                        text = stringResource(R.string.voice_command_format, enrolledPrint.wakeWordText, enrolledPrint.appWordText),
+                                        color = Color.Green,
+                                        fontSize = 12.sp
+                                    )
                                 }
                             }
                         }
@@ -117,14 +152,19 @@ fun VoiceEnrollmentScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(bitmap = selectedApp!!.iconBitmap, contentDescription = null, modifier = Modifier.size(48.dp))
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text("Configuring: ${selectedApp!!.label}", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = stringResource(R.string.voice_configuring_app, selectedApp!!.label),
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 OutlinedTextField(
                     value = wakeWord,
                     onValueChange = { wakeWord = it },
-                    label = { Text("Wake Word (e.g., 'Computer')") },
+                    label = { Text(stringResource(R.string.voice_wake_word_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -139,7 +179,7 @@ fun VoiceEnrollmentScreen(
                 OutlinedTextField(
                     value = appWord,
                     onValueChange = { appWord = it },
-                    label = { Text("App Word (e.g., 'Browser')") },
+                    label = { Text(stringResource(R.string.voice_app_word_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -152,7 +192,7 @@ fun VoiceEnrollmentScreen(
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Text(
-                    text = "Press Mic and say: \"$wakeWord $appWord\"",
+                    text = stringResource(R.string.voice_press_mic_hint, wakeWord, appWord),
                     color = Color.LightGray,
                     fontSize = 16.sp,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -179,15 +219,15 @@ fun VoiceEnrollmentScreen(
                         containerColor = if (speechState == SpeechState.LISTENING) Color.Red else MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Icon(Icons.Default.Mic, contentDescription = "Record")
+                    Icon(Icons.Default.Mic, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (speechState == SpeechState.LISTENING) "Listening..." else "Start Training")
+                    Text(if (speechState == SpeechState.LISTENING) stringResource(R.string.voice_listening) else stringResource(R.string.voice_start_training))
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "Recognized: $recognizedText",
+                    text = stringResource(R.string.voice_recognized_format, recognizedText),
                     color = Color.Cyan,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
@@ -195,7 +235,7 @@ fun VoiceEnrollmentScreen(
                 if (lastEnrolledPrint != null && lastEnrolledPrint?.packageName == selectedApp?.packageName) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "✅ Voice Print Enrolled Successfully!",
+                        text = stringResource(R.string.voice_enrolled_success),
                         color = Color.Green,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -208,12 +248,12 @@ fun VoiceEnrollmentScreen(
                     Button(
                         onClick = {
                             voiceViewModel.deleteEnrollment(selectedApp!!.packageName)
-                            Toast.makeText(context, "Command cleared", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, commandClearedMsg, Toast.LENGTH_SHORT).show()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     ) {
-                        Text("Delete Current Command")
+                        Text(stringResource(R.string.voice_delete_command))
                     }
                 }
 
@@ -227,7 +267,7 @@ fun VoiceEnrollmentScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Select a different app")
+                    Text(stringResource(R.string.voice_select_different_app))
                 }
             }
         }

@@ -116,7 +116,7 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
                 .build()
 
             handLandmarker = HandLandmarker.createFromOptions(context, options)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Failed to initialize HandLandmarker", e)
         }
     }
