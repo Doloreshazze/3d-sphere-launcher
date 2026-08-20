@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SphereLauncher</string>
-    <string name="search_placeholder">Search apps...</string>
+    <string name="search_placeholder">Search apps…</string>
     <string name="fail_launch_app">Failed to launch %1$s</string>
-    <string name="error_prefix">Error: %1$s</string>
-    <string name="camera_unavailable">Camera unavailable: %1$s</string>
+    <string name="camera_unavailable">Camera unavailable</string>
     <string name="no_apps_found">No apps found</string>
     <string name="rotation_inertia">Rotation Inertia</string>
     <string name="rotation_lock">Rotation Lock</string>
@@ -14,15 +13,10 @@
     <string name="shape_snake">Snake</string>
     <string name="auto_drift_title">Auto-rotation</string>
     <string name="auto_drift_desc">Slow automatic drift of icons</string>
-    <string name="device_tilt_title">Device Tilt (3D Effect)</string>
-    <string name="device_tilt_desc">Rotate and tilt sphere using gyroscope</string>
     <string name="pulsation_title">3D Space Pulsation</string>
     <string name="pulsation_desc">Icons rhythmically approach and recede</string>
     <string name="audio_reactivity">Audio Reactivity</string>
     <string name="audio_reactive_desc">Sphere pulses in sync with music and sounds (microphone)</string>
-    <string name="bind_home_title">Default HOME Button</string>
-    <string name="bind_home_desc">Bind launcher to system Home button</string>
-    <string name="bind_home_btn">Bind</string>
     <string name="neon_glow_settings">Halo Glow Customization</string>
     <string name="neon_color">Neon Color:</string>
     <string name="glow_intensity">Neon Intensity:</string>
@@ -33,7 +27,7 @@
     <string name="close_button">Close</string>
     <string name="retry_button">Retry</string>
     <string name="mic_permission_denied">Microphone record permission denied</string>
-    <string name="uninstall_fail">Failed to open uninstall dialog: %1$s</string>
+    <string name="uninstall_fail">Unable to open the uninstall dialog</string>
     <string name="dialog_choose_action">Choose action for app. Hiding it will remove it from the launcher but keep it installed. Uninstalling will remove it completely from the device.</string>
     <string name="dialog_hide_icon">Hide Icon</string>
     <string name="dialog_uninstall_app">Uninstall App</string>
@@ -76,18 +70,12 @@
     <string name="center_earth">Earth Hologram</string>
     <string name="center_earth_real">Realistic Earth</string>
     <string name="center_black_hole">Black Hole (Top)</string>
-    <string name="running_apps_only">Running Apps Only</string>
-    <string name="running_apps_only_desc">Only show apps launched during this session</string>
 
     <!-- New added strings -->
     <string name="starfield_title">Star Background</string>
     <string name="starfield_desc">Display moving stars in the background</string>
     <string name="zoom_control_title">Zoom Control</string>
     <string name="zoom_control_desc">Scale with pinch and gestures</string>
-    <string name="camera_permission_title">Camera Permission</string>
-    <string name="camera_permission_rationale">For Air Gestures to work, the app requires access to the camera. The image is processed locally and never sent anywhere.</string>
-    <string name="mic_permission_title">Microphone Permission</string>
-    <string name="mic_permission_rationale">For audio reactivity, the app needs microphone access to react to music and sounds.</string>
     <string name="search_desc">Search</string>
     <string name="clear_desc">Clear</string>
     <string name="back_desc">Back</string>
@@ -101,7 +89,7 @@
     <string name="voice_wake_word_label">Wake Word (e.g., \'Computer\')</string>
     <string name="voice_app_word_label">App Word (e.g., \'Browser\')</string>
     <string name="voice_press_mic_hint">Press Mic and say: \"%1$s %2$s\"</string>
-    <string name="voice_listening">Listening...</string>
+    <string name="voice_listening">Listening…</string>
     <string name="voice_start_training">Start Training</string>
     <string name="voice_recognized_format">Recognized: %1$s</string>
     <string name="voice_enrolled_success">Voice Print Enrolled Successfully!</string>
@@ -120,4 +108,19 @@
     <string name="game_over">GAME OVER</string>
     <string name="game_score_format">Your Score: %1$d\nHigh Score: %2$d</string>
     <string name="game_restart">Restart Game</string>
+    <string name="set_default_launcher_title">Set as Default Launcher</string>
+    <string name="set_default_launcher_desc">Set Sphere Launcher as your default Android desktop</string>
+    <string name="status_default_launcher">Default Launcher</string>
+    <string name="status_not_default_launcher">Set as Default</string>
+    <string name="gesture_experimental_title">Experimental feature</string>
+    <string name="gesture_experimental_message">Air Gesture Control is experimental. Accuracy may vary with lighting, camera position, background, and device performance. Keep touch controls available if gestures behave inconsistently.</string>
+    <string name="gesture_experimental_enable">Enable experimental mode</string>
+    <string name="voice_launch_action">Voice launch</string>
+    <string name="voice_launch_authorized">Voice launch authorized</string>
+    <string name="voice_listening_for_launch">Listening for a launch command…</string>
+    <string name="load_apps_failed">Unable to load apps.</string>
+    <string name="game_score_compact">Score: %1$d | High: %2$d</string>
+    <string name="game_paused">PAUSED</string>
+    <string name="view_mode_3d" translatable="false">3D</string>
+    <string name="view_mode_2d" translatable="false">2D</string>
 </resources>

@@ -3,8 +3,7 @@
     <string name="app_name">SphereLauncher</string>
     <string name="search_placeholder">Поиск приложений…</string>
     <string name="fail_launch_app">Не удалось запустить %1$s</string>
-    <string name="error_prefix">Ошибка: %1$s</string>
-    <string name="camera_unavailable">Камера недоступна: %1$s</string>
+    <string name="camera_unavailable">Камера недоступна</string>
     <string name="no_apps_found">Приложения не найдены</string>
     <string name="rotation_inertia">Инерция вращения</string>
     <string name="rotation_lock">Блокировка вращения</string>
@@ -14,15 +13,10 @@
     <string name="shape_snake">Змейка</string>
     <string name="auto_drift_title">Авто-вращение</string>
     <string name="auto_drift_desc">Медленное автоматическое вращение иконок</string>
-    <string name="device_tilt_title">Наклон устройства (3D эффект)</string>
-    <string name="device_tilt_desc">Вращение и наклон сферы с помощью гироскопа</string>
     <string name="pulsation_title">Пульсация пространства</string>
     <string name="pulsation_desc">Иконки ритмично приближаются и отдаляются</string>
     <string name="audio_reactivity">Аудио-реактивность</string>
     <string name="audio_reactive_desc">Сфера пульсирует в такт музыке и звукам (микрофон)</string>
-    <string name="bind_home_title">Кнопка HOME по умолчанию</string>
-    <string name="bind_home_desc">Назначить лаунчер системной кнопкой Home</string>
-    <string name="bind_home_btn">Назначить</string>
     <string name="neon_glow_settings">Настройка неонового свечения</string>
     <string name="neon_color">Цвет неона:</string>
     <string name="glow_intensity">Интенсивность неона:</string>
@@ -33,7 +27,7 @@
     <string name="close_button">Закрыть</string>
     <string name="retry_button">Повторить</string>
     <string name="mic_permission_denied">В разрешении на запись аудио отказано</string>
-    <string name="uninstall_fail">Не удалось открыть диалог удаления: %1$s</string>
+    <string name="uninstall_fail">Не удалось открыть диалог удаления</string>
     <string name="dialog_choose_action">Выберите действие для приложения. Скрытие уберет его из лаунчера, но оставит установленным. Удаление полностью сотрет его с устройства.</string>
     <string name="dialog_hide_icon">Скрыть иконку</string>
     <string name="dialog_uninstall_app">Удалить приложение</string>
@@ -76,18 +70,12 @@
     <string name="center_earth">Голограмма Земли</string>
     <string name="center_earth_real">Реалистичная Земля</string>
     <string name="center_black_hole">Черная дыра (Сверху)</string>
-    <string name="running_apps_only">Только запущенные приложения</string>
-    <string name="running_apps_only_desc">Показывать только те приложения, которые были запущены в текущей сессии</string>
 
     <!-- New added strings -->
     <string name="starfield_title">Звездный фон</string>
     <string name="starfield_desc">Отображать движущиеся звезды на фоне</string>
     <string name="zoom_control_title">Управление масштабом</string>
     <string name="zoom_control_desc">Изменение масштаба щепоткой и жестами</string>
-    <string name="camera_permission_title">Разрешение камеры</string>
-    <string name="camera_permission_rationale">Для работы Воздушных Жестов приложению нужен доступ к камере. Изображение обрабатывается локально и никуда не отправляется.</string>
-    <string name="mic_permission_title">Разрешение микрофона</string>
-    <string name="mic_permission_rationale">Для аудио-реактивности приложению нужен доступ к микрофону, чтобы реагировать на музыку и звуки.</string>
     <string name="search_desc">Поиск</string>
     <string name="clear_desc">Очистить</string>
     <string name="back_desc">Назад</string>
@@ -101,7 +89,7 @@
     <string name="voice_wake_word_label">Активирующее слово (напр., \'Компьютер\')</string>
     <string name="voice_app_word_label">Слово приложения (напр., \'Браузер\')</string>
     <string name="voice_press_mic_hint">Нажмите микрофон и скажите: \"%1$s %2$s\"</string>
-    <string name="voice_listening">Слушаю...</string>
+    <string name="voice_listening">Слушаю…</string>
     <string name="voice_start_training">Начать запись</string>
     <string name="voice_recognized_format">Распознано: %1$s</string>
     <string name="voice_enrolled_success">✅ Голосовая команда успешно записана!</string>
@@ -120,4 +108,17 @@
     <string name="game_over">ИГРА ОКОНЧЕНА</string>
     <string name="game_score_format">Ваш счет: %1$d\nРекорд: %2$d</string>
     <string name="game_restart">Начать заново</string>
+    <string name="set_default_launcher_title">Установить как рабочий стол по умолчанию</string>
+    <string name="set_default_launcher_desc">Сделать Sphere Launcher основным рабочим столом Android</string>
+    <string name="status_default_launcher">По умолчанию</string>
+    <string name="status_not_default_launcher">Установить</string>
+    <string name="gesture_experimental_title">Экспериментальная функция</string>
+    <string name="gesture_experimental_message">Управление воздушными жестами работает в экспериментальном режиме. Точность зависит от освещения, положения камеры, фона и производительности устройства. Если жесты распознаются нестабильно, используйте обычное сенсорное управление.</string>
+    <string name="gesture_experimental_enable">Включить экспериментальный режим</string>
+    <string name="voice_launch_action">Голосовой запуск</string>
+    <string name="voice_launch_authorized">Голосовой запуск разрешён</string>
+    <string name="voice_listening_for_launch">Ожидание команды запуска…</string>
+    <string name="load_apps_failed">Не удалось загрузить приложения.</string>
+    <string name="game_score_compact">Счёт: %1$d | Рекорд: %2$d</string>
+    <string name="game_paused">ПАУЗА</string>
 </resources>

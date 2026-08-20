@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.playeverywhere.spherelauncher.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,7 +63,7 @@ class VoiceViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startListeningForEnrollment(wakeWord: String, appWord: String, packageName: String) {
-        _recognizedText.value = "Listening..."
+        _recognizedText.value = getApplication<Application>().getString(R.string.voice_listening)
         speechListener?.onResult = { text, duration, envelope ->
             _recognizedText.value = text
             val print = VoiceMatcher.VoicePrint(wakeWord, appWord, packageName, duration, envelope)
@@ -97,7 +98,7 @@ class VoiceViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startListeningForLaunch(onLaunch: (String) -> Unit) {
-        _recognizedText.value = "Listening for launch..."
+        _recognizedText.value = getApplication<Application>().getString(R.string.voice_listening_for_launch)
         speechListener?.onResult = { text, duration, envelope ->
             _recognizedText.value = text
             val matchedPrint = voiceMatcher.match(text, duration, envelope)

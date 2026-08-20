@@ -3,8 +3,7 @@
     <string name="app_name">SphereLauncher</string>
     <string name="search_placeholder">搜索应用…</string>
     <string name="fail_launch_app">无法启动 %1$s</string>
-    <string name="error_prefix">错误：%1$s</string>
-    <string name="camera_unavailable">相机不可用：%1$s</string>
+    <string name="camera_unavailable">相机不可用</string>
     <string name="no_apps_found">未找到应用</string>
     <string name="rotation_inertia">旋转惯性</string>
     <string name="rotation_lock">旋转锁定</string>
@@ -14,15 +13,10 @@
     <string name="shape_snake">贪吃蛇</string>
     <string name="auto_drift_title">自动旋转</string>
     <string name="auto_drift_desc">图标缓慢自动漂移</string>
-    <string name="device_tilt_title">设备倾斜 (3D效果)</string>
-    <string name="device_tilt_desc">使用陀螺仪旋转和倾斜球体</string>
     <string name="pulsation_title">3D空间脉动</string>
     <string name="pulsation_desc">图标有节奏地靠近和远离</string>
     <string name="audio_reactivity">音频响应</string>
     <string name="audio_reactive_desc">球体随音乐和声音（麦克风）同步脉动</string>
-    <string name="bind_home_title">默认主页键</string>
-    <string name="bind_home_desc">将启动器绑定到系统主页键</string>
-    <string name="bind_home_btn">绑定</string>
     <string name="neon_glow_settings">霓虹光环自定义</string>
     <string name="neon_color">霓虹颜色：</string>
     <string name="glow_intensity">霓虹强度：</string>
@@ -33,7 +27,7 @@
     <string name="close_button">关闭</string>
     <string name="retry_button">重试</string>
     <string name="mic_permission_denied">麦克风录音权限被拒绝</string>
-    <string name="uninstall_fail">无法打开卸载对话框：%1$s</string>
+    <string name="uninstall_fail">无法打开卸载对话框</string>
     <string name="dialog_choose_action">为应用选择操作。隐藏它将使其从启动器中移除，但保留在设备中。卸载它将从设备中完全删除。</string>
     <string name="dialog_hide_icon">隐藏图标</string>
     <string name="dialog_uninstall_app">卸载应用</string>
@@ -76,18 +70,12 @@
     <string name="center_earth">地球全息图</string>
     <string name="center_earth_real">真实的地球</string>
     <string name="center_black_hole">黑洞 (顶部)</string>
-    <string name="running_apps_only">仅运行中的应用</string>
-    <string name="running_apps_only_desc">仅显示本次会话期间启动过的应用</string>
 
     <!-- New added strings -->
     <string name="starfield_title">星空背景</string>
     <string name="starfield_desc">在背景中显示移动的星星</string>
     <string name="zoom_control_title">缩放控制</string>
     <string name="zoom_control_desc">通过捏合和手势缩放</string>
-    <string name="camera_permission_title">相机权限</string>
-    <string name="camera_permission_rationale">为了让隔空手势起作用，应用需要访问相机。图像在本地处理，绝不会发送到任何地方。</string>
-    <string name="mic_permission_title">麦克风权限</string>
-    <string name="mic_permission_rationale">为了音频响应，应用需要麦克风访问权限以响应音乐和声音。</string>
     <string name="search_desc">搜索</string>
     <string name="clear_desc">清除</string>
     <string name="back_desc">返回</string>
@@ -101,7 +89,7 @@
     <string name="voice_wake_word_label">唤醒词 (例如：\'电脑\')</string>
     <string name="voice_app_word_label">应用词 (例如：\'浏览器\')</string>
     <string name="voice_press_mic_hint">按下麦克风并说：\"%1$s %2$s\"</string>
-    <string name="voice_listening">正在聆听...</string>
+    <string name="voice_listening">正在聆听…</string>
     <string name="voice_start_training">开始录音</string>
     <string name="voice_recognized_format">识别到：%1$s</string>
     <string name="voice_enrolled_success">✅ 语音指令录制成功！</string>
@@ -120,4 +108,17 @@
     <string name="game_over">游戏结束</string>
     <string name="game_score_format">您的得分：%1$d\n最高纪录：%2$d</string>
     <string name="game_restart">重新开始</string>
+    <string name="set_default_launcher_title">设为默认启动器</string>
+    <string name="set_default_launcher_desc">将 Sphere Launcher 设为 Android 默认主屏幕</string>
+    <string name="status_default_launcher">默认启动器</string>
+    <string name="status_not_default_launcher">设为默认</string>
+    <string name="gesture_experimental_title">实验性功能</string>
+    <string name="gesture_experimental_message">隔空手势控制是一项实验性功能。准确度可能会因光照、摄像头位置、背景和设备性能而异。如果手势响应不稳定，请使用触控操作。</string>
+    <string name="gesture_experimental_enable">启用实验模式</string>
+    <string name="voice_launch_action">语音启动</string>
+    <string name="voice_launch_authorized">语音启动已授权</string>
+    <string name="voice_listening_for_launch">正在等待启动指令…</string>
+    <string name="load_apps_failed">无法加载应用。</string>
+    <string name="game_score_compact">得分：%1$d | 最高：%2$d</string>
+    <string name="game_paused">已暂停</string>
 </resources>

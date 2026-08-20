@@ -30,9 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
@@ -48,12 +50,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.text.style.TextOverflow
 import com.playeverywhere.spherelauncher.data.AppInfo
 import androidx.compose.ui.res.stringResource
@@ -74,6 +78,10 @@ import com.playeverywhere.spherelauncher.VoiceSetup
 import com.playeverywhere.spherelauncher.audio.VoiceViewModel
 import com.playeverywhere.spherelauncher.audio.SpeechState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +91,7 @@ fun MainScreen(
     viewModel: MainScreenViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -102,6 +111,31 @@ fun MainScreen(
 
     var showSettings by remember { mutableStateOf(false) }
     var selectedAppForAction by remember { mutableStateOf<AppInfo?>(null) }
+    var showGestureExperimentalDialog by remember { mutableStateOf(false) }
+
+    var lastUiInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var areUiControlsVisible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(lastUiInteractionTime, showSettings, state.searchQuery) {
+        if (showSettings || state.searchQuery.isNotEmpty()) {
+            areUiControlsVisible = true
+        } else {
+            areUiControlsVisible = true
+            kotlinx.coroutines.delay(4000L)
+            areUiControlsVisible = false
+        }
+    }
+
+    val topControlsOffset by animateDpAsState(
+        targetValue = if (areUiControlsVisible) 0.dp else (-140).dp,
+        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+        label = "TopControlsOffset"
+    )
+    val bottomControlsOffset by animateDpAsState(
+        targetValue = if (areUiControlsVisible) 0.dp else 280.dp,
+        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+        label = "BottomControlsOffset"
+    )
 
     // Gesture tracking variables
     val projectedNodesList = remember { ArrayList<AppRenderNode>() }
@@ -117,7 +151,19 @@ fun MainScreen(
         if (isGranted) {
             viewModel.setGestureControlEnabled(true)
         } else {
-            Toast.makeText(context, context.resources.getString(R.string.camera_permission_denied), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, resources.getString(R.string.camera_permission_denied), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val enableGestureControl = {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.CAMERA
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            viewModel.setGestureControlEnabled(true)
+        } else {
+            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
         }
     }
 
@@ -134,12 +180,10 @@ fun MainScreen(
         }
     }
 
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    val screenWidthDp = configuration.screenWidthDp
-    val screenHeightDp = configuration.screenHeightDp
-    val screenWidthPx = with(density) { screenWidthDp.dp.toPx() }
-    val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
+    val windowSize = LocalWindowInfo.current.containerSize
+    val screenWidthPx = windowSize.width.toFloat()
+    val screenHeightPx = windowSize.height.toFloat()
     val densityDp = density.density
 
     // Initialize the HandGestureDetector
@@ -155,7 +199,7 @@ fun MainScreen(
     // Background gesture camera engine — ImageAnalysis only, no visible preview
     GestureCameraLauncher(
         gestureDetector = gestureDetector,
-        isEnabled = state.isGestureControlEnabled && state.shapeType != ShapeType.SNAKE
+        isEnabled = state.isGestureControlEnabled && !state.shapeType.isGame
     )
 
     var cursorOffsetX by remember { mutableFloatStateOf(0f) }
@@ -281,10 +325,11 @@ fun MainScreen(
                                 context.startActivity(launchIntent)
                                 viewModel.onAppLaunched(pinchedApp!!.packageName)
                             } else {
-                                android.widget.Toast.makeText(context, context.resources.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, resources.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, context.resources.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+                            android.util.Log.e("MainScreen", "Voice-triggered app launch failed for ${pinchedApp?.packageName}", e)
+                            android.widget.Toast.makeText(context, resources.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
                         }
                         
                         pinchedApp = null
@@ -312,10 +357,11 @@ fun MainScreen(
                                 context.startActivity(launchIntent)
                                 viewModel.onAppLaunched(pinchedApp!!.packageName)
                             } else {
-                                android.widget.Toast.makeText(context, context.resources.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, resources.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, context.resources.getString(R.string.error_prefix, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+                            android.util.Log.e("MainScreen", "Gesture-triggered app launch failed for ${pinchedApp?.packageName}", e)
+                            android.widget.Toast.makeText(context, resources.getString(R.string.fail_launch_app, pinchedApp!!.label), android.widget.Toast.LENGTH_SHORT).show()
                         }
                         
                         val cancelEvent = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_CANCEL, touchDownX, touchDownY, 0)
@@ -407,16 +453,14 @@ fun MainScreen(
                 val dx = x - touchDownX
                 val dy = y - touchDownY
                 
-                // Require more movement if it's very soon after touch down (to allow FIST to complete without shifting)
-                val timeSinceDown = now - touchDownTime
-                val slop = if (timeSinceDown < 400L) 18000f else 5000f
+                val slop = 800f // Responsive slop (~28px threshold) for fluid air gesture dragging
                 
                 if (!hasMovedSignificantly && (dx * dx + dy * dy) > slop) {
                     hasMovedSignificantly = true
                 }
                 
                 if (hasMovedSignificantly && !isLaunchTriggered) {
-                    // Only send MOVE events if we broke the slop threshold
+                    // Send MOVE events smoothly once slop threshold is passed
                     val event = MotionEvent.obtain(touchDownTime, now, MotionEvent.ACTION_MOVE, x, y, 0)
                     view.dispatchTouchEvent(event)
                     event.recycle()
@@ -514,14 +558,26 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    detectTapGestures(onTap = { focusManager.clearFocus() })
+                    // Observe interactions without consuming them. A parent tap detector
+                    // competed with drag recognition in the 2D app grid.
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Final)
+                            if (event.changes.any { it.pressed }) {
+                                lastUiInteractionTime = System.currentTimeMillis()
+                            }
+                        }
+                    }
                 }
                 .systemBarsPadding()
                 .padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 1. Holographic Floating Search Bar & Toggle Switch Row
-            androidx.compose.animation.AnimatedVisibility(visible = state.shapeType != ShapeType.SNAKE) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !state.shapeType.isGame,
+                modifier = Modifier.offset { IntOffset(0, topControlsOffset.roundToPx()) }
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -677,7 +733,13 @@ fun MainScreen(
                 } else {
                     if (state.isStandardView) {
                         StandardAppGrid(
-                            apps = state.filteredApps.sortedBy { it.colorHue },
+                            apps = state.filteredApps.sortedWith(
+                                compareByDescending<AppInfo> { app ->
+                                    state.launchCounts[app.packageName] ?: 0
+                                }.thenBy { app ->
+                                    app.label.lowercase()
+                                }
+                            ),
                             onAppClick = { app ->
                                 try {
                                     val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
@@ -686,10 +748,11 @@ fun MainScreen(
                                         context.startActivity(launchIntent)
                                         viewModel.onAppLaunched(app.packageName)
                                     } else {
-                                        Toast.makeText(context, context.resources.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, resources.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, context.resources.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                    android.util.Log.e("MainScreen", "2D app launch failed for ${app.packageName}", e)
+                                    Toast.makeText(context, resources.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onAppLongClick = { selectedAppForAction = it }
@@ -699,7 +762,7 @@ fun MainScreen(
                             apps = state.filteredApps,
                             style = state.style,
                             isAutoDriftEnabled = state.isAutoDriftEnabled,
-                            isTiltEnabled = state.isTiltEnabled,
+                            isTiltEnabled = false,
                             shapeType = state.shapeType,
                             isShapeLocked = state.isShapeLocked,
                             isInertiaEnabled = state.isInertiaEnabled,
@@ -741,10 +804,11 @@ fun MainScreen(
                                         context.startActivity(launchIntent)
                                         viewModel.onAppLaunched(app.packageName)
                                     } else {
-                                        Toast.makeText(context, context.resources.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, resources.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, context.resources.getString(R.string.error_prefix, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                    android.util.Log.e("MainScreen", "3D app launch failed for ${app.packageName}", e)
+                                    Toast.makeText(context, resources.getString(R.string.fail_launch_app, app.label), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         )
@@ -758,6 +822,7 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .offset { IntOffset(0, bottomControlsOffset.roundToPx()) }
                     .padding(bottom = 24.dp)
             ) {
                 // Exit to System Launcher Button
@@ -808,13 +873,15 @@ fun MainScreen(
                                     context.startActivity(intent)
                                 }
                             } catch (e: Exception) {
+                                android.util.Log.w("MainScreen", "Unable to open the selected system launcher", e)
                                 try {
                                     val intent = Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).apply {
                                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                     }
                                     context.startActivity(intent)
                                 } catch (e2: Exception) {
-                                    Toast.makeText(context, context.resources.getString(R.string.settings_unavailable), Toast.LENGTH_SHORT).show()
+                                    android.util.Log.e("MainScreen", "Unable to open default-app settings", e2)
+                                    Toast.makeText(context, resources.getString(R.string.settings_unavailable), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
@@ -834,6 +901,7 @@ fun MainScreen(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
+                        .offset { IntOffset(0, bottomControlsOffset.roundToPx()) }
                         .padding(24.dp)
                         .size(56.dp)
                         .background(
@@ -862,12 +930,13 @@ fun MainScreen(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
+                    .offset { IntOffset(0, bottomControlsOffset.roundToPx()) }
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Voice Launch Trigger Button
-                androidx.compose.animation.AnimatedVisibility(visible = state.shapeType != ShapeType.SNAKE) {
+                androidx.compose.animation.AnimatedVisibility(visible = !state.shapeType.isGame) {
                     Box(
                         modifier = Modifier
                             .size(54.dp)
@@ -902,7 +971,7 @@ fun MainScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Mic,
-                            contentDescription = "Voice Launch",
+                            contentDescription = stringResource(R.string.voice_launch_action),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
@@ -910,7 +979,7 @@ fun MainScreen(
                 }
 
                 // Camera Quick Launch Button
-                androidx.compose.animation.AnimatedVisibility(visible = state.shapeType != ShapeType.SNAKE) {
+                androidx.compose.animation.AnimatedVisibility(visible = !state.shapeType.isGame) {
                     Box(
                         modifier = Modifier
                             .size(54.dp)
@@ -937,7 +1006,8 @@ fun MainScreen(
                                 }
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, context.resources.getString(R.string.camera_unavailable, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                android.util.Log.e("MainScreen", "Unable to open the camera", e)
+                                Toast.makeText(context, resources.getString(R.string.camera_unavailable), Toast.LENGTH_SHORT).show()
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -1011,11 +1081,13 @@ fun MainScreen(
 
             // 6. Floating Cyber Action Stack (Bottom-Left)
             androidx.compose.animation.AnimatedVisibility(
-                visible = state.shapeType != ShapeType.SNAKE,
+                visible = !state.shapeType.isGame,
                 modifier = Modifier.align(Alignment.BottomStart)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier
+                        .offset { IntOffset(0, bottomControlsOffset.roundToPx()) }
+                        .padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -1087,7 +1159,9 @@ fun MainScreen(
             // 7. Floating Back Button (Bottom-Left) for exiting Snake/other modes
             androidx.compose.animation.AnimatedVisibility(
                 visible = state.shapeType != ShapeType.SPHERE,
-                modifier = Modifier.align(Alignment.BottomStart)
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset { IntOffset(0, bottomControlsOffset.roundToPx()) }
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -1128,6 +1202,11 @@ fun MainScreen(
 
             // 8. Voice Recognition HUD
             if (speechState == SpeechState.LISTENING || showVoiceVisualizer) {
+                val voiceStatusText = when {
+                    showVoiceVisualizer -> stringResource(R.string.voice_launch_authorized)
+                    recognizedText.isNotEmpty() -> recognizedText
+                    else -> stringResource(R.string.voice_listening)
+                }
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -1147,7 +1226,7 @@ fun MainScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (showVoiceVisualizer) "Voice Launch Authorized" else recognizedText.ifEmpty { "Listening..." },
+                            text = voiceStatusText,
                             color = if (showVoiceVisualizer) Color(0xFF00FF00) else Color.White,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
@@ -1203,13 +1282,51 @@ fun MainScreen(
                 )
             }
 
+            if (showGestureExperimentalDialog) {
+                AlertDialog(
+                    onDismissRequest = { showGestureExperimentalDialog = false },
+                    containerColor = Color(0xFF0D0B18),
+                    title = {
+                        Text(
+                            text = stringResource(R.string.gesture_experimental_title),
+                            color = Color(0xFF00F2FE)
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = stringResource(R.string.gesture_experimental_message),
+                            color = Color.White
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showGestureExperimentalDialog = false
+                                enableGestureControl()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00F2FE),
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Text(stringResource(R.string.gesture_experimental_enable))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showGestureExperimentalDialog = false }) {
+                            Text(stringResource(R.string.dialog_cancel), color = Color(0xFF00F2FE))
+                        }
+                    }
+                )
+            }
+
         // 5. Settings Bottom Sheet Dialog
         if (showSettings) {
             val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
                 onDismissRequest = { showSettings = false },
                 sheetState = sheetState,
-                containerColor = Color(0xC007050C), // Beautiful space-themed dark glassmorphism (75% opacity)
+                containerColor = Color(0xFF0B0914),
                 contentColor = Color.White,
                 scrimColor = Color.Transparent, // COMPLETELY remove the dark background scrim so the 3D Sphere is fully visible in real-time!
                 tonalElevation = 0.dp, // Disable Material 3 surface tint overlays to keep the translucent color pure
@@ -1250,17 +1367,14 @@ fun MainScreen(
                     if (isGranted) {
                         viewModel.setAudioReactiveEnabled(true)
                     } else {
-                        Toast.makeText(context, context.resources.getString(R.string.mic_permission_denied), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, resources.getString(R.string.mic_permission_denied), Toast.LENGTH_SHORT).show()
                     }
                 }
                 
-                var showCameraRationale by remember { mutableStateOf(false) }
-
                 SettingsSheetContent(
                     state = state,
                     onStarfieldChanged = { viewModel.setStarfieldEnabled(it) },
                     onAutoDriftChanged = { viewModel.setAutoDrift(it) },
-                    onTiltChanged = { viewModel.setTiltEnabled(it) },
                     onShapeSelected = { viewModel.setShapeType(it) },
                     onGlowColorSelected = { viewModel.setGlowColor(it) },
                     onGlowOpacityChanged = { viewModel.setGlowOpacity(it) },
@@ -1269,18 +1383,9 @@ fun MainScreen(
                     onAudioReactiveChanged = { enabled ->
                         viewModel.setAudioReactiveEnabled(enabled)
                     },
-                    onRunningAppsOnlyChanged = { viewModel.toggleRunningAppsFilter() },
                     onGestureControlChanged = { enabled ->
                         if (enabled) {
-                            if (androidx.core.content.ContextCompat.checkSelfPermission(
-                                    context,
-                                    android.Manifest.permission.CAMERA
-                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                            ) {
-                                viewModel.setGestureControlEnabled(true)
-                            } else {
-                                showCameraRationale = true
-                            }
+                            showGestureExperimentalDialog = true
                         } else {
                             viewModel.setGestureControlEnabled(false)
                         }
@@ -1316,29 +1421,6 @@ fun MainScreen(
                     }
                 )
 
-                if (showCameraRationale) {
-                    AlertDialog(
-                        onDismissRequest = { showCameraRationale = false },
-                        containerColor = Color(0xE00D0B18),
-                        title = { Text(stringResource(R.string.camera_permission_title), color = Color(0xFF00F2FE)) },
-                        text = { Text(stringResource(R.string.camera_permission_rationale), color = Color.White) },
-                        confirmButton = {
-                            val cameraRationaleMsg = stringResource(R.string.camera_permission_rationale)
-                            Button(onClick = {
-                                showCameraRationale = false
-                                Toast.makeText(context, cameraRationaleMsg, Toast.LENGTH_LONG).show()
-                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-                            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE), contentColor = Color.Black)) {
-                                Text(stringResource(android.R.string.ok))
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showCameraRationale = false }) {
-                                Text(stringResource(android.R.string.cancel), color = Color(0xFF00F2FE))
-                            }
-                        }
-                    )
-                }
             }
         }
 
@@ -1414,7 +1496,8 @@ fun MainScreen(
                                     }
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, context.resources.getString(R.string.uninstall_fail, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                    android.util.Log.e("MainScreen", "Unable to open uninstall dialog for ${app.packageName}", e)
+                                    Toast.makeText(context, resources.getString(R.string.uninstall_fail), Toast.LENGTH_SHORT).show()
                                 }
                                 selectedAppForAction = null
                             },
@@ -1448,10 +1531,12 @@ fun MainScreen(
                 androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     Box(
                         modifier = Modifier
-                            .offset(
-                                x = maxWidth * state.handCursorX - 24.dp,
-                                y = maxHeight * state.handCursorY - 24.dp
-                            )
+                            .offset {
+                                IntOffset(
+                                    x = (maxWidth.roundToPx() * state.handCursorX - 24.dp.roundToPx()).roundToInt(),
+                                    y = (maxHeight.roundToPx() * state.handCursorY - 24.dp.roundToPx()).roundToInt()
+                                )
+                            }
                             .size(48.dp)
                             .background(Color.Transparent, CircleShape),
                         contentAlignment = Alignment.Center
@@ -1527,7 +1612,6 @@ fun SettingsSheetContent(
     state: MainUiState,
     onStarfieldChanged: (Boolean) -> Unit,
     onAutoDriftChanged: (Boolean) -> Unit,
-    onTiltChanged: (Boolean) -> Unit,
     onShapeSelected: (ShapeType) -> Unit,
     onGlowColorSelected: (GlowColorOption) -> Unit,
     onGlowOpacityChanged: (Float) -> Unit,
@@ -1543,7 +1627,6 @@ fun SettingsSheetContent(
     onBlackHoleSideChanged: (Boolean) -> Unit,
     onCameraInsideChanged: (Boolean) -> Unit,
     onCameraLensFacingChanged: (Int) -> Unit,
-    onRunningAppsOnlyChanged: (Boolean) -> Unit,
     onRefreshApps: () -> Unit,
     onClose: () -> Unit,
     onShowOnboarding: () -> Unit,
@@ -1551,6 +1634,18 @@ fun SettingsSheetContent(
     onVoiceSetupClick: () -> Unit,
     onResetSettings: () -> Unit
 ) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isDefault by remember { mutableStateOf(isDefaultLauncher(context)) }
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isDefault = isDefaultLauncher(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val systemPrimary = MaterialTheme.colorScheme.primary
     val systemSecondary = MaterialTheme.colorScheme.secondary
 
@@ -1569,7 +1664,60 @@ fun SettingsSheetContent(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // 3D Shape Selector
+        // System Launcher Integration Card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+                .background(
+                    color = if (isDefault) Color(0x1F00FF88) else Color(0x1F00F2FE),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    color = if (isDefault) Color(0xFF00FF88) else Color(0xFF00F2FE),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.set_default_launcher_title),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = stringResource(R.string.set_default_launcher_desc),
+                        fontSize = 11.sp,
+                        color = Color(0xB3FFFFFF)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = { openDefaultLauncherSettings(context) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isDefault) Color(0xFF00FF88) else Color(0xFF00F2FE),
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (isDefault) stringResource(R.string.status_default_launcher) else stringResource(R.string.status_not_default_launcher),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // 3D shape selector
         Text(
             text = stringResource(R.string.shape_selector_title),
             fontSize = 13.sp,
@@ -1606,12 +1754,12 @@ fun SettingsSheetContent(
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    val labelText = if (labelRes is Int) stringResource(labelRes) else labelRes as String
                     Text(
-                        text = labelText,
-                        fontSize = 11.sp,
+                        text = stringResource(labelRes),
+                        fontSize = 10.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) Color.White else Color(0xB3FFFFFF)
+                        color = if (isSelected) Color.White else Color(0xB3FFFFFF),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -1688,9 +1836,8 @@ fun SettingsSheetContent(
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    val labelText = if (labelRes is Int) stringResource(labelRes) else labelRes as String
                     Text(
-                        text = labelText,
+                        text = labelRes,
                         fontSize = 10.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) Color.White else Color(0xB3FFFFFF),
@@ -1706,9 +1853,12 @@ fun SettingsSheetContent(
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8E25FF))
         ) {
-            Icon(androidx.compose.material.icons.Icons.Default.Mic, contentDescription = "Voice Setup")
+            Icon(
+                androidx.compose.material.icons.Icons.Default.Mic,
+                contentDescription = stringResource(R.string.voice_launch_setup)
+            )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Voice Launch Setup")
+            Text(stringResource(R.string.voice_launch_setup))
         }
 
         // Toggles
@@ -1767,38 +1917,6 @@ fun SettingsSheetContent(
             Switch(
                 checked = state.isAutoDriftEnabled,
                 onCheckedChange = onAutoDriftChanged,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFF00F2FE),
-                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
-                    uncheckedThumbColor = Color(0xFF808080),
-                    uncheckedTrackColor = Color(0x1Fffffff)
-                )
-            )
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.device_tilt_title),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White
-                )
-                Text(
-                    text = stringResource(R.string.device_tilt_desc),
-                    fontSize = 11.sp,
-                    color = Color(0x66FFFFFF)
-                )
-            }
-            Switch(
-                checked = state.isTiltEnabled,
-                onCheckedChange = onTiltChanged,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFF00F2FE),
                     checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
@@ -1974,104 +2092,6 @@ fun SettingsSheetContent(
             )
         }
         
-        // --- RUNNING APPS ONLY ROW ---
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.running_apps_only),
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = stringResource(R.string.running_apps_only_desc),
-                    color = Color(0x66FFFFFF),
-                    fontSize = 14.sp
-                )
-            }
-            Switch(
-                checked = state.showRunningAppsOnly,
-                onCheckedChange = onRunningAppsOnlyChanged,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFF00F2FE),
-                    checkedTrackColor = Color(0xFF00F2FE).copy(alpha = 0.3f),
-                    uncheckedThumbColor = Color(0xFF808080),
-                    uncheckedTrackColor = Color(0x1Fffffff)
-                )
-            )
-        }
-
-        // --- BIND TO HOME BUTTON ROW ---
-        Spacer(modifier = Modifier.height(8.dp))
-        val context = LocalContext.current
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.bind_home_title),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White
-                )
-                Text(
-                    text = stringResource(R.string.bind_home_desc),
-                    fontSize = 11.sp,
-                    color = Color(0x66FFFFFF)
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(
-                onClick = {
-                    try {
-                        // Direct, ultra-reliable way to open system Default Home settings screen on Samsung/all Androids
-                        val intent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        }
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        try {
-                            // Fallback to manage default apps settings screen (API 24+)
-                            val intent = Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            context.startActivity(intent)
-                        } catch (e2: Exception) {
-                            try {
-                                // Fallback to prompt Home chooser
-                                val intent = Intent(Intent.ACTION_MAIN).apply {
-                                    addCategory(Intent.CATEGORY_HOME)
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                }
-                                context.startActivity(intent)
-                            } catch (e3: Exception) {
-                                Toast.makeText(context, context.resources.getString(R.string.settings_unavailable), Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF00FF88).copy(alpha = 0.15f),
-                    contentColor = Color(0xFF00FF88)
-                ),
-                border = BorderStroke(1.dp, Color(0xFF00FF88).copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text(stringResource(R.string.bind_home_btn), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
         if (state.shapeType == ShapeType.SPHERE) {
             Spacer(modifier = Modifier.height(12.dp))
             Box(
@@ -2310,7 +2330,7 @@ fun ViewTypeToggle(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "3D",
+                text = stringResource(R.string.view_mode_3d),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (!isStandardView) Color.Black else Color.White.copy(alpha = 0.7f)
@@ -2329,7 +2349,7 @@ fun ViewTypeToggle(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "2D",
+                text = stringResource(R.string.view_mode_2d),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (isStandardView) Color.Black else Color.White.copy(alpha = 0.7f)
@@ -2345,14 +2365,17 @@ fun StandardAppGrid(
     onAppLongClick: (AppInfo) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val gridState = rememberLazyGridState()
     LazyVerticalGrid(
         columns = GridCells.Fixed(4),
+        state = gridState,
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        userScrollEnabled = true
     ) {
-        items(apps, key = { it.packageName }) { app ->
+        items(apps, key = { "${it.packageName}:${it.activityName}" }) { app ->
             StandardAppCard(
                 app = app,
                 onClick = { onAppClick(app) },
@@ -2897,6 +2920,48 @@ fun OnboardingTour(
                     }
                 }
             }
+        }
+    }
+}
+
+fun isDefaultLauncher(context: android.content.Context): Boolean {
+    val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+    val resolveInfo = context.packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+    return resolveInfo?.activityInfo?.packageName == context.packageName
+}
+
+fun openDefaultLauncherSettings(context: android.content.Context) {
+    try {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val roleManager = context.getSystemService(android.app.role.RoleManager::class.java)
+            if (
+                roleManager != null &&
+                roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME) &&
+                !roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)
+            ) {
+                val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
+                context.startActivity(intent)
+                return
+            }
+        }
+    } catch (e: Exception) {
+        android.util.Log.w("MainScreen", "Unable to request the HOME role; opening settings instead", e)
+    }
+    try {
+        val intent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        android.util.Log.w("MainScreen", "Unable to open HOME settings; trying default-app settings", e)
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        } catch (e2: Exception) {
+            android.util.Log.e("MainScreen", "Unable to open launcher settings", e2)
+            Toast.makeText(context, context.resources.getString(R.string.settings_unavailable), Toast.LENGTH_SHORT).show()
         }
     }
 }

@@ -16,6 +16,10 @@ enum class SpeechState {
 }
 
 class SpeechListener(private val context: Context) {
+    private companion object {
+        const val TAG = "SpeechListener"
+    }
+
     private var speechRecognizer: SpeechRecognizer? = null
     
     private val _speechState = MutableStateFlow(SpeechState.IDLE)
@@ -35,7 +39,12 @@ class SpeechListener(private val context: Context) {
     }
 
     private fun setupRecognizer() {
-        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+            Log.w(TAG, "Speech recognition is not available on this device")
+            _speechState.value = SpeechState.ERROR
+            return
+        }
+        try {
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
             speechRecognizer?.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
@@ -61,7 +70,7 @@ class SpeechListener(private val context: Context) {
                 }
 
                 override fun onError(error: Int) {
-                    Log.e("SpeechListener", "Error: $error")
+                    Log.e(TAG, "Speech recognition failed with error code $error")
                     _speechState.value = SpeechState.ERROR
                     _rmsValues.value = 0f
                 }
@@ -88,6 +97,10 @@ class SpeechListener(private val context: Context) {
 
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize speech recognition", e)
+            speechRecognizer = null
+            _speechState.value = SpeechState.ERROR
         }
     }
 
@@ -107,18 +120,28 @@ class SpeechListener(private val context: Context) {
         try {
             speechRecognizer?.startListening(intent)
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to start speech recognition", e)
             _speechState.value = SpeechState.ERROR
+            _rmsValues.value = 0f
         }
     }
 
     fun stopListening() {
-        speechRecognizer?.stopListening()
+        try {
+            speechRecognizer?.stopListening()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to stop speech recognition cleanly", e)
+        }
         _speechState.value = SpeechState.IDLE
         _rmsValues.value = 0f
     }
 
     fun destroy() {
-        speechRecognizer?.destroy()
+        try {
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to destroy speech recognizer cleanly", e)
+        }
         speechRecognizer = null
     }
 }

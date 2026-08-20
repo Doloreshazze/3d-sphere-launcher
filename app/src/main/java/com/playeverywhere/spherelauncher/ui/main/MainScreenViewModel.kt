@@ -28,6 +28,8 @@ enum class ShapeType {
     PYRAMID
 }
 
+val ShapeType.isGame: Boolean get() = this == ShapeType.SNAKE
+
 enum class GlowColorOption(val color1: Long, val color2: Long, val labelResId: Int, val previewColor: Long) {
     SYSTEM(0, 0, R.string.color_system, 0xFF808080),
     CYAN(0xFF00F2FE, 0xFF4FACFE, R.string.color_cyan, 0xFF00F2FE),
@@ -42,7 +44,6 @@ data class MainUiState(
     val filteredApps: List<AppInfo> = emptyList(),
     val style: SphereStyle = SphereStyle.FLOATING_ICONS,
     val isAutoDriftEnabled: Boolean = true,
-    val isTiltEnabled: Boolean = false,
     val shapeType: ShapeType = ShapeType.SPHERE,
     val searchQuery: String = "",
     val isLoading: Boolean = true,
@@ -74,16 +75,16 @@ data class MainUiState(
     val isBlackHoleSideEnabled: Boolean = false,
     val isZoomEnabled: Boolean = false,
     val isHandOverlayEnabled: Boolean = true,
-    val showRunningAppsOnly: Boolean = false,
     val isStarfieldEnabled: Boolean = true,
     val isCameraInsideEnabled: Boolean = false,
-    val cameraLensFacing: Int = 1
+    val cameraLensFacing: Int = 1,
+    val isSettingsOpaque: Boolean = true,
+    val launchCounts: Map<String, Int> = emptyMap()
 )
 
 data class SettingsState(
     val style: SphereStyle,
     val isAutoDriftEnabled: Boolean,
-    val isTiltEnabled: Boolean,
     val shapeType: ShapeType
 )
 
@@ -98,7 +99,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val appsState = MutableStateFlow<List<AppInfo>>(emptyList())
     private val styleState = MutableStateFlow(SphereStyle.FLOATING_ICONS)
     private val autoDriftState = MutableStateFlow(true)
-    private val tiltEnabledState = MutableStateFlow(false)
     private val shapeTypeState = MutableStateFlow(ShapeType.SPHERE)
     private val searchQueryState = MutableStateFlow("")
     private val loadingState = MutableStateFlow(true)
@@ -130,23 +130,32 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val isBlackHoleSideEnabledState = MutableStateFlow(prefs.getBoolean("black_hole_side_enabled", false))
     private val isZoomEnabledState = MutableStateFlow(prefs.getBoolean("zoom_enabled", true))
     private val isHandOverlayEnabledState = MutableStateFlow(prefs.getBoolean("hand_overlay_enabled", true))
-    private val showRunningAppsOnlyState = MutableStateFlow(prefs.getBoolean("running_apps_only", false))
     private val isStarfieldEnabledState = MutableStateFlow(prefs.getBoolean("starfield_enabled", true))
     private val isCameraInsideEnabledState = MutableStateFlow(prefs.getBoolean("camera_inside_enabled", false))
     private val cameraLensFacingState = MutableStateFlow(prefs.getInt("camera_lens_facing", 1))
-    private val launchedPackagesState = MutableStateFlow<Set<String>>(
-        prefs.getStringSet("launched_packages", emptySet()) ?: emptySet()
-    )
+    private val isSettingsOpaqueState = MutableStateFlow(prefs.getBoolean("settings_opaque", true))
+    private fun loadLaunchCounts(): Map<String, Int> {
+        val map = mutableMapOf<String, Int>()
+        val allEntries = prefs.all
+        for ((key, value) in allEntries) {
+            if (key.startsWith("launch_cnt_") && value is Int) {
+                map[key.removePrefix("launch_cnt_")] = value
+            }
+        }
+        return map
+    }
+
+    private val launchCountsState = MutableStateFlow<Map<String, Int>>(loadLaunchCounts())
 
     private val settingsFlow = combine(
         styleState,
         autoDriftState,
-        tiltEnabledState,
         shapeTypeState
-    ) { style, autoDrift, tiltEnabled, shapeType ->
-        SettingsState(style, autoDrift, tiltEnabled, shapeType)
+    ) { style, autoDrift, shapeType ->
+        SettingsState(style, autoDrift, shapeType)
     }
 
+    @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<MainUiState> = combine(
         appsState,
         settingsFlow,
@@ -179,13 +188,12 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         isBlackHoleSideEnabledState,
         isZoomEnabledState,
         isHandOverlayEnabledState,
-        showRunningAppsOnlyState,
         isStarfieldEnabledState,
-        launchedPackagesState,
         isCameraInsideEnabledState,
-        cameraLensFacingState
+        cameraLensFacingState,
+        isSettingsOpaqueState,
+        launchCountsState
     ) { array ->
-        @Suppress("UNCHECKED_CAST")
         val apps = array[0] as List<AppInfo>
         val settings = array[1] as SettingsState
         val query = array[2] as String
@@ -217,17 +225,14 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         val isBlackHoleSide = array[28] as Boolean
         val isZoomEnabled = array[29] as Boolean
         val isHandOverlayEnabled = array[30] as Boolean
-        val showRunningAppsOnly = array[31] as Boolean
-        val isStarfieldEnabled = array[32] as Boolean
+        val isStarfieldEnabled = array[31] as Boolean
+        val isCameraInsideEnabled = array[32] as Boolean
+        val cameraLensFacing = array[33] as Int
+        val isSettingsOpaque = array[34] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val launchedPackages = array[33] as Set<String>
-        val isCameraInsideEnabled = array[34] as Boolean
-        val cameraLensFacing = array[35] as Int
+        val launchCounts = array[35] as Map<String, Int>
 
-        val visibleApps = apps.filter { 
-            it.packageName !in hiddenPackages && 
-            (!showRunningAppsOnly || it.packageName in launchedPackages)
-        }
+        val visibleApps = apps.filter { it.packageName !in hiddenPackages }
         val filtered = if (query.isBlank()) {
             visibleApps
         } else {
@@ -238,7 +243,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             filteredApps = filtered,
             style = settings.style,
             isAutoDriftEnabled = settings.isAutoDriftEnabled,
-            isTiltEnabled = settings.isTiltEnabled,
             shapeType = settings.shapeType,
             searchQuery = query,
             isLoading = loading,
@@ -270,10 +274,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             isBlackHoleSideEnabled = isBlackHoleSide,
             isZoomEnabled = isZoomEnabled,
             isHandOverlayEnabled = isHandOverlayEnabled,
-            showRunningAppsOnly = showRunningAppsOnly,
             isStarfieldEnabled = isStarfieldEnabled,
             isCameraInsideEnabled = isCameraInsideEnabled,
-            cameraLensFacing = cameraLensFacing
+            cameraLensFacing = cameraLensFacing,
+            isSettingsOpaque = isSettingsOpaque,
+            launchCounts = launchCounts
         )
     }.stateIn(
         viewModelScope,
@@ -296,7 +301,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 addAction(android.content.Intent.ACTION_PACKAGE_CHANGED)
                 addDataScheme("package")
             }
-            application.registerReceiver(packageReceiver, filter)
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                application.registerReceiver(packageReceiver, filter, android.content.Context.RECEIVER_EXPORTED)
+            } else {
+                application.registerReceiver(packageReceiver, filter)
+            }
         } catch (e: Exception) {
             android.util.Log.e("MainScreenViewModel", "Failed to register package receiver", e)
         }
@@ -325,7 +334,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             } catch (e: Exception) {
                 android.util.Log.e("MainScreenViewModel", "Failed to load installed apps", e)
                 if (appsState.value.isEmpty()) {
-                    errorState.value = "Failed to load apps: ${e.message}"
+                    errorState.value = getApplication<Application>().getString(R.string.load_apps_failed)
                 }
             } finally {
                 loadingState.value = false
@@ -339,10 +348,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setAutoDrift(enabled: Boolean) {
         autoDriftState.value = enabled
-    }
-
-    fun setTiltEnabled(enabled: Boolean) {
-        tiltEnabledState.value = enabled
     }
 
     fun setShapeType(shapeType: ShapeType) {
@@ -440,7 +445,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                     stopVisualizerInternal()
                     throw e
                 } catch (e: Exception) {
-                    android.util.Log.w("SphereViewModel", "Visualizer(0) failed: ${e.message}")
+                    android.util.Log.w("MainScreenViewModel", "System audio visualizer failed; falling back to microphone", e)
                     stopVisualizerInternal()
                 }
             }
@@ -498,14 +503,22 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                android.util.Log.e("SphereViewModel", "AudioRecord failed: ${e.message}")
+                android.util.Log.e("MainScreenViewModel", "Microphone audio capture failed", e)
                 isAudioReactiveEnabledState.value = false
             } finally {
-                audioRecord?.apply {
-                    if (recordingState == android.media.AudioRecord.RECORDSTATE_RECORDING) {
-                        stop()
+                audioRecord?.let { recorder ->
+                    try {
+                        if (recorder.recordingState == android.media.AudioRecord.RECORDSTATE_RECORDING) {
+                            recorder.stop()
+                        }
+                    } catch (e: IllegalStateException) {
+                        android.util.Log.w("MainScreenViewModel", "AudioRecord could not be stopped cleanly", e)
                     }
-                    release()
+                    try {
+                        recorder.release()
+                    } catch (e: Exception) {
+                        android.util.Log.w("MainScreenViewModel", "AudioRecord could not be released cleanly", e)
+                    }
                 }
             }
         }
@@ -565,7 +578,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit().clear().apply()
         styleState.value = SphereStyle.FLOATING_ICONS
         autoDriftState.value = true
-        tiltEnabledState.value = false
         shapeTypeState.value = ShapeType.SPHERE
         isStandardViewState.value = false
         isShapeLockedState.value = false
@@ -591,6 +603,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     fun setStarfieldEnabled(enabled: Boolean) {
         isStarfieldEnabledState.value = enabled
         prefs.edit().putBoolean("starfield_enabled", enabled).apply()
+    }
+
+    fun setSettingsOpaque(opaque: Boolean) {
+        isSettingsOpaqueState.value = opaque
+        prefs.edit().putBoolean("settings_opaque", opaque).apply()
     }
 
     fun setEarthInsideEnabled(enabled: Boolean) {
@@ -637,17 +654,17 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun toggleRunningAppsFilter() {
-        val newState = !showRunningAppsOnlyState.value
-        showRunningAppsOnlyState.value = newState
-        prefs.edit().putBoolean("running_apps_only", newState).apply()
-    }
-
     fun onAppLaunched(packageName: String) {
-        val current = launchedPackagesState.value.toMutableSet()
-        current.add(packageName)
-        launchedPackagesState.value = current
-        prefs.edit().putStringSet("launched_packages", current).apply()
+        val currentCount = prefs.getInt("launch_cnt_$packageName", 0)
+        val newCount = currentCount + 1
+
+        prefs.edit()
+            .putInt("launch_cnt_$packageName", newCount)
+            .apply()
+
+        val updatedMap = launchCountsState.value.toMutableMap()
+        updatedMap[packageName] = newCount
+        launchCountsState.value = updatedMap
     }
 
     fun setZoomEnabled(enabled: Boolean) {

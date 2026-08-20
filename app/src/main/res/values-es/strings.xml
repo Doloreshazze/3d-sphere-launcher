@@ -3,8 +3,7 @@
     <string name="app_name">SphereLauncher</string>
     <string name="search_placeholder">Buscar aplicaciones…</string>
     <string name="fail_launch_app">No se pudo iniciar %1$s</string>
-    <string name="error_prefix">Error: %1$s</string>
-    <string name="camera_unavailable">Cámara no disponible: %1$s</string>
+    <string name="camera_unavailable">Cámara no disponible</string>
     <string name="no_apps_found">No se encontraron aplicaciones</string>
     <string name="rotation_inertia">Inercia de rotación</string>
     <string name="rotation_lock">Bloqueo de rotación</string>
@@ -14,15 +13,10 @@
     <string name="shape_snake">Serpiente</string>
     <string name="auto_drift_title">Rotación automática</string>
     <string name="auto_drift_desc">Rotación automática lenta de iconos</string>
-    <string name="device_tilt_title">Inclinación (Efecto 3D)</string>
-    <string name="device_tilt_desc">Rotar la esfera al inclinar el dispositivo</string>
     <string name="pulsation_title">Pulsación del espacio 3D</string>
     <string name="pulsation_desc">Los iconos se acercan y alejan rítmicamente</string>
     <string name="audio_reactivity">Reactividad de audio</string>
     <string name="audio_reactive_desc">La esfera pulsa en sincronía con música y sonidos (micrófono)</string>
-    <string name="bind_home_title">Botón HOME predeterminado</string>
-    <string name="bind_home_desc">Asignar el launcher al botón de inicio del sistema</string>
-    <string name="bind_home_btn">Asignar</string>
     <string name="neon_glow_settings">Personalización de brillo de neón</string>
     <string name="neon_color">Color de neón:</string>
     <string name="glow_intensity">Intensidad de neón:</string>
@@ -33,7 +27,7 @@
     <string name="close_button">Cerrar</string>
     <string name="retry_button">Reintentar</string>
     <string name="mic_permission_denied">Permiso de grabación de micrófono denegado</string>
-    <string name="uninstall_fail">Error al abrir el cuadro de diálogo de desinstalación: %1$s</string>
+    <string name="uninstall_fail">No se puede abrir el diálogo de desinstalación</string>
     <string name="dialog_choose_action">Elige una acción. Ocultar la aplicación la eliminará del launcher, pero seguirá instalada. Desinstalarla la eliminará completamente del dispositivo.</string>
     <string name="dialog_hide_icon">Ocultar icono</string>
     <string name="dialog_uninstall_app">Desinstalar aplicación</string>
@@ -76,18 +70,12 @@
     <string name="center_earth">Holograma de la Tierra</string>
     <string name="center_earth_real">Tierra Realista</string>
     <string name="center_black_hole">Agujero Negro (Arriba)</string>
-    <string name="running_apps_only">Solo aplicaciones en ejecución</string>
-    <string name="running_apps_only_desc">Muestra solo las aplicaciones iniciadas durante esta sesión</string>
 
     <!-- New added strings -->
     <string name="starfield_title">Fondo de estrellas</string>
     <string name="starfield_desc">Mostrar estrellas en movimiento en el fondo</string>
     <string name="zoom_control_title">Control de Zoom</string>
     <string name="zoom_control_desc">Escale pellizcando o con gestos aéreos</string>
-    <string name="camera_permission_title">Permiso de la cámara</string>
-    <string name="camera_permission_rationale">Para que los Gestos Aéreos funcionen, la aplicación requiere acceso a la cámara. La imagen se procesa localmente y nunca se envía a ningún lado.</string>
-    <string name="mic_permission_title">Permiso del micrófono</string>
-    <string name="mic_permission_rationale">Para la reactividad de audio, la aplicación necesita acceso al micrófono para reaccionar a música y sonidos.</string>
     <string name="search_desc">Buscar</string>
     <string name="clear_desc">Borrar</string>
     <string name="back_desc">Atrás</string>
@@ -101,7 +89,7 @@
     <string name="voice_wake_word_label">Palabra de activación (ej. \'Ordenador\')</string>
     <string name="voice_app_word_label">Palabra de app (ej. \'Navegador\')</string>
     <string name="voice_press_mic_hint">Presiona el micrófono y di: \"%1$s %2$s\"</string>
-    <string name="voice_listening">Escuchando...</string>
+    <string name="voice_listening">Escuchando…</string>
     <string name="voice_start_training">Iniciar entrenamiento</string>
     <string name="voice_recognized_format">Reconocido: %1$s</string>
     <string name="voice_enrolled_success">✅ ¡Comando de voz guardado correctamente!</string>
@@ -120,4 +108,17 @@
     <string name="game_over">FIN DEL JUEGO</string>
     <string name="game_score_format">Puntuación: %1$d\nRécord: %2$d</string>
     <string name="game_restart">Reiniciar juego</string>
+    <string name="set_default_launcher_title">Establecer como lanzador predeterminado</string>
+    <string name="set_default_launcher_desc">Establece Sphere Launcher como pantalla de inicio predeterminada de Android</string>
+    <string name="status_default_launcher">Lanzador predeterminado</string>
+    <string name="status_not_default_launcher">Establecer como predeterminado</string>
+    <string name="gesture_experimental_title">Función experimental</string>
+    <string name="gesture_experimental_message">El control mediante gestos aéreos es experimental. La precisión puede variar según la iluminación, la posición de la cámara, el fondo y el rendimiento del dispositivo. Utiliza los controles táctiles si los gestos no responden de forma fiable.</string>
+    <string name="gesture_experimental_enable">Activar modo experimental</string>
+    <string name="voice_launch_action">Inicio por voz</string>
+    <string name="voice_launch_authorized">Inicio por voz autorizado</string>
+    <string name="voice_listening_for_launch">Esperando un comando de voz…</string>
+    <string name="load_apps_failed">No se pudieron cargar las aplicaciones.</string>
+    <string name="game_score_compact">Puntuación: %1$d | Récord: %2$d</string>
+    <string name="game_paused">PAUSADO</string>
 </resources>

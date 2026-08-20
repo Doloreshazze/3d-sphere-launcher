@@ -1,5 +1,7 @@
 package com.playeverywhere.spherelauncher.ui.main
 
+import com.playeverywhere.spherelauncher.R
+
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -19,7 +21,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.res.stringResource
-import com.playeverywhere.spherelauncher.R
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -43,14 +44,12 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.playeverywhere.spherelauncher.data.AppInfo
@@ -69,6 +68,20 @@ object SphereConstants {
     const val INERTIA_FRICTION = 0.982f
     const val DRIFT_SPEED_X = 0.015f
     const val DRIFT_SPEED_Y = 0.035f
+}
+
+internal fun nextSnakeHead(
+    head: Pair<Int, Int>,
+    direction: Pair<Int, Int>,
+    gridSize: Int
+): Pair<Int, Int>? {
+    val nextX = head.first + direction.first
+    val nextY = head.second + direction.second
+    return if (nextX in 0 until gridSize && nextY in 0 until gridSize) {
+        Pair(nextX, nextY)
+    } else {
+        null
+    }
 }
 
 // SphereNode holds the base coordinates on the unit sphere
@@ -192,7 +205,7 @@ fun Sphere3D(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
+    val windowSize = LocalWindowInfo.current.containerSize
     val view = androidx.compose.ui.platform.LocalView.current
     
     val systemPrimary = MaterialTheme.colorScheme.primary
@@ -209,8 +222,8 @@ fun Sphere3D(
     android.util.Log.d("Sphere3D", "=== Sphere3D recomposed ===")
 
     // Screen dimension calculations
-    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val screenWidthPx = windowSize.width.toFloat()
+    val screenHeightPx = windowSize.height.toFloat()
     
     // Base radius of the sphere adaptively sized to screen
     val baseRadius = (screenWidthPx.coerceAtMost(screenHeightPx) * 0.38f).coerceAtLeast(250f)
@@ -445,10 +458,11 @@ fun Sphere3D(
                 delay(SphereConstants.SNAKE_TICK_RATE_MS)
                 lastProcessedDirection = snakeDirection
                 val head = snakeBody.firstOrNull() ?: Pair(5, 5)
-                val nextHead = Pair(
-                    (head.first + snakeDirection.first + snakeGridSize) % snakeGridSize,
-                    (head.second + snakeDirection.second + snakeGridSize) % snakeGridSize
-                )
+                val nextHead = nextSnakeHead(head, snakeDirection, snakeGridSize)
+                if (nextHead == null) {
+                    isGameOver = true
+                    break
+                }
                 
                 if (snakeBody.contains(nextHead)) {
                     isGameOver = true
@@ -479,8 +493,26 @@ fun Sphere3D(
 
     // Touch velocities for physics fling inertia (regular floats, VSYNC-only changes)
     var yawVelocity = remember { floatArrayOf(0f, 0f) } // index 0 = yawVelocity, 1 = pitchVelocity
-    
 
+    LaunchedEffect(activeGesture) {
+        if (isGestureEnabled && !isShapeLocked) {
+            when (activeGesture) {
+                com.antigravity.gesture.Gesture.LEFT -> {
+                    yawVelocity[0] = -0.06f
+                }
+                com.antigravity.gesture.Gesture.RIGHT -> {
+                    yawVelocity[0] = 0.06f
+                }
+                com.antigravity.gesture.Gesture.UP -> {
+                    yawVelocity[1] = -0.06f
+                }
+                com.antigravity.gesture.Gesture.DOWN -> {
+                    yawVelocity[1] = 0.06f
+                }
+                else -> {}
+            }
+        }
+    }
 
     // Accumulator to smoothly apply discrete 15Hz drag events over 60Hz physics frames
     val dragAccumulator = remember { floatArrayOf(0f, 0f) }
@@ -1187,8 +1219,8 @@ fun Sphere3D(
                         val atmoRadius = earthRadius * 1.05f
                         val atmoColors = intArrayOf(
                             0xAA88CCFF.toInt(), // inner light blue
-                            0x4488CCFF.toInt(), // mid transparent blue
-                            0x0088CCFF.toInt()  // outer transparent
+                            0x4488CCFF, // mid transparent blue
+                            0x0088CCFF  // outer transparent
                         )
                         val atmoStops = floatArrayOf(0.85f, 0.95f, 1.0f)
                         val atmoShader = android.graphics.RadialGradient(
@@ -1268,7 +1300,7 @@ fun Sphere3D(
                         // Add an inner shadow/vignette to simulate 3D volume AND atmospheric scattering
                         val shadowColors = intArrayOf(
                             0x00000000, // Transparent in center
-                            0x4488CCFF.toInt(), // Light blue atmospheric tint
+                            0x4488CCFF, // Light blue atmospheric tint
                             0xEE001133.toInt() // Dark blue-black space shadow at edge
                         )
                         val shadowStops = floatArrayOf(0.0f, 0.7f, 1.0f)
@@ -1784,7 +1816,7 @@ fun Sphere3D(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Score: $score  |  High: $highScore",
+                        text = stringResource(R.string.game_score_compact, score, highScore),
                         color = Color(0xFF00FF88),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
@@ -1838,10 +1870,17 @@ fun Sphere3D(
             
             if (shapeType == ShapeType.SNAKE && isPaused && !isGameOver) {
                 Box(modifier = Modifier.fillMaxSize().background(Color(0x44000000)), contentAlignment = Alignment.Center) {
-                    androidx.compose.material3.Text("PAUSED", color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 32.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    androidx.compose.material3.Text(
+                        stringResource(R.string.game_paused),
+                        color = Color.White,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        fontSize = 32.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
                 }
             }
         }
+
     }
 }
 
@@ -2116,7 +2155,7 @@ fun AppSphereItem(
     segmentIndex: Int = -1
 ) {
     val density = LocalDensity.current.density
-    val configuration = LocalConfiguration.current
+    val windowSize = LocalWindowInfo.current.containerSize
     
     val shadowPaint = remember {
         android.graphics.Paint().apply {
@@ -2135,10 +2174,10 @@ fun AppSphereItem(
     
     // Dynamically calculate tile, icon and text sizing based on the number of apps
     // to ensure perfectly proportioned layout with absolutely 0 overlaps!
-    val tileSize = remember(appCount, shapeType, density, configuration) {
+    val tileSize = remember(appCount, shapeType, density, windowSize) {
         if (shapeType == ShapeType.SNAKE) {
-            val screenWidthPx = configuration.screenWidthDp * density
-            val screenHeightPx = configuration.screenHeightDp * density
+            val screenWidthPx = windowSize.width.toFloat()
+            val screenHeightPx = windowSize.height.toFloat()
             val baseRadius = (kotlin.math.min(screenWidthPx, screenHeightPx) * 0.38f).coerceAtLeast(250f)
             (baseRadius * 0.16f) / density
         }

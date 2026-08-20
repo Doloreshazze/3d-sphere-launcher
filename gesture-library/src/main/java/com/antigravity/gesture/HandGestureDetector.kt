@@ -116,8 +116,10 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
                 .build()
 
             handLandmarker = HandLandmarker.createFromOptions(context, options)
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize HandLandmarker", e)
+        } catch (e: LinkageError) {
+            Log.e(TAG, "MediaPipe native libraries could not be loaded", e)
         }
     }
 
@@ -144,7 +146,7 @@ class HandGestureDetector(private val context: Context) : AutoCloseable {
                 try {
                     landmarker.close()
                 } catch (ce: Exception) {
-                    // Ignore close errors
+                    Log.w(TAG, "Failed to close the damaged HandLandmarker instance", ce)
                 }
                 handLandmarker = null
                 setupHandLandmarker()

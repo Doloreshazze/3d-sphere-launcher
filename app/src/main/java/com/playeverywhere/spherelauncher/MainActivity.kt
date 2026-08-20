@@ -43,6 +43,12 @@ class MainActivity : ComponentActivity() {
     }
   }
 
+  override fun onNewIntent(intent: android.content.Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    hideSystemUI()
+  }
+
   private fun hideSystemUI() {
     try {
         // Modern approach
