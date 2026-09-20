@@ -13,6 +13,7 @@ android {
         targetSdk = 36
         versionCode = 9
         versionName = "9.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {

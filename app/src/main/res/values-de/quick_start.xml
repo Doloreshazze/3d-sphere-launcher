@@ -1,0 +1,12 @@
+<resources>
+    <string name="quick_welcome_title">Deine Apps auf einer Kugel</string>
+    <string name="quick_controls">Wische, um die Kugel zu drehen. Tippe auf ein Symbol, um eine App zu öffnen.\n\nFinde Apps über die Suche oder wechsle zum 2D-Raster. Tippe auf den Hintergrund, um ausgeblendete Bedienelemente wieder anzuzeigen.</string>
+    <string name="quick_privacy">Sphere Launcher liest die Liste installierter Apps, um sie lokal anzuzeigen und zu öffnen. Kamera und Mikrofon sind optional und nur für separat aktivierte Funktionen erforderlich.</string>
+    <string name="quick_home_title">Als Startbildschirm verwenden</string>
+    <string name="quick_home_body">Wähle Sphere Launcher als Start-App, um mit der Home-Taste oder Geste zur Kugel zurückzukehren.\n\nZurückwechseln: Android-Einstellungen → Apps → Standard-Apps → Start-App. Die Menünamen können je nach Gerät abweichen.</string>
+    <string name="quick_home_optional">Das ist optional. Probiere die Kugel zuerst aus und wähle die Start-App später in den Launcher-Einstellungen.</string>
+    <string name="quick_home_active">Sphere Launcher ist bereits deine Start-App.</string>
+    <string name="quick_choose_home">Start-App wählen</string>
+    <string name="quick_setup">Startbildschirm einrichten</string>
+    <string name="quick_try_now">Kugel ausprobieren</string>
+</resources>

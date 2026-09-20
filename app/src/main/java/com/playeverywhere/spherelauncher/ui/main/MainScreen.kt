@@ -116,8 +116,8 @@ fun MainScreen(
     var lastUiInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var areUiControlsVisible by remember { mutableStateOf(true) }
 
-    LaunchedEffect(lastUiInteractionTime, showSettings, state.searchQuery) {
-        if (showSettings || state.searchQuery.isNotEmpty()) {
+    LaunchedEffect(lastUiInteractionTime, showSettings, state.searchQuery, state.isFirstLaunch) {
+        if (showSettings || state.searchQuery.isNotEmpty() || state.isFirstLaunch) {
             areUiControlsVisible = true
         } else {
             areUiControlsVisible = true
@@ -1425,7 +1425,7 @@ fun MainScreen(
         }
 
         if (state.isFirstLaunch) {
-            OnboardingTour(
+            QuickStartTour(
                 onComplete = { viewModel.completeOnboarding() }
             )
         }

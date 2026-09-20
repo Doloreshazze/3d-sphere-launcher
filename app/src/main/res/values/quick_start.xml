@@ -1,0 +1,12 @@
+<resources>
+    <string name="quick_welcome_title">Your apps, in orbit</string>
+    <string name="quick_controls">Swipe to rotate the sphere. Tap an icon to open an app.\n\nUse search to find an app quickly, or switch to the 2D grid. Tap the background to bring hidden controls back.</string>
+    <string name="quick_privacy">Sphere Launcher reads the installed-app list to display and open your apps locally. Camera and microphone access are optional, for features you enable separately.</string>
+    <string name="quick_home_title">Make it your home screen</string>
+    <string name="quick_home_body">Choose Sphere Launcher as your Home app to return to your sphere with the Home button or gesture.\n\nYou can switch back in Android Settings → Apps → Default apps → Home app. Menu names may vary by phone.</string>
+    <string name="quick_home_optional">This is optional. You can try the sphere first and choose your Home app later in launcher settings.</string>
+    <string name="quick_home_active">Sphere Launcher is already your Home app.</string>
+    <string name="quick_choose_home">Choose Home app</string>
+    <string name="quick_setup">Set up Home screen</string>
+    <string name="quick_try_now">Try the sphere</string>
+</resources>

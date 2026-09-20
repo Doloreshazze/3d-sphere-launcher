@@ -1,0 +1,12 @@
+<resources>
+    <string name="quick_welcome_title">Твои приложения на орбите</string>
+    <string name="quick_controls">Вращай сферу свайпами. Нажми на иконку, чтобы открыть приложение.\n\nДля быстрого поиска используй строку поиска или переключись на сетку 2D. Коснись фона, чтобы вернуть скрытые кнопки.</string>
+    <string name="quick_privacy">Sphere Launcher читает список установленных приложений для их отображения и запуска на устройстве. Камера и микрофон необязательны: они нужны только для функций, которые ты включишь отдельно.</string>
+    <string name="quick_home_title">Сделать главным экраном</string>
+    <string name="quick_home_body">Выбери Sphere Launcher главным экраном, чтобы возвращаться к сфере кнопкой или жестом «Домой».\n\nВернуть прежний лаунчер можно в настройках Android → Приложения → Приложения по умолчанию → Главный экран. Названия пунктов зависят от телефона.</string>
+    <string name="quick_home_optional">Это необязательно. Можно сначала попробовать сферу, а главный экран выбрать позже в настройках лаунчера.</string>
+    <string name="quick_home_active">Sphere Launcher уже выбран главным экраном.</string>
+    <string name="quick_choose_home">Выбрать главный экран</string>
+    <string name="quick_setup">Настроить главный экран</string>
+    <string name="quick_try_now">Попробовать сферу</string>
+</resources>
