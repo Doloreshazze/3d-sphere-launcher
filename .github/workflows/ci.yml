@@ -33,6 +33,9 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
+      - name: Build Release Bundle
+        run: ./gradlew bundleRelease
+
       - name: Compile UI tests
         run: ./gradlew assembleDebugAndroidTest
 
@@ -41,3 +44,9 @@ jobs:
         with:
           name: sphere-launcher-debug
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Release Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: sphere-launcher-release-bundle
+          path: app/build/outputs/bundle/release/*.aab
