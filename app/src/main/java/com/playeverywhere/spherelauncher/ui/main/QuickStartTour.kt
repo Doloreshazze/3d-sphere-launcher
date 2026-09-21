@@ -18,9 +18,9 @@ import com.playeverywhere.spherelauncher.R
 /** No permissions are requested here. Choosing a HOME app always remains optional. */
 @Composable
 fun QuickStartTour(
-    onComplete: () -> Unit,
     openHomeSettings: (android.content.Context) -> Unit = ::openDefaultLauncherSettings,
-    defaultLauncherStatus: (android.content.Context) -> Boolean = ::isDefaultLauncher
+    defaultLauncherStatus: (android.content.Context) -> Boolean = ::isDefaultLauncher,
+    onComplete: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
