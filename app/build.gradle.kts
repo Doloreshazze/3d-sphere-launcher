@@ -11,8 +11,8 @@ android {
         applicationId = "com.playeverywhere.spherelauncher"
         minSdk = 24
         targetSdk = 36
-        versionCode = 9
-        versionName = "9.0"
+        versionCode = 10
+        versionName = "10.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
