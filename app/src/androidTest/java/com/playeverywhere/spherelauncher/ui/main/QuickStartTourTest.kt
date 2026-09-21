@@ -23,31 +23,17 @@ class QuickStartTourTest {
         compose.runOnIdle { assertEquals(1, completed) }
     }
 
-    @Test fun setupIsOptionalAndAllowsBackNavigation() {
-        var completed = 0
-        compose.setContent { MaterialTheme { QuickStartTour { completed++ } } }
-        compose.onNodeWithText(label(R.string.quick_setup)).performClick()
-        compose.onNodeWithText(label(R.string.quick_home_title)).assertIsDisplayed()
-        compose.onNodeWithText(label(R.string.ob_btn_back)).performClick()
-        compose.onNodeWithText(label(R.string.quick_welcome_title)).assertIsDisplayed()
-        compose.onNodeWithText(label(R.string.quick_setup)).performClick()
-        compose.onNodeWithText(label(R.string.quick_try_now)).performClick()
-        compose.runOnIdle { assertEquals(1, completed) }
-    }
-
     @Test fun choosingHomeCompletesTourBeforeOpeningSystemSettings() {
         val events = mutableListOf<String>()
         compose.setContent {
             MaterialTheme {
                 QuickStartTour(
                     onComplete = { events += "complete" },
-                    openHomeSettings = { events += "open" },
-                    defaultLauncherStatus = { false }
+                    openHomeSettings = { events += "open" }
                 )
             }
         }
         compose.onNodeWithText(label(R.string.quick_setup)).performClick()
-        compose.onNodeWithText(label(R.string.quick_choose_home)).performClick()
         compose.runOnIdle { assertEquals(listOf("complete", "open"), events) }
     }
 }

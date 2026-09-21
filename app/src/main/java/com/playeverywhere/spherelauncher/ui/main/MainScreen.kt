@@ -2932,24 +2932,8 @@ fun isDefaultLauncher(context: android.content.Context): Boolean {
 
 fun openDefaultLauncherSettings(context: android.content.Context) {
     try {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            val roleManager = context.getSystemService(android.app.role.RoleManager::class.java)
-            if (
-                roleManager != null &&
-                roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME) &&
-                !roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)
-            ) {
-                val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
-                context.startActivity(intent)
-                return
-            }
-        }
-    } catch (e: Exception) {
-        android.util.Log.w("MainScreen", "Unable to request the HOME role; opening settings instead", e)
-    }
-    try {
         val intent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         context.startActivity(intent)
     } catch (e: Exception) {
