@@ -1,0 +1,12 @@
+<resources>
+    <string name="quick_welcome_title">Tus aplicaciones, en órbita</string>
+    <string name="quick_controls">Desliza para girar la esfera. Toca un icono para abrir una aplicación.\n\nUsa la búsqueda para encontrar una aplicación rápidamente o cambia a la cuadrícula 2D. Toca el fondo para mostrar de nuevo los controles ocultos.</string>
+    <string name="quick_privacy">Sphere Launcher lee la lista de aplicaciones instaladas para mostrarlas y abrirlas localmente. El acceso a la cámara y al micrófono es opcional y solo se usa en las funciones que actives por separado.</string>
+    <string name="quick_home_title">Usarlo como pantalla de inicio</string>
+    <string name="quick_home_body">Elige Sphere Launcher como aplicación de inicio para volver a la esfera con el botón o gesto de inicio.\n\nPuedes volver al launcher anterior en Ajustes de Android → Aplicaciones → Aplicaciones predeterminadas → Aplicación de inicio. Los nombres pueden variar según el teléfono.</string>
+    <string name="quick_home_optional">Este paso es opcional. Puedes probar primero la esfera y elegir la aplicación de inicio más tarde en los ajustes del launcher.</string>
+    <string name="quick_home_active">Sphere Launcher ya es tu aplicación de inicio.</string>
+    <string name="quick_choose_home">Elegir aplicación de inicio</string>
+    <string name="quick_setup">Configurar pantalla de inicio</string>
+    <string name="quick_try_now">Probar la esfera</string>
+</resources>

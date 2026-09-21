@@ -1,0 +1,12 @@
+<resources>
+    <string name="quick_welcome_title">让应用环绕你的轨道</string>
+    <string name="quick_controls">滑动可旋转球体，点按图标可打开应用。\n\n使用搜索可快速找到应用，也可以切换到 2D 网格。点按背景可重新显示隐藏的控件。</string>
+    <string name="quick_privacy">Sphere Launcher 会读取已安装应用列表，以便在本机显示和打开应用。摄像头和麦克风权限为可选，仅用于你单独启用的功能。</string>
+    <string name="quick_home_title">设为主屏幕</string>
+    <string name="quick_home_body">将 Sphere Launcher 设为主屏幕应用后，可通过主屏幕按钮或手势返回球体。\n\n你可以在 Android 设置 → 应用 → 默认应用 → 主屏幕应用中切换回原来的启动器。不同手机的菜单名称可能有所不同。</string>
+    <string name="quick_home_optional">此步骤为可选。你可以先体验球体，稍后再在启动器设置中选择主屏幕应用。</string>
+    <string name="quick_home_active">Sphere Launcher 已经是你的主屏幕应用。</string>
+    <string name="quick_choose_home">选择主屏幕应用</string>
+    <string name="quick_setup">设置主屏幕</string>
+    <string name="quick_try_now">体验球体</string>
+</resources>
