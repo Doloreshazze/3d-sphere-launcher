@@ -34,4 +34,20 @@ class QuickStartTourTest {
         compose.onNodeWithText(label(R.string.quick_try_now)).performClick()
         compose.runOnIdle { assertEquals(1, completed) }
     }
+
+    @Test fun choosingHomeCompletesTourBeforeOpeningSystemSettings() {
+        val events = mutableListOf<String>()
+        compose.setContent {
+            MaterialTheme {
+                QuickStartTour(
+                    onComplete = { events += "complete" },
+                    openHomeSettings = { events += "open" },
+                    defaultLauncherStatus = { false }
+                )
+            }
+        }
+        compose.onNodeWithText(label(R.string.quick_setup)).performClick()
+        compose.onNodeWithText(label(R.string.quick_choose_home)).performClick()
+        compose.runOnIdle { assertEquals(listOf("complete", "open"), events) }
+    }
 }

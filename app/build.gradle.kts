@@ -18,8 +18,8 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".quickstarttest"
-            versionNameSuffix = "-quickstart-test"
+            applicationIdSuffix = ".quickstarttest2"
+            versionNameSuffix = "-quickstart-test-2"
         }
         release {
             isMinifyEnabled = false
